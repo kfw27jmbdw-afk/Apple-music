@@ -4,10 +4,42 @@ const img = document.getElementById('song-image');
 const defaultImg = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300";
 
 let playlist = [
-    { "name": "Sapne", "artist": "Artcriminal", "url": "https://files.catbox.moe/41aleb.mp3", "img": "" },
-    { "name": "2 Gulab", "artist": "Billa Sonipat aala", "url": "https://files.catbox.moe/eg7n5l.mp3", "img": "https://files.catbox.moe/h7bvl8.jpeg" },
-    { "name": "Yaran gail", "artist": "Billa sonipat aala", "url": "https://files.catbox.moe/2qgwyk.mp3", "img": "https://files.catbox.moe/iswwju.jpeg" },
-    { "name": "AZUL", "artist": "Guru Randhawa", "url": "https://files.catbox.moe/z811bh.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" }
+    {
+        "name": "Sapne",
+        "artist": "Artcriminal",
+        "url": "https://files.catbox.moe/41aleb.mp3",
+        "img": ""
+    },
+    {
+        "name": "2 Gulab",
+        "artist": "Billa Sonipat aala",
+        "url": "https://files.catbox.moe/eg7n5l.mp3",
+        "img": "https://files.catbox.moe/h7bvl8.jpeg"
+    },
+    {
+        "name": "Yaran gail",
+        "artist": "Billa sonipat aala",
+        "url": "https://files.catbox.moe/2qgwyk.mp3",
+        "img": "https://files.catbox.moe/iswwju.jpeg"
+    },
+    {
+        "name": "AZUL",
+        "artist": "Guru Randhawa",
+        "url": "https://files.catbox.moe/z811bh.mp3",
+        "img": "https://files.catbox.moe/85n1j0.jpeg"
+    },
+    {
+        "name": "Pan india",
+        "artist": "Guru randhawa",
+        "url": "https://files.catbox.moe/vbewzx.mp3",
+        "img": "https://files.catbox.moe/uzltk5.jpeg"
+    },
+    {
+        "name": "Perfect",
+        "artist": "Guru randhawa",
+        "url": "https://files.catbox.moe/l6goey.mp3",
+        "img": "https://files.catbox.moe/k6emom.webp"
+    }
 ];
 
 let currentIndex = 0;
