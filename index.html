@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apple Music</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1DB954">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+<div id="main-app">
+    <div id="playlist-screen">
+        <div class="playlist-header">
+            <h2>Your Library</h2>
+            <div class="header-icons">
+                <i class="fas fa-search"></i>
+                <i class="fas fa-plus" onclick="openForm()"></i>
+            </div>
+        </div>
+        <div id="song-list-container"></div>
+    </div>
+
+    <div id="player-screen">
+        <div class="drag-handle" id="drag-area">
+            <div class="handle-bar"></div>
+        </div>
+        
+        <div class="top-bar">
+            <i class="fas fa-chevron-down" onclick="minimizePlayer()"></i>
+            <span id="nav-playlist-name">Now Playing</span>
+            <i class="fas fa-ellipsis-h" onclick="toggleMenu()"></i>
+            
+            <div id="side-menu" class="hidden-menu">
+                <label for="cover-upload" style="cursor:pointer; display:block; padding: 5px 0;">
+                    <i class="fas fa-image"></i> Change Album
+                </label>
+                <input type="file" id="cover-upload" accept="image/*" style="display:none">
+                <hr style="border:0.1px solid #555; margin:5px 0;">
+                <div onclick="openForm()" style="cursor:pointer; padding: 5px 0;">
+                    <i class="fas fa-link"></i> Add Song Link
+                </div>
+            </div>
+        </div>
+
+        <div class="player-content">
+            <div class="banner-container">
+                <img src="" id="song-image" crossorigin="anonymous">
+            </div>
+
+            <div class="song-info-area">
+                <div class="meta">
+                    <h2 id="player-title">Song Title</h2>
+                    <p id="player-artist">Artist Name</p>
+                </div>
+                <i class="far fa-plus-circle plus-btn" id="like-btn" onclick="toggleLike()"></i>
+            </div>
+
+            <div class="controls-wrapper">
+                <input type="range" id="seek-bar" value="0" step="0.1">
+                <div class="time-stamps">
+                    <span id="current">0:00</span>
+                    <span id="duration">0:00</span>
+                </div>
+                <div class="main-controls">
+                    <i class="fas fa-random"></i>
+                    <i class="fas fa-step-backward" onclick="prevSong()"></i>
+                    <div class="play-trigger" onclick="togglePlay()">
+                        <i class="fas fa-play" id="play-btn"></i>
+                    </div>
+                    <i class="fas fa-step-forward" onclick="nextSong()"></i>
+                    <i class="fas fa-redo-alt"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mini-player" onclick="maximizePlayer()">
+        <div class="mini-left">
+            <img src="" id="mini-img">
+            <div class="mini-meta">
+                <h4 id="mini-title">Title</h4>
+                <p id="mini-artist">Artist</p>
+            </div>
+        </div>
+        <div class="mini-right">
+            <i class="fas fa-play" id="mini-play-btn" onclick="event.stopPropagation(); togglePlay();"></i>
+        </div>
+    </div>
+
+    <div id="add-music-form" class="overlay">
+        <h2>Add Music Link</h2>
+        <input type="text" id="new-name" placeholder="Song Name">
+        <input type="text" id="new-artist" placeholder="Artist Name">
+        <input type="text" id="new-url" placeholder="MP3 URL (Catbox)">
+        <input type="text" id="new-img" placeholder="Album Image URL (Optional)">
+        <button onclick="addNewSong()" class="btn-green">Generate Code</button>
+        <button onclick="closeForm()" class="btn-outline">Cancel</button>
+        <div id="export-area" style="display:none; margin-top:15px;">
+            <button onclick="copyToClipboard()" class="btn-copy">Copy All Code</button>
+            <textarea id="final-code" readonly></textarea>
+        </div>
+    </div>
+</div>
+
+<audio id="main-audio"></audio>
+
+<script src="script.js"></script>
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('Service Worker Registered!'))
+            .catch(err => console.log('Service Worker Failed!', err));
+        });
+    }
+</script>
+
+</body>
+</html>
