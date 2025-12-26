@@ -7,12 +7,16 @@ let playlist = [
     { "name": "Sapne", "artist": "Artcriminal", "url": "https://files.catbox.moe/41aleb.mp3", "img": "" },
     { "name": "2 Gulab", "artist": "Billa Sonipat aala", "url": "https://files.catbox.moe/eg7n5l.mp3", "img": "https://files.catbox.moe/h7bvl8.jpeg" },
     { "name": "Yaran gail", "artist": "Billa sonipat aala", "url": "https://files.catbox.moe/2qgwyk.mp3", "img": "https://files.catbox.moe/iswwju.jpeg" },
-    { "name": "AZUL", "artist": "Guru Randhawa", "url": "https://files.catbox.moe/z811bh.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" }
+    { "name": "AZUL", "artist": "Guru Randhawa", "url": "https://files.catbox.moe/z811bh.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" },
+    { "name": "Pan india", "artist": "Guru randhawa", "url": "https://files.catbox.moe/vbewzx.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
+    { "name": "Perfect", "artist": "Guru randhawa", "url": "https://files.catbox.moe/l6goey.mp3", "img": "https://files.catbox.moe/k6emom.webp" }
 ];
 
 let currentIndex = 0;
+let startY = 0;
+let isDragging = false;
 
-// --- FEATURE 1: Color Change with Song Cover ---
+/* ================= FEATURE: ADAPTIVE COLOR ================= */
 img.onload = function() {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -22,41 +26,7 @@ img.onload = function() {
     document.documentElement.style.setProperty('--bg-color', `rgb(${d[0]},${d[1]},${d[2]})`);
 };
 
-function loadSong(index) {
-    currentIndex = index;
-    const s = playlist[index];
-    audio.src = s.url;
-    
-    // UI Update
-    document.getElementById('player-title').innerText = s.name;
-    document.getElementById('player-artist').innerText = s.artist;
-    document.getElementById('mini-title').innerText = s.name;
-    document.getElementById('mini-artist').innerText = s.artist;
-    img.src = s.img || defaultImg;
-    document.getElementById('mini-img').src = s.img || defaultImg;
-
-    // --- CHATGPT FIX: Lock Screen Info (Media Metadata) ---
-    if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-            title: s.name,
-            artist: s.artist,
-            album: 'Apple Music Clone',
-            artwork: [{ src: s.img || defaultImg, sizes: '512x512', type: 'image/png' }]
-        });
-        setupMediaSessionControls(); // ChatGPT fix for Lock Screen Buttons
-    }
-    renderPlaylist();
-}
-
-// --- CHATGPT FIX: Lock Screen Next/Prev/Pause ---
-function setupMediaSessionControls() {
-    navigator.mediaSession.setActionHandler('play', () => { audio.play(); updatePlayIcons(true); });
-    navigator.mediaSession.setActionHandler('pause', () => { audio.pause(); updatePlayIcons(false); });
-    navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
-    navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
-}
-
-// --- FEATURE 2: Add Cover from Gallery ---
+/* ================= FEATURE: GALLERY COVER CHANGE ================= */
 document.getElementById('cover-upload').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
@@ -64,27 +34,111 @@ document.getElementById('cover-upload').addEventListener('change', function(e) {
         r.onload = (ev) => {
             img.src = ev.target.result;
             document.getElementById('mini-img').src = ev.target.result;
-            playlist[currentIndex].img = ev.target.result;
-            renderPlaylist();
+            playlist[currentIndex].img = ev.target.result; // Playlist update
+            renderPlaylist(); // List refresh
             document.getElementById('side-menu').style.display='none';
         };
         r.readAsDataURL(file);
     }
 });
 
-// --- FEATURE 3: Add Song with Link ---
-function addNewSong() {
-    const name = document.getElementById('new-name').value;
-    const url = document.getElementById('new-url').value;
-    if(!name || !url) return alert("Bhai, Details dalo!");
-    
-    playlist.push({ name, artist: document.getElementById('new-artist').value || "Unknown", url, img: document.getElementById('new-img').value });
-    document.getElementById('final-code').value = `let playlist = ${JSON.stringify(playlist, null, 4)};`;
-    document.getElementById('export-area').style.display = 'block';
-    renderPlaylist();
+/* ================= GESTURE & MINIMIZE LOGIC ================= */
+playerScreen.addEventListener('touchstart', (e) => {
+    if (e.touches[0].clientY < window.innerHeight / 2) {
+        startY = e.touches[0].clientY;
+        isDragging = true;
+        playerScreen.style.transition = 'none';
+    }
+}, { passive: true });
+
+playerScreen.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    let diff = e.touches[0].clientY - startY;
+    if (diff > 0) {
+        let scaleValue = 1 - (diff / (window.innerHeight * 2));
+        let opacityValue = 1 - (diff / window.innerHeight);
+        window.requestAnimationFrame(() => {
+            playerScreen.style.transform = `translateY(${diff}px) scale(${scaleValue})`;
+            playerScreen.style.opacity = opacityValue;
+        });
+    }
+}, { passive: true });
+
+playerScreen.addEventListener('touchend', (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    let diff = e.changedTouches[0].clientY - startY;
+    playerScreen.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'; 
+    if (diff > 150) minimizePlayer(); else maximizePlayer();
+});
+
+/* ================= FIXED MINIMIZE/MAXIMIZE ================= */
+function minimizePlayer() { 
+    // 1. Pehle animation shuru karo
+    playerScreen.classList.add('minimized'); 
+    playerScreen.style.transform = 'translateY(100%) scale(0.5)';
+    playerScreen.style.opacity = '0';
+    playerScreen.style.pointerEvents = 'none'; // Isse library click ho payegi
+
+    // 2. Mini player ko turant dikhao
+    const mini = document.getElementById('mini-player');
+    mini.classList.remove('hidden');
+    mini.style.opacity = '1';
+
+    // 3. Glitch Fix: Animation ke baad bade player ko poori tarah hide kar do
+    setTimeout(() => {
+        if(playerScreen.classList.contains('minimized')) {
+            playerScreen.style.display = 'none';
+        }
+    }, 400); 
 }
 
-// --- Baki UI Logic (Drag, Play, Render) ---
+function maximizePlayer() { 
+    // 1. Pehle display on karo
+    playerScreen.style.display = 'flex';
+    
+    // 2. Thoda gap de kar animation start karo (browser rendering ke liye)
+    setTimeout(() => {
+        playerScreen.classList.remove('minimized'); 
+        playerScreen.style.transform = 'translateY(0) scale(1)';
+        playerScreen.style.opacity = '1';
+        playerScreen.style.pointerEvents = 'auto';
+    }, 10);
+
+    // 3. Mini player ko chhupao
+    document.getElementById('mini-player').classList.add('hidden');
+}
+
+
+/* ================= CORE PLAYER LOGIC ================= */
+function loadSong(index) {
+    currentIndex = index;
+    const s = playlist[index];
+    audio.src = s.url;
+    document.getElementById('player-title').innerText = s.name;
+    document.getElementById('player-artist').innerText = s.artist;
+    document.getElementById('mini-title').innerText = s.name;
+    document.getElementById('mini-artist').innerText = s.artist;
+    img.src = s.img || defaultImg;
+    document.getElementById('mini-img').src = s.img || defaultImg;
+    renderPlaylist();
+    updateMediaSession(s);
+}
+
+function togglePlay() { 
+    if(audio.paused) { audio.play(); updatePlayIcons(true); } 
+    else { audio.pause(); updatePlayIcons(false); } 
+}
+
+function updatePlayIcons(p) { 
+    const i = p ? 'fa-pause' : 'fa-play'; 
+    document.getElementById('play-btn').className=`fas ${i}`; 
+    document.getElementById('mini-play-btn').className=`fas ${i}`; 
+}
+
+function nextSong() { currentIndex=(currentIndex+1)%playlist.length; loadSong(currentIndex); audio.play(); updatePlayIcons(true); }
+function prevSong() { currentIndex=(currentIndex-1+playlist.length)%playlist.length; loadSong(currentIndex); audio.play(); updatePlayIcons(true); }
+
 function renderPlaylist() {
     const container = document.getElementById('song-list-container');
     container.innerHTML = "";
@@ -97,79 +151,52 @@ function renderPlaylist() {
     });
 }
 
-function togglePlay() { audio.paused ? (audio.play(), updatePlayIcons(true)) : (audio.pause(), updatePlayIcons(false)); }
-function updatePlayIcons(p) { const i = p ? 'fa-pause' : 'fa-play'; document.getElementById('play-btn').className=`fas ${i}`; document.getElementById('mini-play-btn').className=`fas ${i}`; }
-function nextSong() { currentIndex=(currentIndex+1)%playlist.length; loadSong(currentIndex); audio.play(); updatePlayIcons(true); }
-function prevSong() { currentIndex=(currentIndex-1+playlist.length)%playlist.length; loadSong(currentIndex); audio.play(); updatePlayIcons(true); }
-function minimizePlayer() { playerScreen.classList.add('minimized'); }
-function maximizePlayer() { playerScreen.classList.remove('minimized'); }
-function formatTime(s) { let m=Math.floor(s/60), sc=Math.floor(s%60); return `${m}:${sc < 10 ? '0'+sc : sc}`; }
-
 audio.ontimeupdate = () => {
-    if(audio.duration) document.getElementById('seek-bar').value = (audio.currentTime/audio.duration)*100;
-    document.getElementById('current').innerText = formatTime(audio.currentTime);
-    document.getElementById('duration').innerText = formatTime(audio.duration);
+    if(audio.duration) {
+        document.getElementById('seek-bar').value = (audio.currentTime/audio.duration)*100;
+        document.getElementById('current').innerText = formatTime(audio.currentTime);
+        document.getElementById('duration').innerText = formatTime(audio.duration);
+    }
 };
 
-loadSong(0);
+function formatTime(s) { let m=Math.floor(s/60), sc=Math.floor(s%60); return `${m}:${sc < 10 ? '0'+sc : sc}`; }
 
-/* ================= TOGGLE MENU FIX ================= */
-function toggleMenu() {
-    const m = document.getElementById('side-menu');
-    if (m) {
-        m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+function seekSong() {
+    if (audio.duration) {
+        audio.currentTime = (document.getElementById('seek-bar').value / 100) * audio.duration;
     }
 }
 
-/* ================= MISSING UI FUNCTIONS (Restored) ================= */
-
-// 1. Add Song Form ko kholne aur band karne ke liye
-function openForm() { document.getElementById('add-music-form').style.display = 'block'; }
-function closeForm() { document.getElementById('add-music-form').style.display = 'none'; }
-
-// 2. Naya gaana temporary add karne aur code generate karne ke liye
-function addNewSong() {
-    const name = document.getElementById('new-name').value;
-    const artist = document.getElementById('new-artist').value || "Unknown";
-    const url = document.getElementById('new-url').value;
-    const imgUrl = document.getElementById('new-img').value;
-
-    if(!name || !url) return alert("Bhai, Name aur URL toh dalo!");
-
-    // Playlist array mein naya gaana joddna
-    playlist.push({ name, artist, url, img: imgUrl });
-
-    // GitHub par update karne ke liye code generate karna
-    document.getElementById('final-code').value = `let playlist = ${JSON.stringify(playlist, null, 4)};`;
-    document.getElementById('export-area').style.display = 'block';
-    
-    renderPlaylist(); // List ko refresh karna
-    alert("Gaana add ho gaya! Neeche se code copy karke GitHub file update kar dena.");
+function updateMediaSession(song) {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+        title: song.name, artist: song.artist, artwork: [{ src: song.img || defaultImg, sizes: '512x512', type: 'image/png' }]
+    });
+    navigator.mediaSession.setActionHandler('play', () => togglePlay());
+    navigator.mediaSession.setActionHandler('pause', () => togglePlay());
+    navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
+    navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
 }
 
-// 3. Generated code ko copy karne ke liye (iOS friendly)
+/* ================= UI OVERLAYS ================= */
+function openForm() { document.getElementById('add-music-form').style.display = 'block'; }
+function closeForm() { document.getElementById('add-music-form').style.display = 'none'; }
+function toggleMenu() { const m = document.getElementById('side-menu'); m.style.display = (m.style.display === 'block') ? 'none' : 'block'; }
+
+function addNewSong() {
+    const name = document.getElementById('new-name').value;
+    const url = document.getElementById('new-url').value;
+    if(!name || !url) return alert("Bhai details dalo!");
+    playlist.push({ name, artist: document.getElementById('new-artist').value || "Unknown", url, img: document.getElementById('new-img').value });
+    document.getElementById('final-code').value = `let playlist = ${JSON.stringify(playlist, null, 4)};`;
+    document.getElementById('export-area').style.display = 'block';
+    renderPlaylist();
+}
+
 function copyToClipboard() {
     const area = document.getElementById('final-code');
     area.select();
-    area.setSelectionRange(0, 99999); // Mobile selection fix
-    navigator.clipboard.writeText(area.value).then(() => {
-        alert("Playlist Code Copy ho gaya! Ise GitHub ke script.js mein replace kar do.");
-    });
+    navigator.clipboard.writeText(area.value).then(() => alert("Code Copied!"));
 }
 
-// 4. Like button ka logic
-function toggleLike() {
-    const btn = document.getElementById('like-btn');
-    if(!btn) return;
-    btn.classList.toggle('far'); 
-    btn.classList.toggle('fas');
-    btn.style.color = btn.classList.contains('fas') ? '#1DB954' : '#fff';
-}
-
-// 5. Menu kholne/band karne ka logic (Jo pehle missing tha)
-function toggleMenu() { 
-    const m = document.getElementById('side-menu');
-    if(m) m.style.display = (m.style.display === 'block') ? 'none' : 'block';
-}
-
-
+loadSong(0);
