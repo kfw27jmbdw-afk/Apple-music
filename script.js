@@ -169,14 +169,28 @@ function seekSong() {
 
 function updateMediaSession(song) {
     if (!('mediaSession' in navigator)) return;
+
     navigator.mediaSession.metadata = new MediaMetadata({
-        title: song.name, artist: song.artist, artwork: [{ src: song.img || defaultImg, sizes: '512x512', type: 'image/png' }]
+        title: song.name,
+        artist: song.artist,
+        artwork: [{ src: song.img || defaultImg, sizes: '512x512', type: 'image/png' }]
     });
-    navigator.mediaSession.setActionHandler('play', () => togglePlay());
-    navigator.mediaSession.setActionHandler('pause', () => togglePlay());
+
+    // PLAY: Lock screen se resume karne ke liye hamara naya function call hoga
+    navigator.mediaSession.setActionHandler('play', () => {
+        resumeAudioContext(); 
+    });
+
+    // PAUSE: Normal pause logic
+    navigator.mediaSession.setActionHandler('pause', () => {
+        audio.pause();
+        updatePlayIcons(false);
+    });
+
     navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
     navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
 }
+
 
 /* ================= UI OVERLAYS ================= */
 function openForm() { document.getElementById('add-music-form').style.display = 'block'; }
@@ -198,5 +212,21 @@ function copyToClipboard() {
     area.select();
     navigator.clipboard.writeText(area.value).then(() => alert("Code Copied!"));
 }
+/* --- iOS LOCK SCREEN SYNC FIX --- */
+async function resumeAudioContext() {
+    try {
+        // Normal play try karein
+        await audio.play();
+        updatePlayIcons(true);
+    } catch (err) {
+        console.log("iOS Resume Hack Active");
+        // Agar iOS mana kare, toh ye backup trick:
+        const currentTime = audio.currentTime;
+        audio.load(); // Stream re-connect
+        audio.currentTime = currentTime;
+        audio.play().then(() => updatePlayIcons(true));
+    }
+}
+
 
 loadSong(0);
