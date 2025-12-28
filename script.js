@@ -13,7 +13,7 @@ let playlist = [
     {
         "name": "Yaran gail",
         "artist": "Billa sonipat aala",
-        "url": "https://files.catbox.moe/2qgwyk.mp3",
+        "url": "music/Yaaran Gail.mp3",
         "img": "https://files.catbox.moe/iswwju.jpeg"
     },
     {
