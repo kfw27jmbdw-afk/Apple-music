@@ -19,7 +19,7 @@ let playlist = [
     {
         "name": "AZUL",
         "artist": "Guru Randhawa",
-        "url": "https://files.catbox.moe/z811bh.mp3",
+        "url": "music/Azul Lavish Dhiman 320 Kbps.mp3",
         "img": "https://files.catbox.moe/85n1j0.jpeg"
     },
     {
