@@ -37,7 +37,7 @@ let playlist = [
     {
         "name": "Afghan jalebi",
         "artist": "Unknown",
-        "url": "https://cdn.discordapp.com/attachments/1454440405717487651/1454440823579086920/Afghan_Jalebi_8D_Audio_Song_-_Phantom__Saif_Ali_Khan__Katrina_Kaif__T-Series_.mp3?ex=69511912&is=694fc792&hm=a63b500eb152450ea3b1d1d8bd29850fbb97f53bd3f75187420a1e4e8586bf1f&",
+        "url": "music/SHKINI - Guru Randhawa.mp3",
         "img": "https://cdn.discordapp.com/attachments/1454440405717487651/1454787167107678239/IMG_2064.webp?ex=69525ba1&is=69510a21&hm=1cdfac249fefc92c6386af26a8dd5c2f193c6f8e2a7d7f13deaadf2be8d63a9b&"
     },
     {
