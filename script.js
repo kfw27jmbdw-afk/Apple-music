@@ -4,12 +4,72 @@ const img = document.getElementById('song-image');
 const defaultImg = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300";
 
 let playlist = [
-    { "name": "Sapne", "artist": "Artcriminal", "url": "https://files.catbox.moe/41aleb.mp3", "img": "" },
-    { "name": "2 Gulab", "artist": "Billa Sonipat aala", "url": "https://files.catbox.moe/eg7n5l.mp3", "img": "https://files.catbox.moe/h7bvl8.jpeg" },
-    { "name": "Yaran gail", "artist": "Billa sonipat aala", "url": "https://files.catbox.moe/2qgwyk.mp3", "img": "https://files.catbox.moe/iswwju.jpeg" },
-    { "name": "AZUL", "artist": "Guru Randhawa", "url": "https://files.catbox.moe/z811bh.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" },
-    { "name": "Pan india", "artist": "Guru randhawa", "url": "https://files.catbox.moe/vbewzx.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
-    { "name": "Perfect", "artist": "Guru randhawa", "url": "https://files.catbox.moe/l6goey.mp3", "img": "https://files.catbox.moe/k6emom.webp" }
+    {
+        "name": "APSARA",
+        "artist": "Billa sonipat aala",
+        "url": "https://files.catbox.moe/41aleb.mp3",
+        "img": "https://cdn.discordapp.com/attachments/1454440405717487651/1454786404386344992/IMG_2065.webp?ex=69525aeb&is=6951096b&hm=9ebc969dd66eb6567b47fc62dddde358acd1752fc37424a6bf8283d0a6fa44e4&"
+    },
+    {
+        "name": "Yaran gail",
+        "artist": "Billa sonipat aala",
+        "url": "https://files.catbox.moe/2qgwyk.mp3",
+        "img": "https://files.catbox.moe/iswwju.jpeg"
+    },
+    {
+        "name": "AZUL",
+        "artist": "Guru Randhawa",
+        "url": "https://files.catbox.moe/z811bh.mp3",
+        "img": "https://files.catbox.moe/85n1j0.jpeg"
+    },
+    {
+        "name": "Pan india",
+        "artist": "Guru randhawa",
+        "url": "https://files.catbox.moe/vbewzx.mp3",
+        "img": "https://files.catbox.moe/uzltk5.jpeg"
+    },
+    {
+        "name": "Perfect",
+        "artist": "Guru randhawa",
+        "url": "https://files.catbox.moe/l6goey.mp3",
+        "img": "https://files.catbox.moe/k6emom.webp"
+    },
+    {
+        "name": "Afghan jalebi",
+        "artist": "Unknown",
+        "url": "https://cdn.discordapp.com/attachments/1454440405717487651/1454440823579086920/Afghan_Jalebi_8D_Audio_Song_-_Phantom__Saif_Ali_Khan__Katrina_Kaif__T-Series_.mp3?ex=69511912&is=694fc792&hm=a63b500eb152450ea3b1d1d8bd29850fbb97f53bd3f75187420a1e4e8586bf1f&",
+        "img": "https://cdn.discordapp.com/attachments/1454440405717487651/1454787167107678239/IMG_2064.webp?ex=69525ba1&is=69510a21&hm=1cdfac249fefc92c6386af26a8dd5c2f193c6f8e2a7d7f13deaadf2be8d63a9b&"
+    },
+    {
+        "name": "2 gulab",
+        "artist": "Unknown",
+        "url": "https://cdn.discordapp.com/attachments/1454440405717487651/1454440823889334363/2_Gulaab.mp3?ex=69511912&is=694fc792&hm=00cc4d42f34cbacdc223a2489017a42c17357c1b6d7be6c7467fed06e8037e3b&",
+        "img": "https://files.catbox.moe/h7bvl8.jpeg"
+    },
+    {
+        "name": "Suit suit",
+        "artist": "Guru randhawa",
+        "url": "https://cdn.discordapp.com/attachments/1454440405717487651/1454440824317280439/Suit_Suit_-_Guru_Randhawa.mp3?ex=69511912&is=694fc792&hm=40b69e1e25fc1a8f91a232d1f1154aaaafcc43e8b6c17da5018697f05407fb9f&",
+        "img": "https://cdn.discordapp.com/attachments/1454440405717487651/1454785821063385250/IMG_2063.webp?ex=69525a60&is=695108e0&hm=c087af530a9cfab9f188d4c05f74b90c010409555b237311c53f7188b1b4a560&"
+    },
+    {
+        "name": "Shaky shaky",
+        "artist": "sanju rathod",
+        "url": "https://cdn.discordapp.com/attachments/1454440405717487651/1454440823252062283/Shaky_-_Sanju_Rathod_320KBPS_.mp3?ex=69511912&is=694fc792&hm=37ad2e23fc70bf9a6b5101a819bd66bf49659684b080289b5d75ef950b1915c9&",
+        "img": "https://cdn.discordapp.com/attachments/1454440405717487651/1454760260173697024/IMG_2062.webp?ex=69524292&is=6950f112&hm=61b0eec10d51bab093b5577bae39eb9897f74c3c9141ee6a1129c19c8c3bb036&"
+    },
+    {
+        "name": "Sapne",
+        "artist": "Artcriminal",
+        "url": "https://cdn.discordapp.com/attachments/1454440405717487651/1454449603804921991/artcriminal_-_SAPNE_Arabic_Afro_House.mp3?ex=6951213f&is=694fcfbf&hm=db87de8b8f4ae6b8d896dee72d39010b93e1d35194172b0dedf908a48936e933&",
+        "img": " https://cdn.discordapp.com/attachments/1454440405717487651/1454728317155672074/IMG_2060.jpg?ex=695224d2&is=6950d352&hm=150db50b179d2f2d4a2570cac864d247e96143f3497690aa6b032f1e6783f712& "
+    },
+    {
+        "name": "Over Confidence",
+        "artist": "Billa sonipat ala",
+        "url": "https://cdn.discordapp.com/attachments/1454440405717487651/1454725445852598299/Over_Confidence.mp3?ex=69522225&is=6950d0a5&hm=49df7be92e2fca26d152e81f97525bd90adfc8e4b7d7e8a591df8fb4ff9f58d8&",
+        "img": "https://cdn.discordapp.com/attachments/1454440405717487651/1454725456027979776/IMG_2058.webp?ex=69522228&is=6950d0a8&hm=4a5aaebd937b42385009ace7192dde943bff00036ee9d79e4bc32c2680088701&"
+    }
 ];
 
 let currentIndex = 0;
@@ -145,11 +205,23 @@ function renderPlaylist() {
     playlist.forEach((song, index) => {
         const div = document.createElement('div');
         div.className = "song-item";
-        div.innerHTML = `<img src="${song.img || defaultImg}"><div><h4>${song.name}</h4><p>${song.artist}</p></div>`;
-        div.onclick = () => { loadSong(index); maximizePlayer(); audio.play(); updatePlayIcons(true); };
+        div.innerHTML = `
+            <div class="song-info-container" onclick="loadSong(${index}); maximizePlayer(); audio.play(); updatePlayIcons(true);">
+                <img src="${song.img || defaultImg}">
+                <div>
+                    <h4>${song.name}</h4>
+                    <p>${song.artist}</p>
+                </div>
+            </div>
+            <div class="song-menu-btn" onclick="event.stopPropagation(); openSongMenu(event, ${index})">
+                <i class="fas fa-ellipsis-v"></i>
+            </div>
+        `;
         container.appendChild(div);
     });
 }
+
+
 
 audio.ontimeupdate = () => {
     if(audio.duration) {
@@ -195,7 +267,11 @@ function updateMediaSession(song) {
 /* ================= UI OVERLAYS ================= */
 function openForm() { document.getElementById('add-music-form').style.display = 'block'; }
 function closeForm() { document.getElementById('add-music-form').style.display = 'none'; }
-function toggleMenu() { const m = document.getElementById('side-menu'); m.style.display = (m.style.display === 'block') ? 'none' : 'block'; }
+function toggleMenu() { 
+    const m = document.getElementById('side-menu'); 
+    m.style.display = (m.style.display === 'block') ? 'none' : 'block'; 
+}
+
 
 function addNewSong() {
     const name = document.getElementById('new-name').value;
@@ -227,6 +303,60 @@ async function resumeAudioContext() {
         audio.play().then(() => updatePlayIcons(true));
     }
 }
+let selectedMenuIndex = null;
+
+function openSongMenu(e, index) {
+    // Event ko bubble hone se roko
+    if (e.stopPropagation) e.stopPropagation();
+    
+    selectedMenuIndex = index;
+    const menu = document.getElementById('song-options-menu');
+    
+    // Check karo ki menu mil raha hai ya nahi
+    if (!menu) {
+        console.error("Menu element nahi mila! HTML check karein.");
+        return;
+    }
+
+    // Forcefully show menu
+    menu.style.display = 'block';
+
+    // Position setup
+    let x = e.clientX - 170; 
+    let y = e.clientY;
+
+    // Boundary check
+    if (y + 150 > window.innerHeight) y -= 130;
+    if (x < 10) x = 10; // Left side screen se bahar na jaye
+
+    menu.style.left = x + "px";
+    menu.style.top = y + "px";
+
+    // Bahar click karne par band karne ka makkhan logic
+    const closeListener = (event) => {
+        if (!menu.contains(event.target)) {
+            menu.style.display = 'none';
+            document.removeEventListener('click', closeListener);
+        }
+    };
+
+    setTimeout(() => {
+        document.addEventListener('click', closeListener);
+    }, 10);
+}
+
+function handleMenuChangeCover() {
+    currentIndex = selectedMenuIndex;
+    document.getElementById('cover-upload').click();
+    document.getElementById('song-options-menu').style.display = 'none';
+}
+
+function handleMenuAddPlaylist() {
+    alert("Song " + (selectedMenuIndex + 1) + " Added to Playlist!");
+    document.getElementById('song-options-menu').style.display = 'none';
+}
 
 
-loadSong(0);
+loadSong(0); 
+
+
