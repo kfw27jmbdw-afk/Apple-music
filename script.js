@@ -67,8 +67,8 @@ let playlist = [
     {
         "name": "Over Confidence",
         "artist": "Billa sonipat ala",
-        "url": "https://cdn.discordapp.com/attachments/1454440405717487651/1454725445852598299/Over_Confidence.mp3?ex=69522225&is=6950d0a5&hm=49df7be92e2fca26d152e81f97525bd90adfc8e4b7d7e8a591df8fb4ff9f58d8&",
-        "img": "https://cdn.discordapp.com/attachments/1454440405717487651/1454725456027979776/IMG_2058.webp?ex=69522228&is=6950d0a8&hm=4a5aaebd937b42385009ace7192dde943bff00036ee9d79e4bc32c2680088701&"
+        "url": "music/Over Confidence.mp3",
+        "img": "https://files.catbox.moe/9j0hwa.webp"
     }
 ];
 
