@@ -35,10 +35,10 @@ let playlist = [
         "img": "https://files.catbox.moe/k6emom.webp"
     },
     {
-        "name": "Afghan jalebi",
+        "name": "Afghan jalebi 8d audio",
         "artist": "Unknown",
-        "url": "music/SHKINI - Guru Randhawa.mp3",
-        "img": "https://cdn.discordapp.com/attachments/1454440405717487651/1454787167107678239/IMG_2064.webp?ex=69525ba1&is=69510a21&hm=1cdfac249fefc92c6386af26a8dd5c2f193c6f8e2a7d7f13deaadf2be8d63a9b&"
+        "url": "music/Afghan Jalebi 8D Audio Song 🎧 - Phantom ( Saif Ali Khan ｜ Katrina Kaif ｜ T-Series ) 2.m4a",
+        "img": "https://files.catbox.moe/n1feln.jpeg"
     },
     {
         "name": "2 gulab",
