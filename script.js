@@ -1,3 +1,9 @@
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then(() => console.log("SW Active"));
+    });
+}
+
 const audio = document.getElementById('main-audio');
 const playerScreen = document.getElementById('player-screen');
 const img = document.getElementById('song-image');
@@ -320,6 +326,9 @@ function openSongMenu(e, index) {
 
     // Forcefully show menu
     menu.style.display = 'block';
+// openSongMenu function ke andar yahan add karo:
+updateDownloadButtonUI(); 
+
 
     // Position setup
     let x = e.clientX - 170; 
@@ -355,6 +364,70 @@ function handleMenuAddPlaylist() {
     alert("Song " + (selectedMenuIndex + 1) + " Added to Playlist!");
     document.getElementById('song-options-menu').style.display = 'none';
 }
+// ================= BUBU'S OFFLINE MAGIC LOGIC =================
+
+async function updateDownloadButtonUI() {
+    const song = playlist[selectedMenuIndex]; 
+    const cache = await caches.open('apple-music-v2');
+    const isCached = await cache.match(song.url);
+    const btn = document.getElementById('download-toggle-btn');
+
+    if (btn) {
+        if (isCached) {
+            btn.innerHTML = `<i class="fas fa-trash"></i> Remove Download`;
+            btn.style.color = "#ff453a"; 
+        } else {
+            btn.innerHTML = `<i class="fas fa-arrow-down"></i> Download`;
+            btn.style.color = "white";
+        }
+    }
+}
+
+async function handleDownload() {
+    const song = playlist[selectedMenuIndex];
+    const cache = await caches.open('apple-music-v2');
+    const isCached = await cache.match(song.url);
+
+    if (isCached) {
+        await cache.delete(song.url);
+        alert("Gana remove ho gaya! 🗑️");
+    } else {
+        try {
+            alert("Downloading... 📥");
+            await cache.add(song.url);
+            alert("Downloaded! ✅");
+        } catch(e) {
+            alert("Download fail! GitHub link check kar.");
+        }
+    }
+    // Menu band karo
+    document.getElementById('song-options-menu').style.display = 'none';
+    applyFadeLogic(); 
+}
+
+async function applyFadeLogic() {
+    const isOffline = !navigator.onLine;
+    const songListItems = document.querySelectorAll('.song-item'); 
+    const cache = await caches.open('apple-music-v2');
+
+    for (let i = 0; i < songListItems.length; i++) {
+        if (playlist[i]) {
+            const isCached = await cache.match(playlist[i].url);
+            if (isOffline && !isCached) {
+                songListItems[i].style.opacity = "0.3";
+                songListItems[i].style.pointerEvents = "none";
+            } else {
+                songListItems[i].style.opacity = "1";
+                songListItems[i].style.pointerEvents = "all";
+            }
+        }
+    }
+}
+
+// Network Events
+window.addEventListener('online', applyFadeLogic);
+window.addEventListener('offline', applyFadeLogic);
+window.addEventListener('load', applyFadeLogic);
 
 
 loadSong(0); 
