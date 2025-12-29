@@ -31,7 +31,7 @@ let playlist = [
     {
         "name": "Perfect",
         "artist": "Guru randhawa",
-        "url": "https://files.catbox.moe/l6goey.mp3",
+        "url": "music/Perfect.mp3",
         "img": "https://files.catbox.moe/k6emom.webp"
     },
     {
