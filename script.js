@@ -55,8 +55,8 @@ let playlist = [
     {
         "name": "Shaky shaky",
         "artist": "sanju rathod",
-        "url": "https://cdn.discordapp.com/attachments/1454440405717487651/1454440823252062283/Shaky_-_Sanju_Rathod_320KBPS_.mp3?ex=69511912&is=694fc792&hm=37ad2e23fc70bf9a6b5101a819bd66bf49659684b080289b5d75ef950b1915c9&",
-        "img": "https://cdn.discordapp.com/attachments/1454440405717487651/1454760260173697024/IMG_2062.webp?ex=69524292&is=6950f112&hm=61b0eec10d51bab093b5577bae39eb9897f74c3c9141ee6a1129c19c8c3bb036&"
+        "url": "music/Shaky - Sanju Rathod 320KBPS .mp3",
+        "img": "https://files.catbox.moe/umupug.webp"
     },
     {
         "name": "Sapne",
