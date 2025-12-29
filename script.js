@@ -25,7 +25,7 @@ let playlist = [
     {
         "name": "Pan india",
         "artist": "Guru randhawa",
-        "url": "PAN INDIA - Guru Randhawa.mp3",
+        "url": "music/PAN INDIA - Guru Randhawa.mp3",
         "img": "https://files.catbox.moe/uzltk5.jpeg"
     },
     {
