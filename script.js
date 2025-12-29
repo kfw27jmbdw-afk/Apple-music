@@ -42,8 +42,8 @@ let playlist = [
     },
     {
         "name": "2 gulab",
-        "artist": "Unknown",
-        "url": "https://cdn.discordapp.com/attachments/1454440405717487651/1454440823889334363/2_Gulaab.mp3?ex=69511912&is=694fc792&hm=00cc4d42f34cbacdc223a2489017a42c17357c1b6d7be6c7467fed06e8037e3b&",
+        "artist": "Billa sonipat aala",
+        "url": "music/2 Gulaab.mp3",
         "img": "https://files.catbox.moe/h7bvl8.jpeg"
     },
     {
