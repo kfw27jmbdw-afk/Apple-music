@@ -49,8 +49,8 @@ let playlist = [
     {
         "name": "Suit suit",
         "artist": "Guru randhawa",
-        "url": "https://cdn.discordapp.com/attachments/1454440405717487651/1454440824317280439/Suit_Suit_-_Guru_Randhawa.mp3?ex=69511912&is=694fc792&hm=40b69e1e25fc1a8f91a232d1f1154aaaafcc43e8b6c17da5018697f05407fb9f&",
-        "img": "https://cdn.discordapp.com/attachments/1454440405717487651/1454785821063385250/IMG_2063.webp?ex=69525a60&is=695108e0&hm=c087af530a9cfab9f188d4c05f74b90c010409555b237311c53f7188b1b4a560&"
+        "url": "music/Suit Suit - Guru Randhawa.mp3",
+        "img": "https://files.catbox.moe/l1im66.webp"
     },
     {
         "name": "Shaky shaky",
