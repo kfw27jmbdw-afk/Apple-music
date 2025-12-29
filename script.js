@@ -61,8 +61,8 @@ let playlist = [
     {
         "name": "Sapne",
         "artist": "Artcriminal",
-        "url": "https://cdn.discordapp.com/attachments/1454440405717487651/1454449603804921991/artcriminal_-_SAPNE_Arabic_Afro_House.mp3?ex=6951213f&is=694fcfbf&hm=db87de8b8f4ae6b8d896dee72d39010b93e1d35194172b0dedf908a48936e933&",
-        "img": " https://cdn.discordapp.com/attachments/1454440405717487651/1454728317155672074/IMG_2060.jpg?ex=695224d2&is=6950d352&hm=150db50b179d2f2d4a2570cac864d247e96143f3497690aa6b032f1e6783f712& "
+        "url": "music/artcriminal - SAPNE (Arabic Afro House).mp3",
+        "img": "https://files.catbox.moe/p8ale0.jpeg"
     },
     {
         "name": "Over Confidence",
