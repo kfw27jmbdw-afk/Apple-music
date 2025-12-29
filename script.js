@@ -205,12 +205,26 @@ function updatePlayIcons(p) {
 function nextSong() { currentIndex=(currentIndex+1)%playlist.length; loadSong(currentIndex); audio.play(); updatePlayIcons(true); }
 function prevSong() { currentIndex=(currentIndex-1+playlist.length)%playlist.length; loadSong(currentIndex); audio.play(); updatePlayIcons(true); }
 
-function renderPlaylist() {
+async function renderPlaylist() {
     const container = document.getElementById('song-list-container');
     container.innerHTML = "";
-    playlist.forEach((song, index) => {
+    
+    // Naya: Cache check karne ke liye connection open karo
+    const cache = await caches.open('apple-music-v2');
+    const isOffline = !navigator.onLine;
+
+    playlist.forEach(async (song, index) => {
         const div = document.createElement('div');
         div.className = "song-item";
+        
+        // --- YE HAI ASALI FIX ---
+        const isCached = await cache.match(song.url);
+        if (isOffline && !isCached) {
+            div.style.opacity = "0.3";
+            div.style.pointerEvents = "none";
+        }
+        // ------------------------
+
         div.innerHTML = `
             <div class="song-info-container" onclick="loadSong(${index}); maximizePlayer(); audio.play(); updatePlayIcons(true);">
                 <img src="${song.img || defaultImg}">
@@ -226,6 +240,7 @@ function renderPlaylist() {
         container.appendChild(div);
     });
 }
+
 
 
 
