@@ -207,23 +207,42 @@ function prevSong() { currentIndex=(currentIndex-1+playlist.length)%playlist.len
 
 async function renderPlaylist() {
     const container = document.getElementById('song-list-container');
-    container.innerHTML = "";
     
-    // Naya: Cache check karne ke liye connection open karo
+    // 1. Loading State: Pehle 6 skeleton items dikhao
+    container.innerHTML = "";
+    for (let i = 0; i < 6; i++) {
+        container.innerHTML += `
+            <div class="skeleton-item">
+                <div class="skeleton skeleton-img"></div>
+                <div class="skeleton-info">
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-artist"></div>
+                </div>
+            </div>`;
+    }
+
+    // 2. Cache aur Network Status Check (Background mein)
     const cache = await caches.open('apple-music-v2');
     const isOffline = !navigator.onLine;
 
-    playlist.forEach(async (song, index) => {
+    // 3. Asali Data Render: Skeleton hatao aur gaane dalo
+    container.innerHTML = "";
+
+    for (let index = 0; index < playlist.length; index++) {
+        const song = playlist[index];
         const div = document.createElement('div');
         div.className = "song-item";
-        
-        // --- YE HAI ASALI FIX ---
+
         const isCached = await cache.match(song.url);
+        
+        // Offline hone pe agar cached nahi hai toh fade kar do
         if (isOffline && !isCached) {
             div.style.opacity = "0.3";
             div.style.pointerEvents = "none";
+        } else {
+            div.style.opacity = "1";
+            div.style.pointerEvents = "all";
         }
-        // ------------------------
 
         div.innerHTML = `
             <div class="song-info-container" onclick="loadSong(${index}); maximizePlayer(); audio.play(); updatePlayIcons(true);">
@@ -238,8 +257,9 @@ async function renderPlaylist() {
             </div>
         `;
         container.appendChild(div);
-    });
+    }
 }
+
 
 
 
@@ -445,6 +465,14 @@ window.addEventListener('offline', applyFadeLogic);
 window.addEventListener('load', applyFadeLogic);
 
 
-loadSong(0); 
+// Purane 'loadSong(0)' ko hata kar ye likho
+window.addEventListener('load', async () => {
+    // 1. Pehle playlist render karo (Isme skeleton apne aap dikhega)
+    await renderPlaylist(); 
+    
+    // 2. Phir pehla gaana load karo (bina play kiye)
+    loadSong(0); 
+});
+
 
 
