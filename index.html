@@ -16,11 +16,32 @@
 <body>
 
 <div id="main-app">
-    <div id="playlist-screen">
+    <div id="home-screen" class="tab-content" style="display:none;">
+        <div class="playlist-header">
+            <h2>Home</h2>
+        </div>
+        <div id="recent-played-container"></div>
+    </div>
+
+    <div id="library-screen" class="tab-content" style="display:none;">
+        <div class="playlist-header">
+            <h2>Library</h2>
+        </div>
+        <div class="library-sub-nav">
+            <button class="sub-nav-btn active" onclick="switchLibraryView('down')">DOWNLOADED</button>
+            <button class="sub-nav-btn" onclick="switchLibraryView('playlists')">PLAYLIST</button>
+            <button class="sub-nav-btn" onclick="switchLibraryView('fav')">FAVORITE</button>
+            <button class="sub-nav-btn" onclick="switchLibraryView('all')">ALBUM</button>
+        </div>
+        <div id="library-content-area">
+            <div id="downloaded-list-container"></div>
+        </div>
+    </div>
+
+    <div id="playlist-screen" class="tab-content">
         <div class="playlist-header">
             <h2>Your Library</h2>
             <div class="header-icons">
-                <i class="fas fa-search"></i>
                 <i class="fas fa-plus" onclick="openForm()"></i>
             </div>
         </div>
@@ -59,7 +80,7 @@
                     <h2 id="player-title">Song Title</h2>
                     <p id="player-artist">Artist Name</p>
                 </div>
-                <i class="far fa-plus-circle plus-btn" id="like-btn" onclick="toggleLike()"></i>
+                <i class="fas fa-plus-circle plus-btn" id="like-btn" onclick="handleMenuAddPlaylistFromPlayer()"></i>
             </div>
 
             <div class="controls-wrapper">
@@ -107,9 +128,97 @@
             <textarea id="final-code" readonly></textarea>
         </div>
     </div>
+
+    <div id="bottom-navigation-container">
+        <div id="tab-stack" class="nav-stack">
+            <div class="nav-item active" id="tab-home" onclick="switchTab('home')">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </div>
+            <div class="nav-item" id="tab-browse" onclick="switchTab('all-songs')">
+                <i class="fas fa-th-large"></i>
+                <span>Browse</span>
+            </div>
+            <div class="nav-item" id="tab-library" onclick="switchTab('library')">
+                <i class="fas fa-play-circle"></i>
+                <span>Library</span>
+            </div>
+            <div class="nav-item" onclick="openSearchStack()">
+                <i class="fas fa-search"></i>
+                <span>Search</span>
+            </div>
+        </div>
+
+        <div id="search-stack" class="nav-stack" style="display: none; position: relative;">
+            <div class="search-active-tab" id="current-active-indicator">
+                <i class="fas fa-home"></i>
+            </div>
+            <div class="search-input-wrapper" style="position: relative;">
+                <i class="fas fa-search search-inside-icon"></i>
+                <input type="text" id="app-search-input" placeholder="Search Songs..." oninput="filterSongs()" autocomplete="off">
+            </div>
+        </div>
+        
+        <div id="global-search-results" style="display: none; position: fixed; bottom: 85px; left: 12px; right: 12px; background: #1c1c1e; z-index: 999999; max-height: 60vh; overflow-y: auto; border-radius: 20px; border: 1px solid #333; box-shadow: 0 -15px 35px rgba(0,0,0,0.8);"></div>
+
+        <div id="search-backdrop"></div>
+    </div>
+
+    <audio id="main-audio" preload="metadata"></audio>
 </div>
 
-<audio id="main-audio" preload="metadata"></audio>
+<div id="action-modal" class="overlay" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-song-name">Song Name</h3>
+            <p id="modal-song-artist">Artist Name</p>
+        </div>
+        <div class="modal-options-list">
+            <div class="modal-option" onclick="toggleTick('library')">
+                <i class="fas fa-plus-square"></i>
+                <span>Add to Library</span>
+                <i class="fas fa-check-circle tick-icon" id="tick-library"></i>
+            </div>
+            <div class="modal-option" onclick="toggleTick('favourite')">
+                <i class="fas fa-heart"></i>
+                <span>Add to Favourite</span>
+                <i class="fas fa-check-circle tick-icon" id="tick-favourite"></i>
+            </div>
+            <hr class="modal-divider">
+            <div id="modal-playlists-list"></div>
+            <div class="modal-option create-new" onclick="showNewPlaylistPrompt()">
+                <i class="fas fa-plus-circle"></i>
+                <span>New Playlist...</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-done" onclick="saveAndCloseModal()">DONE</button>
+        </div>
+    </div>
+</div>
+
+<div id="playlist-name-modal" class="overlay" style="display:none; z-index: 20005;">
+    <div class="modal-content small">
+        <h3>New Playlist</h3>
+        <input type="text" id="new-playlist-input" placeholder="Playlist Name...">
+        <div class="modal-footer">
+            <button class="btn-outline" onclick="closePlaylistPrompt()">Cancel</button>
+            <button class="btn-green" onclick="confirmCreatePlaylist()">DONE</button>
+        </div>
+    </div>
+</div>
+
+<div id="song-options-menu" class="song-context-menu">
+    <div class="menu-item" onclick="handleMenuAddPlaylist()">
+        <i class="fas fa-plus"></i> Add to Playlist
+    </div>
+    <div id="download-toggle-btn" class="menu-item" onclick="handleDownload()">
+        <i class="fas fa-arrow-down"></i> Download
+    </div>
+    <div class="menu-item" onclick="handleMenuChangeCover()">
+        <i class="fas fa-image"></i> Change Cover
+    </div>
+</div>
 
 <script src="script.js"></script>
 <script>
@@ -119,19 +228,6 @@
         });
     }
 </script>
-<div id="song-options-menu" class="song-context-menu">
-    <div class="menu-item" onclick="handleMenuAddPlaylist()">
-        <i class="fas fa-plus"></i> Add to Playlist
-    </div>
-    
-    <div id="download-toggle-btn" class="menu-item" onclick="handleDownload()">
-        <i class="fas fa-arrow-down"></i> Download
-    </div>
-
-    <div class="menu-item" onclick="handleMenuChangeCover()">
-        <i class="fas fa-image"></i> Change Cover
-    </div>
-</div>
-
 
 </body>
+</html>
