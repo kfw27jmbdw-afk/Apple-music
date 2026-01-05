@@ -289,3 +289,444 @@ body {
     border-radius: 4px; 
 }
 
+/* ============================================================
+   --- FINAL BULLETPROOF NAVIGATION & SEARCH CSS ---
+   ============================================================ */
+
+#bottom-navigation-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 75px; 
+    background: #000;
+    z-index: 9999 !important;
+    pointer-events: auto !important;
+    overflow: visible !important; /* YE CHANGE KARO */
+}
+
+
+/* Dono stacks ko ek hi jagah (absolute) par rakho */
+.nav-stack {
+    position: absolute; 
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: #000;
+    transition: opacity 0.2s ease-in-out;
+    pointer-events: auto !important;
+    overflow: visible !important; /* YE LINE ADD KARO */
+}
+
+
+/* Jab stack hide ho toh display none ka use karein taaki clicks block na hon */
+#search-stack {
+    display: none; /* JS isey 'flex' karega */
+    z-index: 10001; 
+    padding: 0 15px;
+    gap: 12px;
+}
+
+#tab-stack {
+    display: flex;
+    z-index: 10000;
+}
+
+/* --- SEARCH UI ALIGNMENT --- */
+.search-active-tab {
+    width: 45px;
+    height: 45px;
+    background: rgba(255, 59, 48, 0.15);
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #ff3b30;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.search-input-wrapper {
+    flex: 1;
+    background: #1c1c1e; /* Spotify/Apple grey input */
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    pointer-events: auto !important;
+}
+
+.search-input-wrapper input {
+    background: none;
+    border: none;
+    color: white;
+    width: 100%;
+    font-size: 16px;
+    outline: none;
+    margin-left: 10px;
+    pointer-events: auto !important; /* Keyboard trigger fix */
+}
+
+/* --- TABS FEEDBACK --- */
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #8e8e93;
+    font-size: 10px;
+    cursor: pointer;
+    min-width: 60px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.nav-item.active { color: #ff3b30; }
+.nav-item i { font-size: 22px; margin-bottom: 4px; }
+
+.search-trigger-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #8e8e93;
+    font-size: 10px;
+    cursor: pointer;
+    min-width: 60px;
+}
+#search-backdrop {
+    position: fixed;
+    inset: 0;
+    background: transparent;
+    display: none;
+    z-index: 9998;
+}
+/* --- PLAYER & NAVIGATION SYNC FIX --- */
+
+/* 1. Full Player: Isko sabse upar rakho taaki tabs ko cover kar sake */
+#player-screen {
+    z-index: 20000 !important; 
+    background: #000;
+    /* Ensure full screen covers everything */
+    height: 100vh;
+    width: 100vw;
+}
+
+/* 2. Mini Player: Isko Tabs ke theek upar floating dikhana hai */
+#mini-player {
+    position: fixed; 
+    bottom: 85px; /* Tabs (75px) + 10px ka gap = Floating Look */
+    left: 10px;
+    right: 10px;
+    width: calc(100% - 20px); /* Side se thoda space */
+    height: 65px;
+    background: rgba(45, 45, 45, 0.98); /* Apple Music jaisa dark grey */
+    backdrop-filter: blur(15px); /* Premium glass effect */
+    border-radius: 15px; /* Rounded corners */
+    z-index: 5000;
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    box-sizing: border-box;
+    border: 0.5px solid rgba(255,255,255,0.1); /* Patli border */
+    box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
+}
+
+/* 3. Bottom Tabs: Inki height fix rakho */
+#bottom-navigation-container {
+    height: 75px;
+    z-index: 6000;
+    background: #000;
+    border-top: 0.5px solid #333;
+}
+
+/* 4. Content Area: Taaki aakhri gaana mini player ke peeche na chhup jaye */
+#playlist-screen, #home-screen, #library-screen {
+    padding-bottom: 160px; /* Mini Player + Tabs + Extra space */
+}
+
+/* --- STEP 2: LIBRARY NAVIGATION ARRANGEMENT --- */
+
+.library-sub-nav {
+    display: flex;
+    gap: 12px;                /* Buttons ke beech ka gap */
+    padding: 15px 5px;
+    margin-bottom: 20px;
+    overflow-x: auto;         /* Mobile par swipe ke liye */
+    white-space: nowrap;      /* Buttons line na todein */
+    scrollbar-width: none;    /* Firefox ke liye scrollbar hide */
+    justify-content: flex-start; /* Buttons ko left se shuru karo */
+}
+
+/* Chrome/Safari ke liye scrollbar hide karein */
+.library-sub-nav::-webkit-scrollbar { 
+    display: none; 
+}
+
+.sub-nav-btn {
+    flex-shrink: 0;           /* Button ko pichakne se bachaye */
+    background: #282828;      /* Dark grey background */
+    color: white;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 20px;      /* Pill shape look */
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase; /* Professional look */
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sub-nav-btn.active {
+    background: #ff3b30;      /* Active state: Apple Red */
+}
+
+
+/* --- ACTION MODAL & TICK LOGIC --- */
+.modal-content {
+    background: #1c1c1e;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 400px;
+    margin: 10vh auto;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+}
+
+.modal-header { margin-bottom: 20px; }
+.modal-header h3 { margin: 0; font-size: 18px; }
+.modal-header p { margin: 5px 0 0; color: #8e8e93; font-size: 14px; }
+
+.modal-options-list { max-height: 350px; overflow-y: auto; }
+
+.modal-option {
+    display: flex;
+    align-items: center;
+    padding: 14px 10px;
+    gap: 15px;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+
+.modal-option:active { background: #2c2c2e; }
+.modal-option i:first-child { font-size: 20px; color: #ff3b30; width: 24px; text-align: center; }
+
+/* Tick Icon Styling */
+.tick-icon {
+    margin-left: auto;
+    font-size: 20px;
+    color: #333; /* Default (Unticked) */
+    transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Jab tick mark active (checked) ho */
+.tick-icon.active {
+    color: #ff3b30 !important; /* Red Tick (Ticked) */
+    transform: scale(1.1);
+}
+
+.modal-divider { border: 0.1px solid #333; margin: 10px 0; }
+
+.modal-footer { margin-top: 20px; }
+.btn-done {
+    width: 100%;
+    padding: 15px;
+    background: #ff3b30;
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.modal-content.small { margin-top: 30vh; }
+
+/* --- PLAYLIST ROW STYLING --- */
+
+/* Playlist ka Red Icon Box */
+.playlist-icon-box {
+    width: 50px;
+    height: 50px;
+    background: #282828; /* Dark grey background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px; /* Rounded corners */
+    color: #ff3b30; /* Apple Red Icon */
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+/* Playlist Detail Header (Jab playlist khulegi) */
+.playlist-detail-header h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: #fff;
+}
+
+.playlist-detail-header p {
+    color: #8e8e93;
+    margin-bottom: 20px;
+}
+
+/* Minus button styling (Playlist se gaana hatane ke liye) */
+.song-menu-btn i.fa-minus-circle {
+    font-size: 20px;
+    transition: transform 0.2s;
+}
+
+.song-menu-btn i.fa-minus-circle:active {
+    transform: scale(0.8); /* Click feedback */
+}
+
+/* --- GRID VIEW FORCING LOGIC --- */
+
+/* Jab PLAYLIST tab active ho, tabhi grid dikhe */
+#library-content-area.grid-view {
+    display: grid !important; /* Flex ko override karne ke liye */
+    grid-template-columns: 1fr 1fr !important; /* 2 Columns fix */
+    gap: 15px !important;
+    padding: 10px !important;
+}
+
+.playlist-card {
+    width: 100%;
+    display: block; /* Flexbox behavior hatane ke liye */
+    cursor: pointer;
+}
+
+.playlist-thumb-container {
+    width: 100%;
+    aspect-ratio: 1/1;
+    background: #282828;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.playlist-thumb-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.playlist-card h4 {
+    margin-top: 8px;
+    font-size: 14px;
+    text-align: center;
+    color: white;
+    font-weight: 500;
+}
+
+/* Camera button icon fix */
+.edit-thumb-btn {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.7);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+/* 3-Dots ko clickable banane ke liye */
+.song-menu-btn {
+    position: relative;
+    z-index: 10;
+    cursor: pointer;
+    padding: 15px; /* Touch area bada karne ke liye */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-results-area .song-item {
+    display: flex !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.search-results-area .song-info-container img {
+    width: 50px !important;
+    height: 50px !important;
+    border-radius: 6px !important;
+}
+/* Search results ko forcefully dikhane ke liye */
+#global-search-results {
+    padding-bottom: 20px;
+}
+
+#global-search-results {
+    position: fixed !important;
+    bottom: 85px !important; /* Bottom tabs (75px) + 10px gap */
+    left: 10px !important;
+    right: 10px !important;
+    width: calc(100% - 20px) !important;
+    background: rgba(28, 28, 30, 0.98) !important; /* Apple Dark Grey */
+    backdrop-filter: blur(20px); /* Premium look */
+    z-index: 20000 !important;
+    max-height: 60vh;
+    overflow-y: auto;
+    border-radius: 20px !important; /* Charo taraf se rounded */
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 -15px 40px rgba(0,0,0,0.6) !important;
+}
+
+#global-search-results {
+    position: fixed !important; 
+    bottom: 85px !important; /* Navigation bar ke theek upar */
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important; /* Left/Right se space lene do */
+    background: rgba(28, 28, 30, 0.98) !important;
+    backdrop-filter: blur(20px) !important;
+    z-index: 2147483647 !important; /* Maximum possible z-index */
+    border-radius: 20px !important;
+    display: none; /* JS isey handle karega */
+}
+
+/* 1. Modal ko Player Screen ke upar laane ke liye */
+.overlay { 
+    display: none; 
+    position: fixed; 
+    top: 0; left: 0; 
+    width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.95); 
+    /* Player 20000 par hai, toh ise 30000 kar rahe hain taaki ye hamesha upar rahe */
+    z-index: 30000 !important; 
+    padding: 25px; 
+    box-sizing: border-box; 
+}
+
+/* 2. Playlist Name Prompt ko bhi upar rakho */
+#playlist-name-modal {
+    z-index: 30005 !important;
+}
+
+/* 3. Global Search Tray Fix (Floating Above Player) */
+#global-search-results {
+    position: fixed !important; 
+    bottom: 85px !important; 
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important; 
+    background: rgba(28, 28, 30, 0.98) !important;
+    backdrop-filter: blur(20px) !important;
+    /* Isse sabse upar tairne ke liye highest z-index diya gaya hai */
+    z-index: 40000 !important; 
+    border-radius: 20px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 -15px 35px rgba(0,0,0,0.8) !important;
+    display: none;
+}
+
