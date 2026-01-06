@@ -1051,24 +1051,32 @@ let eqSource;
 let eqFilters = [];
 
 window.initEQ = function() {
-    if (eqAudioCtx) return;
+    if (eqAudioCtx) {
+        if (eqAudioCtx.state === 'suspended') {
+            eqAudioCtx.resume();
+        }
+        return;
+    }
     
     const audioEl = document.getElementById('main-audio');
     if (!audioEl) return;
 
     try {
-        eqAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // AudioContext setup
+        eqAudioCtx = new (window.AudioContext || window.webkitAudioContext)({
+            latencyHint: 'playback' 
+        });
+
         eqSource = eqAudioCtx.createMediaElementSource(audioEl);
 
         const freqs = [60, 230, 910, 4000, 14000];
         let lastNode = eqSource;
 
-        // Saare filters ko ek chain mein connect karo
+        // Filters ki chain banana
         freqs.forEach((f, i) => {
             const filter = eqAudioCtx.createBiquadFilter();
             filter.type = "peaking";
             filter.frequency.value = f;
-            filter.Q.value = 1;
             filter.gain.value = 0;
             
             lastNode.connect(filter);
@@ -1076,13 +1084,15 @@ window.initEQ = function() {
             eqFilters.push(filter);
         });
 
-        // Aakhri filter ko wapas speaker (destination) se connect karo
+        // Speaker se connect karna
         lastNode.connect(eqAudioCtx.destination);
         console.log("Equalizer Connected Successfully!");
+        
     } catch (e) {
         console.error("Equalizer Error:", e);
     }
 };
+
 
 // Sliders connection
 document.querySelectorAll('.eq-slider').forEach((slider, index) => {
@@ -1095,6 +1105,7 @@ document.querySelectorAll('.eq-slider').forEach((slider, index) => {
         }
     };
 });
+
 // Background se wapas aane par audio resume karne ke liye
 document.addEventListener("visibilitychange", function() {
     if (document.visibilityState === 'visible') {
@@ -1117,5 +1128,8 @@ window.addEventListener('focus', function() {
     }
 });
 
-
+if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('play', () => togglePlay());
+    navigator.mediaSession.setActionHandler('pause', () => togglePlay());
+}
 
