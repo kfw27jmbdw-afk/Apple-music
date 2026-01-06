@@ -1047,6 +1047,7 @@ window.closeEqualizer = function() {
 
 // 2. Audio Logic Init
 let eqAudioCtx;
+let eqSource;
 let eqFilters = [];
 
 window.initEQ = function() {
@@ -1055,34 +1056,45 @@ window.initEQ = function() {
     const audioEl = document.getElementById('main-audio');
     if (!audioEl) return;
 
-    eqAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const source = eqAudioCtx.createMediaElementSource(audioEl);
+    try {
+        eqAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        eqSource = eqAudioCtx.createMediaElementSource(audioEl);
 
-    const freqs = [60, 230, 910, 4000, 14000];
-    let lastNode = source;
+        const freqs = [60, 230, 910, 4000, 14000];
+        let lastNode = eqSource;
 
-    freqs.forEach((f, i) => {
-        const filter = eqAudioCtx.createBiquadFilter();
-        filter.type = "peaking";
-        filter.frequency.value = f;
-        filter.gain.value = 0;
-        lastNode.connect(filter);
-        lastNode = filter;
-        eqFilters.push(filter);
-    });
+        // Saare filters ko ek chain mein connect karo
+        freqs.forEach((f, i) => {
+            const filter = eqAudioCtx.createBiquadFilter();
+            filter.type = "peaking";
+            filter.frequency.value = f;
+            filter.Q.value = 1;
+            filter.gain.value = 0;
+            
+            lastNode.connect(filter);
+            lastNode = filter;
+            eqFilters.push(filter);
+        });
 
-    lastNode.connect(eqAudioCtx.destination);
+        // Aakhri filter ko wapas speaker (destination) se connect karo
+        lastNode.connect(eqAudioCtx.destination);
+        console.log("Equalizer Connected Successfully!");
+    } catch (e) {
+        console.error("Equalizer Error:", e);
+    }
 };
 
-// 3. Slider Connection
+// Sliders connection
 document.querySelectorAll('.eq-slider').forEach((slider, index) => {
     slider.oninput = function() {
         window.initEQ();
         if (eqAudioCtx.state === 'suspended') eqAudioCtx.resume();
+        
         if (eqFilters[index]) {
             eqFilters[index].gain.value = this.value;
         }
     };
 });
+
 
 
