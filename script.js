@@ -1095,6 +1095,27 @@ document.querySelectorAll('.eq-slider').forEach((slider, index) => {
         }
     };
 });
+// Background se wapas aane par audio resume karne ke liye
+document.addEventListener("visibilitychange", function() {
+    if (document.visibilityState === 'visible') {
+        if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
+            eqAudioCtx.resume().then(() => {
+                console.log("Audio Engine Resumed!");
+            });
+        }
+    }
+});
+
+// Mobile lock screen aur focus change handle karne ke liye
+window.addEventListener('blur', function() {
+    // Jab app background mein jaye
+});
+
+window.addEventListener('focus', function() {
+    if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
+        eqAudioCtx.resume();
+    }
+});
 
 
 
