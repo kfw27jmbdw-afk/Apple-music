@@ -31,6 +31,10 @@ let startY = 0;
 let isDragging = false;
 let searchOpen = false;
 let selectedMenuIndex = null;
+let enhancedCtx = null;
+let enhancedSource = null;
+let bassFilter, clarityFilter;
+
 
 // Navigation & Gesture Path Arrays
 const mainTabs = ['home', 'all-songs', 'library'];
@@ -184,9 +188,22 @@ function loadSong(index) {
 
 function togglePlay() { 
     if(!audio) return;
-    if(audio.paused) { audio.play(); updatePlayIcons(true); } 
-    else { audio.pause(); updatePlayIcons(false); } 
+    
+    // Hardcoded Bass aur Clarity shuru karo
+    applyAudioEnhancement();
+
+    if(audio.paused) { 
+        audio.play(); 
+        // Background stability ke liye resume call
+        if (enhancedCtx && enhancedCtx.state === 'suspended') enhancedCtx.resume();
+        updatePlayIcons(true); 
+    } 
+    else { 
+        audio.pause(); 
+        updatePlayIcons(false); 
+    } 
 }
+
 
 function updatePlayIcons(isPlaying) { 
     const iconClass = isPlaying ? 'fa-pause' : 'fa-play'; 
@@ -1022,114 +1039,46 @@ function navigateBackwardSequential() {
         switchTab(mainTabs[currentPos - 1]);
     }
 }
-
-// 1. Modal Control Functions
-window.openEqualizer = function() {
-    console.log("Equalizer Opening..."); // Debugging ke liye
-    
-    // Side menu ko band karo
-    const sideMenu = document.getElementById('side-menu');
-    if (sideMenu) sideMenu.classList.add('hidden-menu');
-    
-    // Popup ko dikhao
-    const eqModal = document.getElementById('eq-modal');
-    if (eqModal) {
-        eqModal.style.display = 'flex';
-    } else {
-        alert("Error: eq-modal nahi mila! HTML check karein.");
-    }
-};
-
-window.closeEqualizer = function() {
-    const eqModal = document.getElementById('eq-modal');
-    if (eqModal) eqModal.style.display = 'none';
-};
-
-// 2. Audio Logic Init
-let eqAudioCtx;
-let eqSource;
-let eqFilters = [];
-
-window.initEQ = function() {
-    if (eqAudioCtx) {
-        if (eqAudioCtx.state === 'suspended') {
-            eqAudioCtx.resume();
-        }
+/**
+ * Bina Equalizer option ke Bass aur Clarity boost karne ka logic
+ */
+function applyAudioEnhancement() {
+    // Agar engine pehle se bana hai toh wapas mat banao
+    if (enhancedCtx) {
+        if (enhancedCtx.state === 'suspended') enhancedCtx.resume();
         return;
     }
-    
+
     const audioEl = document.getElementById('main-audio');
     if (!audioEl) return;
 
     try {
-        // AudioContext setup
-        eqAudioCtx = new (window.AudioContext || window.webkitAudioContext)({
-            latencyHint: 'playback' 
-        });
+        // Audio Engine Start
+        enhancedCtx = new (window.AudioContext || window.webkitAudioContext)();
+        enhancedSource = enhancedCtx.createMediaElementSource(audioEl);
 
-        eqSource = eqAudioCtx.createMediaElementSource(audioEl);
+        // 1. DEEP BASS (Low Shelf Filter) - Bass ko bhari karne ke liye
+        bassFilter = enhancedCtx.createBiquadFilter();
+        bassFilter.type = "lowshelf";
+        bassFilter.frequency.value = 120; // 120Hz se niche ka area
+        bassFilter.gain.value = 7;      // +7dB Bass Boost
 
-        const freqs = [60, 230, 910, 4000, 14000];
-        let lastNode = eqSource;
+        // 2. CRYSTAL CLARITY (High Shelf Filter) - Awaaz saaf karne ke liye
+        clarityFilter = enhancedCtx.createBiquadFilter();
+        clarityFilter.type = "highshelf";
+        clarityFilter.frequency.value = 3500; // 3.5kHz se upar ki sharp awaaz
+        clarityFilter.gain.value = 5;       // +5dB Clarity Boost
 
-        // Filters ki chain banana
-        freqs.forEach((f, i) => {
-            const filter = eqAudioCtx.createBiquadFilter();
-            filter.type = "peaking";
-            filter.frequency.value = f;
-            filter.gain.value = 0;
-            
-            lastNode.connect(filter);
-            lastNode = filter;
-            eqFilters.push(filter);
-        });
+        // Saare filters ko connect karo
+        // Audio -> Bass -> Clarity -> Speakers
+        enhancedSource.connect(bassFilter);
+        bassFilter.connect(clarityFilter);
+        clarityFilter.connect(enhancedCtx.destination);
 
-        // Speaker se connect karna
-        lastNode.connect(eqAudioCtx.destination);
-        console.log("Equalizer Connected Successfully!");
-        
+        console.log("Apple Music Style Bass & Clarity Active! 🎧");
     } catch (e) {
-        console.error("Equalizer Error:", e);
+        console.log("Audio Enhancement Error:", e);
     }
-};
-
-
-// Sliders connection
-document.querySelectorAll('.eq-slider').forEach((slider, index) => {
-    slider.oninput = function() {
-        window.initEQ();
-        if (eqAudioCtx.state === 'suspended') eqAudioCtx.resume();
-        
-        if (eqFilters[index]) {
-            eqFilters[index].gain.value = this.value;
-        }
-    };
-});
-
-// Background se wapas aane par audio resume karne ke liye
-document.addEventListener("visibilitychange", function() {
-    if (document.visibilityState === 'visible') {
-        if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
-            eqAudioCtx.resume().then(() => {
-                console.log("Audio Engine Resumed!");
-            });
-        }
-    }
-});
-
-// Mobile lock screen aur focus change handle karne ke liye
-window.addEventListener('blur', function() {
-    // Jab app background mein jaye
-});
-
-window.addEventListener('focus', function() {
-    if (eqAudioCtx && eqAudioCtx.state === 'suspended') {
-        eqAudioCtx.resume();
-    }
-});
-
-if ('mediaSession' in navigator) {
-    navigator.mediaSession.setActionHandler('play', () => togglePlay());
-    navigator.mediaSession.setActionHandler('pause', () => togglePlay());
 }
+
 
