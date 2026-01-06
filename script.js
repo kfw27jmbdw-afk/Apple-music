@@ -32,6 +32,19 @@ let isDragging = false;
 let searchOpen = false;
 let selectedMenuIndex = null;
 
+// Navigation & Gesture Path Arrays
+const mainTabs = ['home', 'all-songs', 'library'];
+const librarySubTabs = ['down', 'playlists', 'fav', 'all'];
+
+// Current Position Trackers
+let currentLibraryView = 'down'; 
+let currentPlaylistName = null; 
+
+// Touch Movement Trackers
+let touchStartX = 0;
+let touchEndX = 0;
+
+
 /* ================= FEATURE: ADAPTIVE COLOR (PLAYER) ================= */
 /**
  * Gaane ki photo se rang nikal kar player ka background badalne ke liye
@@ -540,12 +553,19 @@ function saveAndCloseModal() {
  * Library Screen ke Sub-tabs (Album/Playlist/Fav) switch karne ka logic
  */
 function switchLibraryView(view) {
+    currentLibraryView = view; // <--- BAS YE LINE ADD KARNI HAI
+
     // Buttons active state change
     document.querySelectorAll('.sub-nav-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    
+    // Safety check: Kabhi-kabhi gesture se call hone par 'event' nahi milta
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
     
     renderLibraryContent(view);
 }
+
 
 function renderLibraryContent(view = 'all') {
     const container = document.getElementById('library-content-area');
@@ -689,6 +709,7 @@ function renderSongList(songIndices, container, emptyMsg) {
  * Jab user kisi Playlist par click kare, toh uske andar ke gaane dikhao
  */
 function openPlaylistDetail(playlistName) {
+currentPlaylistName = playlistName;
     const container = document.getElementById('library-content-area');
     const subNavs = document.querySelectorAll('.library-sub-nav');
     
@@ -723,15 +744,19 @@ function openPlaylistDetail(playlistName) {
 }
 
 function backToLibraryPlaylists() {
+    currentPlaylistName = null; // <--- YE LINE SABSE UPAR CHIPKA DO
+
     // Tabs waapis lao
     const subNavs = document.querySelectorAll('.library-sub-nav');
     subNavs.forEach(nav => nav.style.setProperty('display', 'flex', 'important'));
     
-    const libScreen = document.getElementById('library-screen');
+    // Background color wapis black karo
+    const libScreen = document.getElementById('library-screen'); // Safety fix
     if (libScreen) libScreen.style.background = '#121212';
     
     switchLibraryView('playlists');
 }
+
 
 function renderSongListInPlaylist(songIndices, playlistName) {
     const list = document.getElementById('playlist-songs-list');
@@ -925,3 +950,139 @@ function handleMenuAddPlaylistFromPlayer() {
     selectedMenuIndex = currentIndex; 
     handleMenuAddPlaylist(); 
 }
+
+function handleAppGestures() {
+    const swipeDistance = touchStartX - touchEndX;
+    const threshold = 70; 
+
+    if (Math.abs(swipeDistance) > threshold) {
+        if (swipeDistance > 0) navigateForwardSequential(); // Right Swipe
+        else navigateBackwardSequential(); // Left Swipe
+    }
+}
+
+function navigateForwardSequential() {
+    // LEVEL 1: Agar Playlist Detail khuli hai
+    if (currentPlaylistName) {
+        const keys = Object.keys(userLibrary.playlists);
+        const idx = keys.indexOf(currentPlaylistName);
+        if (idx < keys.length - 1) {
+            openPlaylistDetail(keys[idx + 1]);
+            return; // Yahin ruk jao, aage ka code mat chalao
+        }
+        return; // Album/Last playlist par dead end
+    }
+
+    // LEVEL 2: Agar Library Screen dikh rahi hai
+    if (document.getElementById('library-screen').style.display === 'block') {
+        const idx = librarySubTabs.indexOf(currentLibraryView);
+        if (idx < librarySubTabs.length - 1) {
+            switchLibraryView(librarySubTabs[idx + 1]);
+            return; // Sub-tab change ho gaya, bas yahin tak
+        }
+        return; // Library ke aakhri tab par dead end
+    }
+
+    // LEVEL 3: Main Tabs (Sirf tabhi jab upar wale dono false hon)
+    const activeTab = document.querySelector('.nav-item.active')?.id.replace('tab-', '') || 'home';
+    let currentPos = mainTabs.indexOf(activeTab === 'browse' ? 'all-songs' : activeTab);
+    if (currentPos < mainTabs.length - 1) {
+        switchTab(mainTabs[currentPos + 1]);
+    }
+}
+
+function navigateBackwardSequential() {
+    // LEVEL 1: Playlist ke andar se peeche
+    if (currentPlaylistName) {
+        const keys = Object.keys(userLibrary.playlists);
+        const idx = keys.indexOf(currentPlaylistName);
+        if (idx > 0) {
+            openPlaylistDetail(keys[idx - 1]);
+        } else {
+            backToLibraryPlaylists(); // Pehli playlist se bahar
+        }
+        return; 
+    }
+
+    // LEVEL 2: Library Sub-tabs reverse
+    if (document.getElementById('library-screen').style.display === 'block') {
+        const idx = librarySubTabs.indexOf(currentLibraryView);
+        if (idx > 0) {
+            switchLibraryView(librarySubTabs[idx - 1]);
+        } else {
+            switchTab('all-songs'); // Pehle block (Downloads) se seedha Browse tab par
+        }
+        return;
+    }
+
+    // LEVEL 3: Main Tabs reverse
+    const activeTab = document.querySelector('.nav-item.active')?.id.replace('tab-', '') || 'home';
+    let currentPos = mainTabs.indexOf(activeTab === 'browse' ? 'all-songs' : activeTab);
+    if (currentPos > 0) {
+        switchTab(mainTabs[currentPos - 1]);
+    }
+}
+
+// 1. Modal Control Functions
+window.openEqualizer = function() {
+    console.log("Equalizer Opening..."); // Debugging ke liye
+    
+    // Side menu ko band karo
+    const sideMenu = document.getElementById('side-menu');
+    if (sideMenu) sideMenu.classList.add('hidden-menu');
+    
+    // Popup ko dikhao
+    const eqModal = document.getElementById('eq-modal');
+    if (eqModal) {
+        eqModal.style.display = 'flex';
+    } else {
+        alert("Error: eq-modal nahi mila! HTML check karein.");
+    }
+};
+
+window.closeEqualizer = function() {
+    const eqModal = document.getElementById('eq-modal');
+    if (eqModal) eqModal.style.display = 'none';
+};
+
+// 2. Audio Logic Init
+let eqAudioCtx;
+let eqFilters = [];
+
+window.initEQ = function() {
+    if (eqAudioCtx) return;
+    
+    const audioEl = document.getElementById('main-audio');
+    if (!audioEl) return;
+
+    eqAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = eqAudioCtx.createMediaElementSource(audioEl);
+
+    const freqs = [60, 230, 910, 4000, 14000];
+    let lastNode = source;
+
+    freqs.forEach((f, i) => {
+        const filter = eqAudioCtx.createBiquadFilter();
+        filter.type = "peaking";
+        filter.frequency.value = f;
+        filter.gain.value = 0;
+        lastNode.connect(filter);
+        lastNode = filter;
+        eqFilters.push(filter);
+    });
+
+    lastNode.connect(eqAudioCtx.destination);
+};
+
+// 3. Slider Connection
+document.querySelectorAll('.eq-slider').forEach((slider, index) => {
+    slider.oninput = function() {
+        window.initEQ();
+        if (eqAudioCtx.state === 'suspended') eqAudioCtx.resume();
+        if (eqFilters[index]) {
+            eqFilters[index].gain.value = this.value;
+        }
+    };
+});
+
+
