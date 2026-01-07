@@ -149,6 +149,22 @@ function loadSong(index) {
     currentIndex = index;
     const s = playlist[index];
     if(audio) audio.src = s.url;
+    /* ================= FEATURE: AUTO-PLAY NEXT ================= */
+
+if (audio) {
+    // Jab gaana poora khatam ho jaye
+    audio.onended = () => {
+        console.log("Song ended, playing next...");
+        
+        // Agar tumne 'Repeat' feature abhi nahi banaya hai, 
+        // toh ye seedha agla gaana chala dega
+        nextSong(); 
+        
+        // Browser safety: gaana load hone ke baad play trigger karna
+        audio.play().catch(e => console.log("Auto-play blocked by browser, click play."));
+    };
+}
+
     
     // UI Update karo
     document.getElementById('player-title').innerText = s.name;
