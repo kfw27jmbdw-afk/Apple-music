@@ -536,7 +536,8 @@ function confirmCreatePlaylist() {
 
     if (name) {
         if (!userLibrary.playlists[name]) {
-            userLibrary.playlists[name] = [currentModalIndex]; // Auto-add current song
+            userLibrary.playlists[name] = [currentModalIndex];
+            saveLibraryToDisk(); 
             nameInput.value = "";
             closePlaylistPrompt();
             saveAndCloseModal(); // Pura modal band kar do
@@ -941,4 +942,3 @@ function handleMenuAddPlaylistFromPlayer() {
     selectedMenuIndex = currentIndex; 
     handleMenuAddPlaylist(); 
 }
-
