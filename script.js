@@ -31,23 +31,6 @@ let startY = 0;
 let isDragging = false;
 let searchOpen = false;
 let selectedMenuIndex = null;
-let enhancedCtx = null;
-let enhancedSource = null;
-let bassFilter, clarityFilter;
-
-
-// Navigation & Gesture Path Arrays
-const mainTabs = ['home', 'all-songs', 'library'];
-const librarySubTabs = ['down', 'playlists', 'fav', 'all'];
-
-// Current Position Trackers
-let currentLibraryView = 'down'; 
-let currentPlaylistName = null; 
-
-// Touch Movement Trackers
-let touchStartX = 0;
-let touchEndX = 0;
-
 
 /* ================= FEATURE: ADAPTIVE COLOR (PLAYER) ================= */
 /**
@@ -188,22 +171,9 @@ function loadSong(index) {
 
 function togglePlay() { 
     if(!audio) return;
-    
-    // Hardcoded Bass aur Clarity shuru karo
-    applyAudioEnhancement();
-
-    if(audio.paused) { 
-        audio.play(); 
-        // Background stability ke liye resume call
-        if (enhancedCtx && enhancedCtx.state === 'suspended') enhancedCtx.resume();
-        updatePlayIcons(true); 
-    } 
-    else { 
-        audio.pause(); 
-        updatePlayIcons(false); 
-    } 
+    if(audio.paused) { audio.play(); updatePlayIcons(true); } 
+    else { audio.pause(); updatePlayIcons(false); } 
 }
-
 
 function updatePlayIcons(isPlaying) { 
     const iconClass = isPlaying ? 'fa-pause' : 'fa-play'; 
@@ -570,19 +540,12 @@ function saveAndCloseModal() {
  * Library Screen ke Sub-tabs (Album/Playlist/Fav) switch karne ka logic
  */
 function switchLibraryView(view) {
-    currentLibraryView = view; // <--- BAS YE LINE ADD KARNI HAI
-
     // Buttons active state change
     document.querySelectorAll('.sub-nav-btn').forEach(btn => btn.classList.remove('active'));
-    
-    // Safety check: Kabhi-kabhi gesture se call hone par 'event' nahi milta
-    if (event && event.target) {
-        event.target.classList.add('active');
-    }
+    event.target.classList.add('active');
     
     renderLibraryContent(view);
 }
-
 
 function renderLibraryContent(view = 'all') {
     const container = document.getElementById('library-content-area');
@@ -726,7 +689,6 @@ function renderSongList(songIndices, container, emptyMsg) {
  * Jab user kisi Playlist par click kare, toh uske andar ke gaane dikhao
  */
 function openPlaylistDetail(playlistName) {
-currentPlaylistName = playlistName;
     const container = document.getElementById('library-content-area');
     const subNavs = document.querySelectorAll('.library-sub-nav');
     
@@ -761,19 +723,15 @@ currentPlaylistName = playlistName;
 }
 
 function backToLibraryPlaylists() {
-    currentPlaylistName = null; // <--- YE LINE SABSE UPAR CHIPKA DO
-
     // Tabs waapis lao
     const subNavs = document.querySelectorAll('.library-sub-nav');
     subNavs.forEach(nav => nav.style.setProperty('display', 'flex', 'important'));
     
-    // Background color wapis black karo
-    const libScreen = document.getElementById('library-screen'); // Safety fix
+    const libScreen = document.getElementById('library-screen');
     if (libScreen) libScreen.style.background = '#121212';
     
     switchLibraryView('playlists');
 }
-
 
 function renderSongListInPlaylist(songIndices, playlistName) {
     const list = document.getElementById('playlist-songs-list');
@@ -967,118 +925,3 @@ function handleMenuAddPlaylistFromPlayer() {
     selectedMenuIndex = currentIndex; 
     handleMenuAddPlaylist(); 
 }
-
-function handleAppGestures() {
-    const swipeDistance = touchStartX - touchEndX;
-    const threshold = 70; 
-
-    if (Math.abs(swipeDistance) > threshold) {
-        if (swipeDistance > 0) navigateForwardSequential(); // Right Swipe
-        else navigateBackwardSequential(); // Left Swipe
-    }
-}
-
-function navigateForwardSequential() {
-    // LEVEL 1: Agar Playlist Detail khuli hai
-    if (currentPlaylistName) {
-        const keys = Object.keys(userLibrary.playlists);
-        const idx = keys.indexOf(currentPlaylistName);
-        if (idx < keys.length - 1) {
-            openPlaylistDetail(keys[idx + 1]);
-            return; // Yahin ruk jao, aage ka code mat chalao
-        }
-        return; // Album/Last playlist par dead end
-    }
-
-    // LEVEL 2: Agar Library Screen dikh rahi hai
-    if (document.getElementById('library-screen').style.display === 'block') {
-        const idx = librarySubTabs.indexOf(currentLibraryView);
-        if (idx < librarySubTabs.length - 1) {
-            switchLibraryView(librarySubTabs[idx + 1]);
-            return; // Sub-tab change ho gaya, bas yahin tak
-        }
-        return; // Library ke aakhri tab par dead end
-    }
-
-    // LEVEL 3: Main Tabs (Sirf tabhi jab upar wale dono false hon)
-    const activeTab = document.querySelector('.nav-item.active')?.id.replace('tab-', '') || 'home';
-    let currentPos = mainTabs.indexOf(activeTab === 'browse' ? 'all-songs' : activeTab);
-    if (currentPos < mainTabs.length - 1) {
-        switchTab(mainTabs[currentPos + 1]);
-    }
-}
-
-function navigateBackwardSequential() {
-    // LEVEL 1: Playlist ke andar se peeche
-    if (currentPlaylistName) {
-        const keys = Object.keys(userLibrary.playlists);
-        const idx = keys.indexOf(currentPlaylistName);
-        if (idx > 0) {
-            openPlaylistDetail(keys[idx - 1]);
-        } else {
-            backToLibraryPlaylists(); // Pehli playlist se bahar
-        }
-        return; 
-    }
-
-    // LEVEL 2: Library Sub-tabs reverse
-    if (document.getElementById('library-screen').style.display === 'block') {
-        const idx = librarySubTabs.indexOf(currentLibraryView);
-        if (idx > 0) {
-            switchLibraryView(librarySubTabs[idx - 1]);
-        } else {
-            switchTab('all-songs'); // Pehle block (Downloads) se seedha Browse tab par
-        }
-        return;
-    }
-
-    // LEVEL 3: Main Tabs reverse
-    const activeTab = document.querySelector('.nav-item.active')?.id.replace('tab-', '') || 'home';
-    let currentPos = mainTabs.indexOf(activeTab === 'browse' ? 'all-songs' : activeTab);
-    if (currentPos > 0) {
-        switchTab(mainTabs[currentPos - 1]);
-    }
-}
-/**
- * Bina Equalizer option ke Bass aur Clarity boost karne ka logic
- */
-function applyAudioEnhancement() {
-    // Agar engine pehle se bana hai toh wapas mat banao
-    if (enhancedCtx) {
-        if (enhancedCtx.state === 'suspended') enhancedCtx.resume();
-        return;
-    }
-
-    const audioEl = document.getElementById('main-audio');
-    if (!audioEl) return;
-
-    try {
-        // Audio Engine Start
-        enhancedCtx = new (window.AudioContext || window.webkitAudioContext)();
-        enhancedSource = enhancedCtx.createMediaElementSource(audioEl);
-
-        // 1. DEEP BASS (Low Shelf Filter) - Bass ko bhari karne ke liye
-        bassFilter = enhancedCtx.createBiquadFilter();
-        bassFilter.type = "lowshelf";
-        bassFilter.frequency.value = 120; // 120Hz se niche ka area
-        bassFilter.gain.value = 7;      // +7dB Bass Boost
-
-        // 2. CRYSTAL CLARITY (High Shelf Filter) - Awaaz saaf karne ke liye
-        clarityFilter = enhancedCtx.createBiquadFilter();
-        clarityFilter.type = "highshelf";
-        clarityFilter.frequency.value = 3500; // 3.5kHz se upar ki sharp awaaz
-        clarityFilter.gain.value = 5;       // +5dB Clarity Boost
-
-        // Saare filters ko connect karo
-        // Audio -> Bass -> Clarity -> Speakers
-        enhancedSource.connect(bassFilter);
-        bassFilter.connect(clarityFilter);
-        clarityFilter.connect(enhancedCtx.destination);
-
-        console.log("Apple Music Style Bass & Clarity Active! 🎧");
-    } catch (e) {
-        console.log("Audio Enhancement Error:", e);
-    }
-}
-
-
