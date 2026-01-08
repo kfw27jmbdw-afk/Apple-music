@@ -956,3 +956,48 @@ function handleMenuAddPlaylistFromPlayer() {
     selectedMenuIndex = currentIndex; 
     handleMenuAddPlaylist(); 
 }
+// ================= DOWNLOADED SONGS RENDER =================
+async function renderDownloadedSongs() {
+    const container = document.getElementById('downloaded-list-container');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    const cache = await caches.open('apple-music-v2');
+    const cachedRequests = await cache.keys();
+    const cachedURLs = new Set(cachedRequests.map(req => req.url));
+
+    let found = false;
+
+    playlist.forEach((song, index) => {
+        if (cachedURLs.has(new URL(song.url, location.origin).href)) {
+            found = true;
+
+            const div = document.createElement('div');
+            div.className = 'song-item';
+            div.innerHTML = `
+                <div class="song-info-container">
+                    <img src="${song.img || defaultImg}">
+                    <div>
+                        <h4>${song.name}</h4>
+                        <p>${song.artist}</p>
+                    </div>
+                </div>
+            `;
+
+            div.onclick = () => {
+                loadSong(index);
+                maximizePlayer();
+                audio.play();
+                updatePlayIcons(true);
+            };
+
+            container.appendChild(div);
+        }
+    });
+
+    if (!found) {
+        container.innerHTML = `<p style="text-align:center;color:#aaa;">No downloaded songs</p>`;
+    }
+}
+document.addEventListener('DOMContentLoaded', renderDownloadedSongs);
