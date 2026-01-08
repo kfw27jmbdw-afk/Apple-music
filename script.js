@@ -12,20 +12,26 @@ const playerScreen = document.getElementById('player-screen');
 const mainImg = document.getElementById('song-image'); 
 const defaultImg = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300";
 
-let playlist = [
-    { "name": "APSARA", "artist": "Billa sonipat aala", "url": "music/Apsara.mp3", "img": "https://files.catbox.moe/qrgvpq.webp" },
-    { "name": "Yaran gail", "artist": "Billa sonipat aala", "url": "music/Yaaran Gail.mp3", "img": "https://files.catbox.moe/iswwju.jpeg" },
-    { "name": "AZUL", "artist": "Guru Randhawa", "url": "music/Azul Lavish Dhiman 320 Kbps.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" },
-    { "name": "Pan india", "artist": "Guru randhawa", "url": "music/PAN INDIA - Guru Randhawa.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
-    { "name": "Perfect", "artist": "Guru randhawa", "url": "music/Perfect.mp3", "img": "https://files.catbox.moe/k6emom.webp" },
-    { "name": "Afghan jalebi 8d audio", "artist": "Unknown", "url": "music/Afghan Jalebi 8D Audio Song 🎧 - Phantom ( Saif Ali Khan ｜ Katrina Kaif ｜ T-Series ) 2.m4a", "img": "https://files.catbox.moe/n1feln.jpeg" },
-    { "name": "2 gulab", "artist": "Billa sonipat aala", "url": "music/2 Gulaab.mp3", "img": "https://files.catbox.moe/h7bvl8.jpeg" },
-    { "name": "Suit suit", "artist": "Guru randhawa", "url": "music/Suit Suit - Guru Randhawa.mp3", "img": "https://files.catbox.moe/l1im66.webp" },
-    { "name": "Shaky shaky", "artist": "sanju rathod", "url": "music/Shaky - Sanju Rathod 320KBPS .mp3", "img": "https://files.catbox.moe/umupug.webp" },
-    { "name": "Sapne", "artist": "Artcriminal", "url": "music/artcriminal - SAPNE (Arabic Afro House).mp3", "img": "https://files.catbox.moe/p8ale0.jpeg" },
-    { "name": "Over Confidence", "artist": "Billa sonipat ala", "url": "music/Over Confidence.mp3", "img": "https://files.catbox.moe/9j0hwa.webp" }
-];
+/* ================= PLAYLIST PERSISTENCE ================= */
 
+/* ================= PLAYLIST PERSISTENCE ================= */
+
+// Load saved playlist OR fallback to default
+const savedPlaylist = JSON.parse(localStorage.getItem('appPlaylist'));
+
+let playlist = savedPlaylist && savedPlaylist.length
+    ? savedPlaylist
+    : [
+        { "name": "APSARA", "artist": "Billa sonipat aala", "url": "music/Apsara.mp3", "img": "https://files.catbox.moe/qrgvpq.webp" },
+        { "name": "Yaran gail", "artist": "Billa sonipat aala", "url": "music/Yaaran Gail.mp3", "img": "https://files.catbox.moe/iswwju.jpeg" },
+        { "name": "AZUL", "artist": "Guru Randhawa", "url": "music/Azul Lavish Dhiman 320 Kbps.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" },
+        { "name": "Pan india", "artist": "Guru randhawa", "url": "music/PAN INDIA - Guru Randhawa.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
+        { "name": "Perfect", "artist": "Guru randhawa", "url": "music/Perfect.mp3", "img": "https://files.catbox.moe/k6emom.webp" }
+      ];
+
+function savePlaylistToDisk() {
+    localStorage.setItem('appPlaylist', JSON.stringify(playlist));
+}
 let currentIndex = 0;
 let startY = 0;
 let isDragging = false;
@@ -76,6 +82,7 @@ if(coverUpload) {
                 const miniImg = document.getElementById('mini-img');
                 if(miniImg) miniImg.src = ev.target.result;
                 playlist[currentIndex].img = ev.target.result;
+savePlaylistToDisk();
                 renderPlaylist();
                 const sideMenu = document.getElementById('side-menu');
                 if(sideMenu) sideMenu.style.display = 'none';
@@ -413,11 +420,17 @@ window.addEventListener('load', async () => {
    ============================================================ */
 
 // 1. Storage Objects (App start hone par empty rahengi)
-let userLibrary = {
-    songs: [],      // Add to Library wale gaane
-    favourites: [], // Add to Favourite wale gaane
-    playlists: {}   // { "Gym Hits": [index1, index2], "Soft": [index3] }
+let userLibrary = JSON.parse(localStorage.getItem('userLibrary')) || {
+    songs: [],
+    favourites: [],
+    playlists: {},
+    playlistThumbs: {}
 };
+
+function saveLibraryToDisk() {
+    localStorage.setItem('userLibrary', JSON.stringify(userLibrary));
+}
+
 
 let currentModalIndex = null; // Kis gaane ke liye modal khula hai
 
@@ -488,6 +501,7 @@ function toggleTick(type, playlistName = null) {
             tickIcon.classList.remove('active');
         }
     }
+    saveLibraryToDisk();
 }
 
 function updateTickUI(type, status) {
@@ -537,8 +551,8 @@ function confirmCreatePlaylist() {
     if (name) {
         if (!userLibrary.playlists[name]) {
             userLibrary.playlists[name] = [currentModalIndex];
-            saveLibraryToDisk(); 
-            nameInput.value = "";
+saveLibraryToDisk();
+nameInput.value = "";
             closePlaylistPrompt();
             saveAndCloseModal(); // Pura modal band kar do
             alert(`Created & Added to "${name}"`);
