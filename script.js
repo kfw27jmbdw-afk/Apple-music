@@ -635,7 +635,7 @@ function switchLibraryView(view) {
  * Library Content ko render karne ka main function (Grid View Fixed)
  */
 function renderLibraryContent(view = 'all') {
-    const container = document.getElementById('library-content-area');
+    const container = document.getElementById('downloaded-list-container');
     if (!container) return;
     
     container.innerHTML = ""; 
