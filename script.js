@@ -562,52 +562,7 @@ nameInput.value = "";
     }
 }
 
-function saveAndCloseModal() {
-    document.getElementById('action-modal').style.display = 'none';
-    renderLibraryContent(); // Library screen update karo
-}
 
-/**
- * Library Screen ke Sub-tabs (Album/Playlist/Fav) switch karne ka logic
- */
-function switchLibraryView(view) {
-    // Buttons active state change
-    document.querySelectorAll('.sub-nav-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    
-    renderLibraryContent(view);
-}
-
-function renderLibraryContent_OLD(view = 'all') {
-    const container = document.getElementById('library-content-area');
-    container.innerHTML = "";
-
-    let songsToShow = [];
-    if(view === 'all') songsToShow = userLibrary.songs;
-    else if(view === 'fav') songsToShow = userLibrary.favourites;
-    else if(view === 'down') {
-        // Download logic purane function se connect karein
-        if(typeof renderDownloadedSongs === 'function') renderDownloadedSongs();
-        return;
-    }
-
-    if(songsToShow.length === 0 && view !== 'playlists') {
-        container.innerHTML = `<div class="empty-state"><p>No songs found here.</p></div>`;
-        return;
-    }
-
-    // Gaane dikhane ka logic (Browse screen jaisa)
-    songsToShow.forEach(idx => {
-        const song = playlist[idx];
-        container.innerHTML += `
-            <div class="song-item">
-                <div class="song-info-container" onclick="loadSong(${idx}); maximizePlayer(); audio.play(); updatePlayIcons(true);">
-                    <img src="${song.img || defaultImg}">
-                    <div><h4>${song.name}</h4><p>${song.artist}</p></div>
-                </div>
-            </div>`;
-    });
-}
 /* ============================================================
    --- LIBRARY VIEW SWITCHING & RENDERING ---
    ============================================================ */
@@ -753,16 +708,7 @@ function openPlaylistDetail(playlistName) {
     renderSongListInPlaylist(songIndices, playlistName);
 }
 
-function backToLibraryPlaylists() {
-    // Tabs waapis lao
-    const subNavs = document.querySelectorAll('.library-sub-nav');
-    subNavs.forEach(nav => nav.style.setProperty('display', 'flex', 'important'));
-    
-    const libScreen = document.getElementById('library-screen');
-    if (libScreen) libScreen.style.background = '#121212';
-    
-    switchLibraryView('playlists');
-}
+
 
 function renderSongListInPlaylist(songIndices, playlistName) {
     const list = document.getElementById('playlist-songs-list');
@@ -821,7 +767,7 @@ function removeFromPlaylist(event, playlistName, songIndex) {
 
 // ================= DOWNLOADED SONGS RENDER =================
 async function renderDownloadedSongs() {
-    const container = document.getElementById('downloaded-list-container');
+    const container = document.getElementById('library-content-area');
     if (!container) return;
 
     container.innerHTML = '';
@@ -863,7 +809,6 @@ async function renderDownloadedSongs() {
         container.innerHTML = `<p style="text-align:center;color:#aaa;">No downloaded songs</p>`;
     }
 }
-document.addEventListener('DOMContentLoaded', renderDownloadedSongs);
 /**
  * Playlist cover photo se color nikal kar background badalne ka function
  */
@@ -974,12 +919,6 @@ function renderGlobalSearch(term) {
     }
 }
 
-function handleMenuAddPlaylistFromPlayer() {
-    // Current baj rahe gaane ko select karo
-    selectedMenuIndex = currentIndex; 
-    // Modal kholne wala main function call karo
-    handleMenuAddPlaylist(); 
-}
 // Any where click logic - Isse search tab har jagah click karne par band hoga
 document.addEventListener('click', (e) => {
     const searchStack = document.getElementById('search-stack');
