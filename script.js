@@ -22,6 +22,7 @@ const savedPlaylist = JSON.parse(localStorage.getItem('appPlaylist'));
 let playlist = savedPlaylist && savedPlaylist.length
     ? savedPlaylist
     : [
+        { "name": "APSARA", "artist": "Billa sonipat aala", "url": "music/Apsara.mp3", "img": "https://files.catbox.moe/qrgvpq.webp" },
         { "name": "Yaran gail", "artist": "Billa sonipat aala", "url": "music/Yaaran Gail.mp3", "img": "https://files.catbox.moe/iswwju.jpeg" },
         { "name": "AZUL", "artist": "Guru Randhawa", "url": "music/Azul Lavish Dhiman 320 Kbps.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" },
         { "name": "Pan india", "artist": "Guru randhawa", "url": "music/PAN INDIA - Guru Randhawa.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
@@ -818,11 +819,51 @@ function removeFromPlaylist(event, playlistName, songIndex) {
     // ... uska logic ...
 }
 
-// <--- YAHAN STEP 5 (renderDownloadedSongs) PASTE KARO --->
-
+// ================= DOWNLOADED SONGS RENDER =================
 async function renderDownloadedSongs() {
-    // ... Step 5 ka poora code ...
+    const container = document.getElementById('downloaded-list-container');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    const cache = await caches.open('apple-music-v2');
+    const cachedRequests = await cache.keys();
+    const cachedURLs = new Set(cachedRequests.map(req => req.url));
+
+    let found = false;
+
+    playlist.forEach((song, index) => {
+        if (cachedURLs.has(new URL(song.url, location.origin).href)) {
+            found = true;
+
+            const div = document.createElement('div');
+            div.className = 'song-item';
+            div.innerHTML = `
+                <div class="song-info-container">
+                    <img src="${song.img || defaultImg}">
+                    <div>
+                        <h4>${song.name}</h4>
+                        <p>${song.artist}</p>
+                    </div>
+                </div>
+            `;
+
+            div.onclick = () => {
+                loadSong(index);
+                maximizePlayer();
+                audio.play();
+                updatePlayIcons(true);
+            };
+
+            container.appendChild(div);
+        }
+    });
+
+    if (!found) {
+        container.innerHTML = `<p style="text-align:center;color:#aaa;">No downloaded songs</p>`;
+    }
 }
+document.addEventListener('DOMContentLoaded', renderDownloadedSongs);
 /**
  * Playlist cover photo se color nikal kar background badalne ka function
  */
@@ -955,48 +996,3 @@ function handleMenuAddPlaylistFromPlayer() {
     selectedMenuIndex = currentIndex; 
     handleMenuAddPlaylist(); 
 }
-// ================= DOWNLOADED SONGS RENDER =================
-async function renderDownloadedSongs() {
-    const container = document.getElementById('downloaded-list-container');
-    if (!container) return;
-
-    container.innerHTML = '';
-
-    const cache = await caches.open('apple-music-v2');
-    const cachedRequests = await cache.keys();
-    const cachedURLs = new Set(cachedRequests.map(req => req.url));
-
-    let found = false;
-
-    playlist.forEach((song, index) => {
-        if (cachedURLs.has(new URL(song.url, location.origin).href)) {
-            found = true;
-
-            const div = document.createElement('div');
-            div.className = 'song-item';
-            div.innerHTML = `
-                <div class="song-info-container">
-                    <img src="${song.img || defaultImg}">
-                    <div>
-                        <h4>${song.name}</h4>
-                        <p>${song.artist}</p>
-                    </div>
-                </div>
-            `;
-
-            div.onclick = () => {
-                loadSong(index);
-                maximizePlayer();
-                audio.play();
-                updatePlayIcons(true);
-            };
-
-            container.appendChild(div);
-        }
-    });
-
-    if (!found) {
-        container.innerHTML = `<p style="text-align:center;color:#aaa;">No downloaded songs</p>`;
-    }
-}
-document.addEventListener('DOMContentLoaded', renderDownloadedSongs);
