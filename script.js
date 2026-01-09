@@ -578,7 +578,7 @@ function switchLibraryView(view) {
     renderLibraryContent(view);
 }
 
-function renderLibraryContent(view = 'all') {
+function renderLibraryContent_OLD(view = 'all') {
     const container = document.getElementById('library-content-area');
     container.innerHTML = "";
 
@@ -635,7 +635,7 @@ function switchLibraryView(view) {
  * Library Content ko render karne ka main function (Grid View Fixed)
  */
 function renderLibraryContent(view = 'all') {
-    const container = document.getElementById('downloaded-list-container');
+    const container = document.getElementById('library-content-area');
     if (!container) return;
     
     container.innerHTML = ""; 
