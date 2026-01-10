@@ -389,23 +389,45 @@ async function updateDownloadButtonUI() {
     }
 }
 
+/* ================= FEATURE: BACKGROUND DOWNLOAD ================= */
 async function handleDownload() {
+    // 1. Current gaana aur cache folder ki detail lo
     const song = playlist[selectedMenuIndex];
     const cache = await caches.open('apple-music-v2');
     const isCached = await cache.match(song.url);
+
     if (isCached) {
+        // Agar pehle se hai toh delete kar do
         await cache.delete(song.url);
         alert("Gana remove ho gaya!");
+        renderPlaylist();
     } else {
-        try {
-            alert("Downloading...");
-            await cache.add(song.url);
-            alert("Downloaded!");
-        } catch(e) { alert("Download failed!"); }
+        // 2. Info popup dikhao (Non-blocking)
+        // Ye OK dabate hi hat jayega, par download niche chalta rahega
+        alert("Downloading " + song.name + "...\nClick OK to continue using the app.");
+
+        // 3. Background Download Start (No 'await' here)
+        // Isse browser line-by-line rukega nahi
+        cache.add(song.url).then(() => {
+            console.log("Download Success: " + song.name);
+            
+            // Jab download finish ho jaye tab choti si info
+            alert("Ready Offline: " + song.name);
+            
+            // List refresh karo taaki Downloaded section mein dikhne lage
+            renderPlaylist(); 
+            if (typeof renderDownloadedSongs === 'function') {
+                renderDownloadedSongs(); 
+            }
+        }).catch((err) => {
+            console.error("Download Error:", err);
+            alert("Download failed! Please check your internet connection.");
+        });
     }
+    
+    // Options menu ko band karo
     const menu = document.getElementById('song-options-menu');
     if(menu) menu.style.display = 'none';
-    renderPlaylist();
 }
 
 /* ================= APP START ================= */
@@ -937,14 +959,3 @@ function handleMenuAddPlaylistFromPlayer() {
     selectedMenuIndex = currentIndex; 
     handleMenuAddPlaylist(); 
 }
-
-
-window.addEventListener('online', () => {
-    console.log("Internet is back!");
-    renderPlaylist();
-});
-
-window.addEventListener('offline', () => {
-    console.log("No internet!");
-    renderPlaylist();
-});
