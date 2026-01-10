@@ -7,30 +7,30 @@ if ('serviceWorker' in navigator) {
     });
 }
 
+// Variables sirf EK baar declare honge pure code mein
 const audio = document.getElementById('main-audio');
 const playerScreen = document.getElementById('player-screen');
 const mainImg = document.getElementById('song-image'); 
 const defaultImg = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300";
 
-/* ================= PLAYLIST PERSISTENCE ================= */
-
-/* ================= PLAYLIST PERSISTENCE ================= */
 
 // Load saved playlist OR fallback to default
 const savedPlaylist = JSON.parse(localStorage.getItem('appPlaylist'));
+let playlist = savedPlaylist && savedPlaylist.length ? savedPlaylist : [
+    { "name": "APSARA", "artist": "Billa sonipat aala", "url": "music/Apsara.mp3", "img": "https://files.catbox.moe/qrgvpq.webp" },
+    { "name": "Yaran gail", "artist": "Billa sonipat aala", "url": "music/Yaaran Gail.mp3", "img": "https://files.catbox.moe/iswwju.jpeg" },
+    { "name": "AZUL", "artist": "Guru Randhawa", "url": "music/Azul Lavish Dhiman 320 Kbps.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" },
+    { "name": "Pan india", "artist": "Guru randhawa", "url": "music/PAN INDIA - Guru Randhawa.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
+    { "name": "Perfect", "artist": "Guru randhawa", "url": "music/Perfect.mp3", "img": "https://files.catbox.moe/k6emom.webp" }
+];
 
-let playlist = savedPlaylist && savedPlaylist.length
-    ? savedPlaylist
-    : [
-        { "name": "Yaran gail", "artist": "Billa sonipat aala", "url": "music/Yaaran Gail.mp3", "img": "https://files.catbox.moe/iswwju.jpeg" },
-        { "name": "AZUL", "artist": "Guru Randhawa", "url": "music/Azul Lavish Dhiman 320 Kbps.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" },
-        { "name": "Pan india", "artist": "Guru randhawa", "url": "music/PAN INDIA - Guru Randhawa.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
-        { "name": "Perfect", "artist": "Guru randhawa", "url": "music/Perfect.mp3", "img": "https://files.catbox.moe/k6emom.webp" }
-      ];
+function savePlaylistToDisk() { localStorage.setItem('appPlaylist', JSON.stringify(playlist)); }
 
-function savePlaylistToDisk() {
-    localStorage.setItem('appPlaylist', JSON.stringify(playlist));
-}
+let userLibrary = JSON.parse(localStorage.getItem('userLibrary')) || {
+    songs: [], favourites: [], playlists: {}, playlistThumbs: {}
+};
+function saveLibraryToDisk() { localStorage.setItem('userLibrary', JSON.stringify(userLibrary)); }
+
 let currentIndex = 0;
 let startY = 0;
 let isDragging = false;
@@ -38,36 +38,22 @@ let searchOpen = false;
 let selectedMenuIndex = null;
 
 /* ================= FEATURE: ADAPTIVE COLOR (PLAYER) ================= */
-/**
- * Gaane ki photo se rang nikal kar player ka background badalne ke liye
- */
 function updatePlayerAdaptiveColor(imgSrc) {
     const img = new Image();
-    img.crossOrigin = "Anonymous"; // Security bypass
-    img.src = imgSrc; // <--- YE RAHI IMG.SRC WALI LINE
-    
+    img.crossOrigin = "Anonymous";
+    img.src = imgSrc;
     img.onload = function() {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         canvas.width = 1; canvas.height = 1;
-        
-        // 1x1 pixel draw karke average color nikalna
         ctx.drawImage(img, 0, 0, 1, 1);
         const d = ctx.getImageData(0,0,1,1).data;
         const rgb = `rgb(${d[0]},${d[1]},${d[2]})`;
-        
-        // CSS Variable update
         document.documentElement.style.setProperty('--bg-color', rgb);
-        
-        // Player Screen par gradient apply
         const pScreen = document.getElementById('player-screen');
-        if(pScreen) {
-            pScreen.style.background = `linear-gradient(to bottom, ${rgb} 0%, #121212 100%)`;
-        }
+        if(pScreen) pScreen.style.background = `linear-gradient(to bottom, ${rgb} 0%, #121212 100%)`;
     };
 }
-
-
 
 /* ================= FEATURE: GALLERY COVER CHANGE ================= */
 const coverUpload = document.getElementById('cover-upload');
@@ -81,10 +67,8 @@ if(coverUpload) {
                 const miniImg = document.getElementById('mini-img');
                 if(miniImg) miniImg.src = ev.target.result;
                 playlist[currentIndex].img = ev.target.result;
-savePlaylistToDisk();
+                savePlaylistToDisk();
                 renderPlaylist();
-                const sideMenu = document.getElementById('side-menu');
-                if(sideMenu) sideMenu.style.display = 'none';
             };
             r.readAsDataURL(file);
         }
@@ -95,9 +79,7 @@ savePlaylistToDisk();
 if(playerScreen) {
     playerScreen.addEventListener('touchstart', (e) => {
         if (e.touches[0].clientY < window.innerHeight / 2) {
-            startY = e.touches[0].clientY;
-            isDragging = true;
-            playerScreen.style.transition = 'none';
+            startY = e.touches[0].clientY; isDragging = true; playerScreen.style.transition = 'none';
         }
     }, { passive: true });
 
@@ -122,6 +104,7 @@ if(playerScreen) {
         if (diff > 150) minimizePlayer(); else maximizePlayer();
     });
 }
+/* ================= FIXED MINIMIZE/MAXIMIZE FUNCTIONS ================= */
 
 function minimizePlayer() { 
     if(!playerScreen) return;
@@ -129,12 +112,16 @@ function minimizePlayer() {
     playerScreen.style.transform = 'translateY(100%) scale(0.5)';
     playerScreen.style.opacity = '0';
     playerScreen.style.pointerEvents = 'none';
+    
     const mini = document.getElementById('mini-player');
     if(mini) {
         mini.classList.remove('hidden');
         mini.style.opacity = '1';
     }
-    setTimeout(() => { if(playerScreen.classList.contains('minimized')) playerScreen.style.display = 'none'; }, 400); 
+    // Screen ko hide karna taaki background buttons kaam karein
+    setTimeout(() => { 
+        if(playerScreen.classList.contains('minimized')) playerScreen.style.display = 'none';
+    }, 400); 
 }
 
 function maximizePlayer() { 
@@ -150,46 +137,40 @@ function maximizePlayer() {
     if(mini) mini.classList.add('hidden');
 }
 
-/* ================= CORE PLAYER LOGIC ================= */
+
+/* ================= CORE PLAYER LOGIC (FIXED) ================= */
 function loadSong(index) {
     currentIndex = index;
     const s = playlist[index];
     if(audio) audio.src = s.url;
-    /* ================= FEATURE: AUTO-PLAY NEXT ================= */
-
-if (audio) {
-    // Jab gaana poora khatam ho jaye
-    audio.onended = () => {
-        console.log("Song ended, playing next...");
-        
-        // Agar tumne 'Repeat' feature abhi nahi banaya hai, 
-        // toh ye seedha agla gaana chala dega
-        nextSong(); 
-        
-        // Browser safety: gaana load hone ke baad play trigger karna
-        audio.play().catch(e => console.log("Auto-play blocked by browser, click play."));
-    };
-}
-
     
-    // UI Update karo
+    /* ================= FEATURE: AUTO-PLAY NEXT ================= */
+    if (audio) {
+        audio.onended = () => {
+            console.log("Song ended, playing next...");
+            nextSong(); 
+            audio.play().catch(e => console.log("Auto-play blocked"));
+        };
+    }
+
+    // 1. Main Player update karo
     document.getElementById('player-title').innerText = s.name;
     document.getElementById('player-artist').innerText = s.artist;
+    
+    // 2. MINI PLAYER UPDATE (Ye lines uda di thi maine pehle, ab wapas hain)
     document.getElementById('mini-title').innerText = s.name;
     document.getElementById('mini-artist').innerText = s.artist;
     
-    // Photo update karo
+    // 3. Photos update karo
     if(mainImg) mainImg.src = s.img || defaultImg;
     const miniImg = document.getElementById('mini-img');
     if(miniImg) miniImg.src = s.img || defaultImg;
     
-    // --- YE RAHI WOH LINE JO PLAYER KA COLOR BADLEGI ---
-    updatePlayerAdaptiveColor(s.img || defaultImg); 
-    
+    // 4. Adaptive color aur baki features
+    updatePlayerAdaptiveColor(s.img || defaultImg);
     renderPlaylist();
     updateMediaSession(s);
 }
-
 
 function togglePlay() { 
     if(!audio) return;
@@ -199,14 +180,12 @@ function togglePlay() {
 
 function updatePlayIcons(isPlaying) { 
     const iconClass = isPlaying ? 'fa-pause' : 'fa-play'; 
-    const playBtn = document.getElementById('play-btn');
-    const miniPlayBtn = document.getElementById('mini-play-btn');
-    if(playBtn) playBtn.className = `fas ${iconClass}`; 
-    if(miniPlayBtn) miniPlayBtn.className = `fas ${iconClass}`; 
+    document.getElementById('play-btn').className = `fas ${iconClass}`; 
+    document.getElementById('mini-play-btn').className = `fas ${iconClass}`; 
 }
 
-function nextSong() { currentIndex = (currentIndex + 1) % playlist.length; loadSong(currentIndex); if(audio) audio.play(); updatePlayIcons(true); }
-function prevSong() { currentIndex = (currentIndex - 1 + playlist.length) % playlist.length; loadSong(currentIndex); if(audio) audio.play(); updatePlayIcons(true); }
+function nextSong() { currentIndex = (currentIndex + 1) % playlist.length; loadSong(currentIndex); audio.play(); updatePlayIcons(true); }
+function prevSong() { currentIndex = (currentIndex - 1 + playlist.length) % playlist.length; loadSong(currentIndex); audio.play(); updatePlayIcons(true); }
 
 async function renderPlaylist() {
     const container = document.getElementById('song-list-container');
@@ -221,7 +200,7 @@ async function renderPlaylist() {
         const isCached = await cache.match(song.url);
         if (isOffline && !isCached) { div.style.opacity = "0.3"; div.style.pointerEvents = "none"; }
         div.innerHTML = `
-            <div class="song-info-container" onclick="loadSong(${index}); maximizePlayer(); if(audio) audio.play(); updatePlayIcons(true);">
+            <div class="song-info-container" onclick="loadSong(${index}); maximizePlayer(); audio.play(); updatePlayIcons(true);">
                 <img src="${song.img || defaultImg}">
                 <div><h4>${song.name}</h4><p>${song.artist}</p></div>
             </div>
@@ -229,35 +208,331 @@ async function renderPlaylist() {
         container.appendChild(div);
     }
 }
+/* ================= STEP 1: MODAL & STORAGE CORE ================= */
 
-if(audio) {
-    audio.ontimeupdate = () => {
-        if(audio.duration) {
-            const seekBar = document.getElementById('seek-bar');
-            if(seekBar) seekBar.value = (audio.currentTime / audio.duration) * 100;
-            document.getElementById('current').innerText = formatTime(audio.currentTime);
-            document.getElementById('duration').innerText = formatTime(audio.duration);
-        }
-    };
+/**
+ * Gaane ka menu khulne par ya Player se '+' dabane par modal dikhao
+ */
+function handleMenuAddPlaylist() {
+    // 1. Purana menu band karo
+    const songMenu = document.getElementById('song-options-menu');
+    if(songMenu) songMenu.style.display = 'none'; 
+
+    // 2. Index set karo (selectedMenuIndex playlist list se aata hai)
+    currentModalIndex = selectedMenuIndex; 
+    
+    if (currentModalIndex === null) return;
+
+    const song = playlist[currentModalIndex];
+
+    // 3. Modal UI mein gaane ka naam aur artist update karo
+    document.getElementById('modal-song-name').innerText = song.name;
+    document.getElementById('modal-song-artist').innerText = song.artist;
+
+    // 4. Tick status update karo (Check karo ki library/fav mein pehle se hai ya nahi)
+    updateTickUI('library', userLibrary.songs.includes(currentModalIndex));
+    updateTickUI('favourite', userLibrary.favourites.includes(currentModalIndex));
+
+    // 5. Playlists ki list Modal ke andar dikhao
+    renderModalPlaylists();
+
+    // 6. Modal ko screen par show karo
+    document.getElementById('action-modal').style.display = 'block';
 }
 
-function formatTime(s) { let m = Math.floor(s / 60), sc = Math.floor(s % 60); return `${m}:${sc < 10 ? '0' + sc : sc}`; }
+/**
+ * Modal ke andar Playlists render karne ka logic
+ */
+function renderModalPlaylists() {
+    const container = document.getElementById('modal-playlists-list');
+    if(!container) return;
+    container.innerHTML = "";
 
-function seekSong() { if (audio && audio.duration) audio.currentTime = (document.getElementById('seek-bar').value / 100) * audio.duration; }
-
-function updateMediaSession(song) {
-    if (!('mediaSession' in navigator)) return;
-    navigator.mediaSession.metadata = new MediaMetadata({
-        title: song.name, artist: song.artist,
-        artwork: [{ src: song.img || defaultImg, sizes: '512x512', type: 'image/png' }]
+    Object.keys(userLibrary.playlists).forEach(name => {
+        // Possibility: Check if song is already in this specific playlist
+        const isAdded = userLibrary.playlists[name].includes(currentModalIndex);
+        const safeId = name.replace(/\s/g, '');
+        
+        container.innerHTML += `
+            <div class="modal-option" onclick="toggleTick('playlist', '${name}')">
+                <i class="fas fa-list-ul"></i>
+                <span>${name}</span>
+                <i class="fas fa-check-circle tick-icon ${isAdded ? 'active' : ''}" id="tick-pl-${safeId}"></i>
+            </div>`;
     });
-    navigator.mediaSession.setActionHandler('play', () => { if(audio) audio.play(); updatePlayIcons(true); });
-    navigator.mediaSession.setActionHandler('pause', () => { if(audio) audio.pause(); updatePlayIcons(false); });
-    navigator.mediaSession.setActionHandler('nexttrack', () => nextSong());
-    navigator.mediaSession.setActionHandler('previoustrack', () => prevSong());
 }
 
-/* ================= NAVIGATION & SEARCH LOGIC ================= */
+/* ================= STEP 2: TICK TOGGLE & STORAGE ================= */
+
+/**
+ * Kisi playlist ya library mein gaana add ya remove (toggle) karna
+ */
+function toggleTick(type, playlistName = null) {
+    // 1. Tick icon ki ID dhoondho (Playlist ke liye alag, Fav/Library ke liye alag)
+    const tickId = playlistName ? `tick-pl-${playlistName.replace(/\s/g, '')}` : `tick-${type}`;
+    const tickIcon = document.getElementById(tickId);
+    
+    if (!tickIcon) return;
+
+    // Check karo ki icon pehle se active (Red/Green) hai ya nahi
+    const isActive = tickIcon.classList.contains('active');
+    
+    if (playlistName) {
+        // POSSIBLITY 1: Playlist logic
+        if (!isActive) {
+            // Agar active nahi hai, toh array mein push karo
+            userLibrary.playlists[playlistName].push(currentModalIndex);
+            tickIcon.classList.add('active');
+        } else {
+            // Agar pehle se hai, toh filter karke nikal do (Untick)
+            userLibrary.playlists[playlistName] = userLibrary.playlists[playlistName].filter(idx => idx !== currentModalIndex);
+            tickIcon.classList.remove('active');
+        }
+    } else {
+        // POSSIBLITY 2: Library aur Favourite logic
+        const targetArray = type === 'library' ? userLibrary.songs : userLibrary.favourites;
+        if (!isActive) {
+            targetArray.push(currentModalIndex);
+            tickIcon.classList.add('active');
+        } else {
+            const index = targetArray.indexOf(currentModalIndex);
+            if (index > -1) targetArray.splice(index, 1);
+            tickIcon.classList.remove('active');
+        }
+    }
+
+    // SABSE IMPORTANT: Har badlav ke baad storage mein save karo
+    saveLibraryToDisk();
+    
+    // Agar Library screen khuli hai, toh use piche refresh kar do taaki change dikhe
+    if(document.getElementById('library-screen').style.display === 'block') {
+        renderLibraryContent('playlists'); 
+    }
+}
+
+/**
+ * Tick UI status update (Simple helper)
+ */
+function updateTickUI(type, status) {
+    const tick = document.getElementById(`tick-${type}`);
+    if(tick) status ? tick.classList.add('active') : tick.classList.remove('active');
+}
+/* ================= STEP 3: PLAYLIST DETAIL & OPEN LOGIC ================= */
+
+/**
+ * Kisi specific playlist par click karne par uske andar ke gaane dikhana
+ */
+/**
+ * Kisi specific playlist par click karne par uske andar ke gaane dikhana
+ */
+function openPlaylistDetail(playlistName) {
+    const container = document.getElementById('library-content-area');
+    const subNavs = document.querySelectorAll('.library-sub-nav');
+    
+    // 1. Library ke tabs hide karo
+    subNavs.forEach(nav => nav.style.setProperty('display', 'none', 'important'));
+    
+    // 2. Grid view hatao taaki gaane list mein dikhein
+    container.classList.remove('grid-view');
+
+    const songIndices = userLibrary.playlists[playlistName] || [];
+    const thumb = (userLibrary.playlistThumbs && userLibrary.playlistThumbs[playlistName]) 
+                  ? userLibrary.playlistThumbs[playlistName] 
+                  : 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300';
+
+    // 3. Playlist Header (Isme Delete Button add kiya gaya hai)
+    container.innerHTML = `
+        <div class="playlist-detail-header" style="padding: 20px; text-align: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div onclick="backToLibraryPlaylists()" style="color: #ff3b30; cursor:pointer; font-weight: 600;">
+                    <i class="fas fa-chevron-left"></i> Library
+                </div>
+                <div onclick="deletePlaylist('${playlistName}')" style="color: #8e8e93; cursor:pointer; font-size: 14px;">
+                    <i class="fas fa-trash"></i> Delete
+                </div>
+            </div>
+            <img src="${thumb}" style="width: 180px; height: 180px; border-radius: 15px; object-fit: cover; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <h1 style="margin-top: 15px; font-size: 28px; color: white;">${playlistName}</h1>
+            <p style="color: #8e8e93;">${songIndices.length} Songs</p>
+        </div>
+        <div id="playlist-internal-songs"></div>
+    `;
+
+    // 4. Playlist ke andar ke gaane render karo
+    const listArea = document.getElementById('playlist-internal-songs');
+    if (songIndices.length === 0) {
+        listArea.innerHTML = `<p style="text-align:center; padding:40px; color:#666;">No songs in this playlist.</p>`;
+    } else {
+        songIndices.forEach(idx => {
+            const song = playlist[idx];
+            const div = document.createElement('div');
+            div.className = "song-item";
+            div.innerHTML = `
+                <div class="song-info-container" onclick="loadSong(${idx}); maximizePlayer(); audio.play(); updatePlayIcons(true);">
+                    <img src="${song.img || defaultImg}">
+                    <div><h4>${song.name}</h4><p>${song.artist}</p></div>
+                </div>
+                <div class="song-menu-btn" onclick="confirmRemoveFromPlaylist(event, '${playlistName}', ${idx})">
+                    <i class="fas fa-trash-alt" style="color: #ff453a;"></i>
+                </div>`;
+            listArea.appendChild(div);
+        });
+    }
+}
+
+
+/**
+ * Playlist detail se wapas Library par jaane ka logic
+ */
+function backToLibraryPlaylists() {
+    const subNavs = document.querySelectorAll('.library-sub-nav');
+    subNavs.forEach(nav => nav.style.setProperty('display', 'flex', 'important'));
+    switchLibraryView('playlists');
+}
+
+/**
+ * Playlist ke andar se gaana delete karne ka logic
+ */
+function confirmRemoveFromPlaylist(e, playlistName, songIdx) {
+    e.stopPropagation();
+    if(confirm("Remove this song from " + playlistName + "?")) {
+        userLibrary.playlists[playlistName] = userLibrary.playlists[playlistName].filter(idx => idx !== songIdx);
+        saveLibraryToDisk();
+        openPlaylistDetail(playlistName); // UI Refresh
+    }
+}
+
+/* ================= STEP 4: CREATE PLAYLIST POPUP LOGIC ================= */
+
+/**
+ * Nayi playlist confirm karke gaana auto-add karne ka logic
+ */
+function confirmCreatePlaylist() {
+    const nameInput = document.getElementById('new-playlist-input');
+    const name = nameInput.value.trim();
+
+    if (name) {
+        // 1. Check karo agar ye naam pehle se toh nahi hai
+        if (!userLibrary.playlists[name]) {
+            
+            // 2. Nayi playlist array banao aur current gaana dalo
+            userLibrary.playlists[name] = [currentModalIndex]; 
+            
+            // 3. Storage mein permanent save karo
+            saveLibraryToDisk(); 
+            
+            // 4. UI saaf karo aur popups band karo
+            nameInput.value = "";
+            document.getElementById('playlist-name-modal').style.display = 'none';
+            document.getElementById('action-modal').style.display = 'none';
+            
+            alert(`Playlist "${name}" created and song added!`);
+            
+            // 5. Agar user Library screen par hai, toh turant refresh karo
+            if(document.getElementById('library-screen').style.display === 'block') {
+                renderLibraryContent('playlists'); 
+            }
+        } else {
+            alert("This playlist name already exists!");
+        }
+    } else {
+        alert("Please enter a playlist name.");
+    }
+}
+
+/**
+ * Modal band karne ka simple helper function
+ */
+function saveAndCloseModal() {
+    const modal = document.getElementById('action-modal');
+    if(modal) modal.style.display = 'none';
+    currentModalIndex = null;
+}
+/* ================= STEP 5: MISSING UI FUNCTIONS ================= */
+
+/**
+ * Nayi Playlist banane ka popup (input field) dikhane ke liye
+ */
+function showNewPlaylistPrompt() {
+    const promptModal = document.getElementById('playlist-name-modal');
+    if (promptModal) {
+        promptModal.style.display = 'block';
+        // Input field par auto-focus karne ke liye
+        const input = document.getElementById('new-playlist-input');
+        if (input) input.focus();
+    }
+}
+
+/**
+ * Nayi Playlist banane ka popup band karne ke liye
+ */
+function closePlaylistPrompt() {
+    const promptModal = document.getElementById('playlist-name-modal');
+    if (promptModal) {
+        promptModal.style.display = 'none';
+        const input = document.getElementById('new-playlist-input');
+        if (input) input.value = ""; // Input clear kar dega
+    }
+}
+
+/**
+ * Nayi playlist confirm karke sirf SELECTED gaana add karna
+ */
+function confirmCreatePlaylist() {
+    const nameInput = document.getElementById('new-playlist-input');
+    const name = nameInput.value.trim();
+
+    if (name) {
+        if (!userLibrary.playlists[name]) {
+            
+            // POSSIBLITY FIX: Pehle poora array ja raha tha, ab sirf selected index jayega
+            // Hum ek naya array [ ] banayenge jisme sirf currentModalIndex hoga
+            userLibrary.playlists[name] = [currentModalIndex];
+            
+            saveLibraryToDisk(); // Permanent save
+            
+            // UI Cleanup
+            nameInput.value = "";
+            document.getElementById('playlist-name-modal').style.display = 'none';
+            document.getElementById('action-modal').style.display = 'none';
+            
+            alert(`Playlist "${name}" created with 1 song.`);
+            
+            if(document.getElementById('library-screen').style.display === 'block') {
+                renderLibraryContent('playlists');
+            }
+        } else {
+            alert("This playlist name already exists!");
+        }
+    }
+}
+
+/**
+ * 7 Poori Playlist delete karne ka function
+ */
+function deletePlaylist(playlistName) {
+    // 1. User se confirmation lo
+    if (confirm(`Are you sure you want to delete "${playlistName}"?`)) {
+        
+        // 2. userLibrary se woh playlist mita do
+        delete userLibrary.playlists[playlistName];
+        
+        // 3. Agar uski koi custom thumbnail (photo) hai toh use bhi mita do
+        if (userLibrary.playlistThumbs && userLibrary.playlistThumbs[playlistName]) {
+            delete userLibrary.playlistThumbs[playlistName];
+        }
+
+        // 4. Storage mein save karo
+        saveLibraryToDisk();
+
+        // 5. UI refresh karo aur wapas Library view par jao
+        backToLibraryPlaylists();
+        alert("Playlist deleted successfully.");
+    }
+}
+
+
+/* ================= NAVIGATION & SEARCH ================= */
 function switchTab(tabName) {
     closeSearchStack();
     document.querySelectorAll('.tab-content').forEach(screen => screen.style.display = 'none');
@@ -269,6 +544,7 @@ function switchTab(tabName) {
     } else if (tabName === 'library') {
         document.getElementById('library-screen').style.display = 'block';
         document.getElementById('tab-library').classList.add('active');
+        renderLibraryContent('all');
     } else if (tabName === 'all-songs') {
         document.getElementById('playlist-screen').style.display = 'block';
         document.getElementById('tab-browse').classList.add('active');
@@ -281,530 +557,85 @@ function openSearchStack() {
     if(tabStack) tabStack.style.display = 'none';
     if(searchStack) { searchStack.style.display = 'flex'; searchStack.style.opacity = '1'; }
     searchOpen = true;
-    
-    setTimeout(() => {
-        const input = document.getElementById('app-search-input');
-        if(input) input.focus();
-    }, 150);
+    setTimeout(() => { const input = document.getElementById('app-search-input'); if(input) input.focus(); }, 150);
 }
 
 function closeSearchStack() {
     const sStack = document.getElementById('search-stack');
     const tStack = document.getElementById('tab-stack');
-    const mainList = document.getElementById('song-list-container');
-    const results = document.getElementById('global-search-results');
-
     if (sStack) sStack.style.display = 'none';
     if (tStack) tStack.style.display = 'flex';
-    if (mainList) mainList.style.display = 'block';
-    if (results) { results.innerHTML = ""; results.style.display = 'none'; }
-    
-    const input = document.getElementById('app-search-input');
-    if (input) input.value = "";
     searchOpen = false;
 }
-
-function filterSongs() {
-    const termInput = document.getElementById('app-search-input');
-    if (!termInput) return;
-    const term = termInput.value.trim().toLowerCase();
-
-    const mainList = document.getElementById('song-list-container');
-    const playlistList = document.getElementById('playlist-songs-list');
-    const resultsArea = document.getElementById('global-search-results');
-    
-    const isInsidePlaylist = playlistList && playlistList.innerHTML !== "";
-
-    if (isInsidePlaylist) {
-        const songItems = playlistList.querySelectorAll('.song-item');
-        songItems.forEach(item => {
-            const title = item.querySelector('h4').innerText.toLowerCase();
-            item.style.display = title.includes(term) ? 'flex' : 'none';
-        });
-    } else {
-        if (term.length > 0) {
-            if (mainList) mainList.style.display = 'none'; 
-            if (resultsArea) {
-                resultsArea.style.display = 'block';
-                renderGlobalSearch(term); 
-            }
-        } else {
-            if (mainList) mainList.style.display = 'block';
-            if (resultsArea) { resultsArea.innerHTML = ""; resultsArea.style.display = 'none'; }
-        }
-    }
-}
-
-
-
-// Any where click logic
+/* ================= FEATURE: CLICK ANYWHERE TO CLOSE ================= */
 document.addEventListener('click', (e) => {
+    // 1. Search Stack Logic
     const searchStack = document.getElementById('search-stack');
-    const searchTrigger = document.querySelector('.search-trigger-icon');
-    if (searchOpen && searchStack && !searchStack.contains(e.target) && !searchTrigger.contains(e.target)) {
+    const searchTrigger = document.querySelector('.nav-item i.fa-search')?.parentElement; 
+    
+    if (searchOpen && searchStack && !searchStack.contains(e.target) && !searchTrigger?.contains(e.target)) {
         closeSearchStack();
+    }
+
+    // 2. Song Options Menu Logic
+    const songMenu = document.getElementById('song-options-menu');
+    const menuBtn = e.target.closest('.song-menu-btn'); // Check agar menu button par click kiya hai
+    
+    if (songMenu && songMenu.style.display === 'block' && !songMenu.contains(e.target) && !menuBtn) {
+        songMenu.style.display = 'none';
+    }
+
+    // 3. Side Menu Logic
+    const sideMenu = document.getElementById('side-menu');
+    const menuTrigger = document.querySelector('.fa-bars')?.parentElement;
+    
+    if (sideMenu && sideMenu.style.display === 'block' && !sideMenu.contains(e.target) && !menuTrigger?.contains(e.target)) {
+        sideMenu.style.display = 'none';
     }
 });
 
-/* ================= UI OVERLAYS & MENU ================= */
-function openForm() { const form = document.getElementById('add-music-form'); if(form) form.style.display = 'block'; }
-function closeForm() { const form = document.getElementById('add-music-form'); if(form) form.style.display = 'none'; }
-function toggleMenu() { 
-    const m = document.getElementById('side-menu'); 
-    if(m) m.style.display = (m.style.display === 'block') ? 'none' : 'block'; 
-}
-
-function openSongMenu(e, index) {
-    if (e.stopPropagation) e.stopPropagation();
-    selectedMenuIndex = index;
-    const menu = document.getElementById('song-options-menu');
-    if (!menu) return;
-    menu.style.display = 'block';
-    updateDownloadButtonUI(); 
-    let x = e.clientX - 170, y = e.clientY;
-    if (y + 150 > window.innerHeight) y -= 130;
-    if (x < 10) x = 10;
-    menu.style.left = x + "px"; menu.style.top = y + "px";
-    
-    const closeListener = (event) => {
-        if (!menu.contains(event.target)) { menu.style.display = 'none'; document.removeEventListener('click', closeListener); }
-    };
-    setTimeout(() => document.addEventListener('click', closeListener), 10);
-}
-
-async function updateDownloadButtonUI() {
-    const song = playlist[selectedMenuIndex]; 
-    const cache = await caches.open('apple-music-v2');
-    const isCached = await cache.match(song.url);
-    const btn = document.getElementById('download-toggle-btn');
-    if (btn) {
-        if (isCached) {
-            btn.innerHTML = `<i class="fas fa-trash"></i> Remove Download`;
-            btn.style.color = "#ff453a"; 
-        } else {
-            btn.innerHTML = `<i class="fas fa-arrow-down"></i> Download`;
-            btn.style.color = "white";
-        }
-    }
-}
 
 /* ================= FEATURE: BACKGROUND DOWNLOAD ================= */
 async function handleDownload() {
-    // 1. Current gaana aur cache folder ki detail lo
     const song = playlist[selectedMenuIndex];
     const cache = await caches.open('apple-music-v2');
     const isCached = await cache.match(song.url);
 
     if (isCached) {
-        // Agar pehle se hai toh delete kar do
         await cache.delete(song.url);
         alert("Gana remove ho gaya!");
         renderPlaylist();
     } else {
-        // 2. Info popup dikhao (Non-blocking)
-        // Ye OK dabate hi hat jayega, par download niche chalta rahega
         alert("Downloading " + song.name + "...\nClick OK to continue using the app.");
-
-        // 3. Background Download Start (No 'await' here)
-        // Isse browser line-by-line rukega nahi
         cache.add(song.url).then(() => {
-            console.log("Download Success: " + song.name);
-            
-            // Jab download finish ho jaye tab choti si info
             alert("Ready Offline: " + song.name);
-            
-            // List refresh karo taaki Downloaded section mein dikhne lage
             renderPlaylist(); 
-            if (typeof renderDownloadedSongs === 'function') {
-                renderDownloadedSongs(); 
-            }
-        }).catch((err) => {
-            console.error("Download Error:", err);
-            alert("Download failed! Please check your internet connection.");
-        });
+            if (document.getElementById('library-screen').style.display === 'block') renderDownloadedSongs();
+        }).catch(() => alert("Download failed!"));
     }
-    
-    // Options menu ko band karo
-    const menu = document.getElementById('song-options-menu');
-    if(menu) menu.style.display = 'none';
+    document.getElementById('song-options-menu').style.display = 'none';
 }
 
-/* ================= APP START ================= */
-window.addEventListener('load', async () => {
-    await renderPlaylist();
-    if(playlist.length > 0) loadSong(0);
-    setTimeout(() => switchTab('all-songs'), 250);
-});
-
-/* ============================================================
-   --- LIBRARY & PLAYLIST CORE LOGIC ---
-   ============================================================ */
-
-// 1. Storage Objects (App start hone par empty rahengi)
-let userLibrary = JSON.parse(localStorage.getItem('userLibrary')) || {
-    songs: [],
-    favourites: [],
-    playlists: {},
-    playlistThumbs: {}
-};
-
-function saveLibraryToDisk() {
-    localStorage.setItem('userLibrary', JSON.stringify(userLibrary));
-}
-
-
-let currentModalIndex = null; // Kis gaane ke liye modal khula hai
-
-/**
- /**
- * Gaane ka menu khulne par ya Player se '+' dabane par modal dikhao
- */
-function handleMenuAddPlaylist() {
-    // 1. Agar gaane ki list wala menu khula hai toh use band karo
-    const songMenu = document.getElementById('song-options-menu');
-    if(songMenu) songMenu.style.display = 'none'; 
-
-    // 2. selectedMenuIndex check karo (Player se aayega ya List se)
-    currentModalIndex = selectedMenuIndex; 
-    
-    // Safety check: agar koi gaana select nahi hai toh wapas jao
-    if (currentModalIndex === null || currentModalIndex === undefined) return;
-
-    // YE RAHI TUMHARI 6th LINE
-    const song = playlist[currentModalIndex];
-
-    // 3. Modal UI mein gaane ka naam aur artist dalo
-    document.getElementById('modal-song-name').innerText = song.name;
-    document.getElementById('modal-song-artist').innerText = song.artist;
-
-    // 4. Tick status update karo (Library aur Favourite ke liye)
-    updateTickUI('library', userLibrary.songs.includes(currentModalIndex));
-    updateTickUI('favourite', userLibrary.favourites.includes(currentModalIndex));
-
-    // 5. Playlists Render karo Modal ke andar
-    renderModalPlaylists();
-
-    // 6. Modal ko screen par lao
-    document.getElementById('action-modal').style.display = 'block';
-}
-
-
-
-/**
- * Tick toggle karne ka logic (Tick & Untickable)
- */
-function toggleTick(type, playlistName = null) {
-    const tickId = playlistName ? `tick-pl-${playlistName.replace(/\s/g, '')}` : `tick-${type}`;
-    const tickIcon = document.getElementById(tickId);
-    
-    if (!tickIcon) return;
-
-    const isActive = tickIcon.classList.contains('active');
-    
-    if (playlistName) {
-        // Playlist logic
-        if (!isActive) {
-            userLibrary.playlists[playlistName].push(currentModalIndex);
-            tickIcon.classList.add('active');
-        } else {
-            userLibrary.playlists[playlistName] = userLibrary.playlists[playlistName].filter(idx => idx !== currentModalIndex);
-            tickIcon.classList.remove('active');
-        }
-    } else {
-        // Library or Favourite logic
-        const targetArray = type === 'library' ? userLibrary.songs : userLibrary.favourites;
-        if (!isActive) {
-            targetArray.push(currentModalIndex);
-            tickIcon.classList.add('active');
-        } else {
-            const index = targetArray.indexOf(currentModalIndex);
-            if (index > -1) targetArray.splice(index, 1);
-            tickIcon.classList.remove('active');
-        }
-    }
-    saveLibraryToDisk();
-}
-
-function updateTickUI(type, status) {
-    const tick = document.getElementById(`tick-${type}`);
-    if(tick) status ? tick.classList.add('active') : tick.classList.remove('active');
-}
-
-/**
- * Modal ke andar Playlists ki list dikhao
- */
-function renderModalPlaylists() {
-    const container = document.getElementById('modal-playlists-list');
-    container.innerHTML = "";
-
-    Object.keys(userLibrary.playlists).forEach(name => {
-        const isAdded = userLibrary.playlists[name].includes(currentModalIndex);
-        const safeId = name.replace(/\s/g, '');
-        
-        container.innerHTML += `
-            <div class="modal-option" onclick="toggleTick('playlist', '${name}')">
-                <i class="fas fa-list-ul"></i>
-                <span>${name}</span>
-                <i class="fas fa-check-circle tick-icon ${isAdded ? 'active' : ''}" id="tick-pl-${safeId}"></i>
-            </div>
-        `;
-    });
-}
-
-/**
- * Nayi Playlist banane ka Popup dikhao
- */
-function showNewPlaylistPrompt() {
-    document.getElementById('playlist-name-modal').style.display = 'block';
-}
-
-function closePlaylistPrompt() {
-    document.getElementById('playlist-name-modal').style.display = 'none';
-}
-
-/**
- * Nayi playlist banate hi gaana usme auto-add ho jaye aur modal band ho jaye
- */
-function confirmCreatePlaylist() {
-    const nameInput = document.getElementById('new-playlist-input');
-    const name = nameInput.value.trim();
-
-    if (name) {
-        if (!userLibrary.playlists[name]) {
-            userLibrary.playlists[name] = [currentModalIndex];
-saveLibraryToDisk();
-nameInput.value = "";
-            closePlaylistPrompt();
-            saveAndCloseModal(); // Pura modal band kar do
-            alert(`Created & Added to "${name}"`);
-        } else {
-            alert("Playlist already exists!");
-        }
-    }
-}
-
-
-/* ============================================================
-   --- LIBRARY VIEW SWITCHING & RENDERING ---
-   ============================================================ */
-
-/**
- * Library ke sub-tabs (Downloaded, Playlist, etc.) switch karne ke liye
- */
-function switchLibraryView(view) {
-    // 1. Saare sub-nav buttons se 'active' class hatao
-    document.querySelectorAll('.sub-nav-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-
-    // 2. Click kiye huye button ko active (Red) karo
-    if (event && event.target) {
-        event.target.classList.add('active');
-    }
-
-    // 3. Content render karo
-    renderLibraryContent(view);
-}
-
-/**
- /**
- * Library Content ko render karne ka main function (Grid View Fixed)
- */
-function renderLibraryContent(view = 'all') {
-    const container = document.getElementById('library-content-area');
-    if (!container) return;
-    
-    container.innerHTML = ""; 
-    // Pehle grid class hatao taaki Fav/Album list mein dikhein
-    container.classList.remove('grid-view'); 
-
-    if (view === 'playlists') {
-        // Sirf Playlists ke liye Grid class lagao
-        container.classList.add('grid-view'); 
-        
-        const playlistNames = Object.keys(userLibrary.playlists);
-        
-        if (playlistNames.length === 0) {
-            container.innerHTML = `<div class="empty-state"><p>No playlists yet.</p></div>`;
-            return;
-        }
-
-        // Playlists ko Grid (Badi Photo) mein dikhao
-        playlistNames.forEach(name => {
-            // Check karo agar user ne photo upload ki hai, nahi toh default dalo
-            const thumb = (userLibrary.playlistThumbs && userLibrary.playlistThumbs[name]) 
-                          ? userLibrary.playlistThumbs[name] 
-                          : 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300';
-
-            const div = document.createElement('div');
-            div.className = "playlist-card";
-            div.innerHTML = `
-                <div class="playlist-thumb-container" onclick="openPlaylistDetail('${name}')">
-                    <img src="${thumb}">
-                    <div class="edit-thumb-btn" onclick="event.stopPropagation(); triggerPlaylistUpload('${name}')">
-                        <i class="fas fa-camera"></i>
-                    </div>
-                </div>
-                <h4>${name}</h4>
-            `;
-            container.appendChild(div);
-        });
-    } 
-    else if (view === 'fav') {
-        renderSongList(userLibrary.favourites, container, "No favorites added.");
-    } 
-    else if (view === 'all') { // Album/All
-        renderSongList(userLibrary.songs, container, "Library is empty.");
-    } 
-    else if (view === 'down') {
-        if (typeof renderDownloadedSongs === 'function') {
-            renderDownloadedSongs();
-        } else {
-            container.innerHTML = `<div class="empty-state"><p>No downloads yet.</p></div>`;
-        }
-    }
-}
-
-
-/**
- * Common function gaano ki list dikhane ke liye
- */
-function renderSongList(songIndices, container, emptyMsg) {
-    if (!songIndices || songIndices.length === 0) {
-        container.innerHTML = `<div class="empty-state"><p>${emptyMsg}</p></div>`;
-        return;
-    }
-
-    songIndices.forEach(idx => {
-        const song = playlist[idx];
-        const div = document.createElement('div');
-        div.className = "song-item";
-        div.innerHTML = `
-            <div class="song-info-container" onclick="loadSong(${idx}); maximizePlayer(); if(audio) audio.play(); updatePlayIcons(true);">
-                <img src="${song.img || defaultImg}">
-                <div>
-                    <h4>${song.name}</h4>
-                    <p>${song.artist}</p>
-                </div>
-            </div>
-        `;
-        container.appendChild(div);
-    });
-}
-
-/**
- * Jab user kisi Playlist par click kare, toh uske andar ke gaane dikhao
- */
-function openPlaylistDetail(playlistName) {
-    const container = document.getElementById('library-content-area');
-    const subNavs = document.querySelectorAll('.library-sub-nav');
-    
-    // Tabs hide karo
-    subNavs.forEach(nav => nav.style.setProperty('display', 'none', 'important'));
-
-    if (!container) return;
-    container.classList.remove('grid-view');
-
-    const songIndices = userLibrary.playlists[playlistName] || [];
-    const thumb = (userLibrary.playlistThumbs && userLibrary.playlistThumbs[playlistName]) 
-                  ? userLibrary.playlistThumbs[playlistName] : 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300';
-
-    // Header Render karo
-    container.innerHTML = `
-        <div class="playlist-detail-header" style="width: 100%; margin-bottom: 30px;">
-            <div onclick="backToLibraryPlaylists()" style="cursor:pointer; color: #ff3b30; margin-bottom: 20px; font-weight: 600;">
-                <i class="fas fa-chevron-left"></i> Library
-            </div>
-            <img src="${thumb}" id="playlist-cover-img" style="width: 180px; height: 180px; border-radius: 15px; object-fit: cover; box-shadow: 0 15px 35px rgba(0,0,0,0.6); margin-bottom: 15px;">
-            <h1 style="font-size: 36px; font-weight: 800; margin: 0; color: #fff;">${playlistName}</h1>
-            <p style="color: #8e8e93; font-size: 16px;">Playlist • ${songIndices.length} Songs</p>
-        </div>
-        <div id="playlist-songs-list"></div>
-    `;
-
-    // Background color update
-    if (typeof updatePlaylistCanvas === 'function') updatePlaylistCanvas(thumb);
-    
-    // Gaane render karo
-    renderSongListInPlaylist(songIndices, playlistName);
-}
-
-
-
-function renderSongListInPlaylist(songIndices, playlistName) {
-    const list = document.getElementById('playlist-songs-list');
-    if (!list) return;
-    list.innerHTML = ""; 
-
-    if (songIndices.length === 0) {
-        list.innerHTML = `<div class="empty-state"><p>No songs yet.</p></div>`;
-        return;
-    }
-
-    songIndices.forEach(idx => {
-        const song = playlist[idx];
-        const div = document.createElement('div');
-        div.className = "song-item";
-        div.style.display = "flex";
-        div.style.justifyContent = "space-between";
-        div.style.alignItems = "center";
-        
-        div.innerHTML = `
-            <div class="song-info-container" style="flex:1" onclick="loadSong(${idx}); maximizePlayer(); if(audio) audio.play();">
-                <img src="${song.img || defaultImg}">
-                <div><h4>${song.name}</h4><p>${song.artist}</p></div>
-            </div>
-            <div class="song-menu-btn" style="padding:10px; cursor:pointer;" onclick="confirmRemove(event, '${playlistName}', ${idx})">
-                <i class="fas fa-ellipsis-v" style="color:#b3b3b3"></i>
-            </div>`;
-        list.appendChild(div);
-    });
-}
-
-function backToLibraryPlaylists() {
-    // Tabs waapis lao
-    const subNavs = document.querySelectorAll('.library-sub-nav');
-    subNavs.forEach(nav => nav.style.setProperty('display', 'flex', 'important'));
-    
-    // Background color wapis black karo
-    document.getElementById('library-screen').style.background = '#121212';
-    switchLibraryView('playlists');
-}
-
-
-function confirmRemove(event, playlistName, songIndex) {
-    event.stopPropagation(); // Isse gaana play nahi hoga
-    if (confirm("Remove this song from " + playlistName + "?")) {
-        userLibrary.playlists[playlistName] = userLibrary.playlists[playlistName].filter(idx => idx !== songIndex);
-        openPlaylistDetail(playlistName); // UI refresh
-    }
-}
-
-
-// ... Step 4 ka 'removeFromPlaylist' function yahan khatam ho raha hai ...
-function removeFromPlaylist(event, playlistName, songIndex) {
-    // ... uska logic ...
-}
-
-// ================= STEP 2: DOWNLOADED SONGS RENDER (FIXED) =================
+/* ================= DOWNLOADED SONGS RENDER FIXED ================= */
+/* ================= DOWNLOADED SONGS LOGIC ================= */
 async function renderDownloadedSongs() {
     const container = document.getElementById('library-content-area');
     if (!container) return;
 
-    // Loading state dikhao
-    container.innerHTML = '<p style="text-align:center; padding:20px; color:#aaa;">Scanning Downloads...</p>';
+    // Loading indicator
+    container.innerHTML = '<p style="text-align:center; padding:20px; color:#aaa;">Scanning offline storage...</p>';
 
     try {
         const cache = await caches.open('apple-music-v2');
         const cachedRequests = await cache.keys();
-        // Browser cache se saare stored URLs ki list lo
+        // Saare cached URLs ka ek Set banao taaki matching fast ho
         const cachedURLs = new Set(cachedRequests.map(req => req.url));
 
         container.innerHTML = '';
         let found = false;
 
         playlist.forEach((song, index) => {
-            // Song URL ko absolute path mein badalna zaroori hai match karne ke liye
+            // Song URL ko absolute path mein badlo match karne ke liye
             const songFullURL = new URL(song.url, window.location.origin).href;
             
             if (cachedURLs.has(songFullURL)) {
@@ -824,137 +655,200 @@ async function renderDownloadedSongs() {
         });
 
         if (!found) {
-            container.innerHTML = `<p style="text-align:center; padding:20px; color:#aaa;">No downloaded songs found.</p>`;
+            container.innerHTML = `
+                <div style="text-align:center; padding:40px; color:#666;">
+                    <i class="fas fa-arrow-alt-circle-down" style="font-size:40px; margin-bottom:10px;"></i>
+                    <p>No offline songs found.</p>
+                </div>`;
         }
     } catch (e) {
-        console.error("Cache Error:", e);
-        container.innerHTML = `<p style="text-align:center; color:red;">Error loading storage.</p>`;
+        console.error("Cache Scan Error:", e);
+        container.innerHTML = `<p style="text-align:center; color:red;">Storage Error</p>`;
     }
 }
 
-/**
- * Playlist cover photo se color nikal kar background badalne ka function
- */
-function updatePlaylistCanvas(imgSrc) {
-    const img = new Image();
-    img.crossOrigin = "Anonymous"; // Security bypass taaki color read ho sake
-    img.src = imgSrc;
-    
-    img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = 1; 
-        canvas.height = 1;
-        
-        // Photo ko 1x1 pixel mein draw karo average color nikalne ke liye
-        ctx.drawImage(img, 0, 0, 1, 1);
-        const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-        
-        const libScreen = document.getElementById('library-screen');
-        if (libScreen) {
-            // Screen par smooth gradient apply karo
-            libScreen.style.background = `linear-gradient(to bottom, rgb(${r},${g},${b}) 0%, #121212 100%)`;
-        }
-    };
-    
-    // Agar image load nahi hoti toh default black rakho
-    img.onerror = () => {
-        const libScreen = document.getElementById('library-screen');
-        if (libScreen) libScreen.style.background = '#121212';
-    };
-}
-/**
- * Gallery se photo select karke playlist cover badalne ka function
- */
-function triggerPlaylistUpload(name) {
-    // 1. Ek invisible file input create karo agar pehle se nahi hai
-    let fileInput = document.getElementById('playlist-photo-input');
-    
-    if (!fileInput) {
-        fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.id = 'playlist-photo-input';
-        fileInput.accept = 'image/*'; // Sirf photos allow karein
-        fileInput.style.display = 'none';
-        document.body.appendChild(fileInput);
-    }
 
-    // 2. Jab user photo select kare
-    fileInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const newImgData = event.target.result;
-
-                // Library Object mein photo save karo
-                if (!userLibrary.playlistThumbs) userLibrary.playlistThumbs = {};
-                userLibrary.playlistThumbs[name] = newImgData;
-
-                // UI refresh karo taaki nayi photo dikhe
-                renderLibraryContent('playlists'); 
-                
-                // Agar playlist detail khuli hai toh uska color bhi badlo
-                if (typeof updatePlaylistCanvas === 'function') {
-                    updatePlaylistCanvas(newImgData);
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    // 3. Click trigger karo
-    fileInput.click();
+/* ================= LIBRARY VIEW RENDERING ================= */
+function switchLibraryView(view) {
+    document.querySelectorAll('.sub-nav-btn').forEach(btn => btn.classList.remove('active'));
+    if (event.target) event.target.classList.add('active');
+    renderLibraryContent(view);
 }
 
-function renderGlobalSearch(term) {
-    const list = document.getElementById('global-search-results');
-    if (!list) return;
+function renderLibraryContent(view = 'all') {
+    const container = document.getElementById('library-content-area');
+    if (!container) return;
+    container.innerHTML = ""; container.classList.remove('grid-view'); 
 
-    list.innerHTML = `<h3>SEARCH RESULTS</h3>`; // Heading set karo
-
-    let found = false;
-    playlist.forEach((song, index) => {
-        if (song.name.toLowerCase().includes(term) || song.artist.toLowerCase().includes(term)) {
-            found = true;
+    if (view === 'playlists') {
+        container.classList.add('grid-view'); 
+        Object.keys(userLibrary.playlists).forEach(name => {
+            const thumb = userLibrary.playlistThumbs[name] || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300';
             const div = document.createElement('div');
-            div.className = "song-item";
-            div.style.padding = "12px 15px";
-            // Click karte hi tray band hogi aur gaana chalega
-            div.innerHTML = `
-                <div class="song-info-container" style="display: flex; align-items: center; width: 100%;" 
-                     onclick="loadSong(${index}); maximizePlayer(); if(audio) audio.play(); closeSearchStack();">
-                    <img src="${song.img || defaultImg}" style="width: 50px; height: 50px; border-radius: 8px; margin-right: 15px; object-fit: cover;">
-                    <div style="flex: 1;">
-                        <h4 style="margin: 0; color: #fff; font-size: 16px;">${song.name}</h4>
-                        <p style="margin: 0; color: #8e8e93; font-size: 13px;">${song.artist}</p>
-                    </div>
-                </div>
-            `;
-            list.appendChild(div);
-        }
-    });
-
-    if (found) {
-        list.style.display = 'block'; // Results mile toh tray dikhao
-    } else {
-        list.innerHTML += `<p style="color: #8e8e93; text-align: center; padding: 30px;">No results found</p>`;
-    }
+            div.className = "playlist-card";
+            div.innerHTML = `<div class="playlist-thumb-container" onclick="openPlaylistDetail('${name}')"><img src="${thumb}"></div><h4>${name}</h4>`;
+            container.appendChild(div);
+        });
+    } 
+    else if (view === 'down') { renderDownloadedSongs(); } 
+    else if (view === 'fav') { renderSongList(userLibrary.favourites, container, "No favorites."); } 
+    else { renderSongList(userLibrary.songs, container, "Library empty."); }
 }
 
-// Any where click logic - Isse search tab har jagah click karne par band hoga
-document.addEventListener('click', (e) => {
-    const searchStack = document.getElementById('search-stack');
-    // Nav-item check karega taaki search button dabate hi band na ho jaye
-    const searchTrigger = document.querySelector('.nav-item i.fa-search')?.parentElement; 
-    
-    if (searchOpen && searchStack && !searchStack.contains(e.target) && !searchTrigger?.contains(e.target)) {
-        closeSearchStack();
-    }
-});
+function renderSongList(indices, container, msg) {
+    if (!indices || indices.length === 0) { container.innerHTML = `<p style="text-align:center; padding:20px;">${msg}</p>`; return; }
+    indices.forEach(idx => {
+        const song = playlist[idx];
+        const div = document.createElement('div');
+        div.className = "song-item";
+        div.innerHTML = `<div class="song-info-container" onclick="loadSong(${idx}); maximizePlayer(); audio.play();"><img src="${song.img || defaultImg}"><div><h4>${song.name}</h4><p>${song.artist}</p></div></div>`;
+        container.appendChild(div);
+    });
+}
 
+function openSongMenu(e, index) {
+    e.stopPropagation(); selectedMenuIndex = index;
+    const menu = document.getElementById('song-options-menu');
+    menu.style.display = 'block'; menu.style.left = (e.clientX - 150) + "px"; menu.style.top = e.clientY + "px";
+}
+
+function updateMediaSession(s) {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({ title: s.name, artist: s.artist, artwork: [{ src: s.img || defaultImg, sizes: '512x512', type: 'image/png' }] });
+}
+
+window.addEventListener('load', async () => { await renderPlaylist(); loadSong(0); });
+window.addEventListener('online', () => renderPlaylist());
+window.addEventListener('offline', () => renderPlaylist());
+
+function formatTime(s) { let m = Math.floor(s / 60), sc = Math.floor(s % 60); return `${m}:${sc < 10 ? '0' + sc : sc}`; }
+
+/* ================= FEATURE: ADD TO PLAYLIST LOGIC ================= */
+
+/**
+ * Modal ko band karne aur UI saaf karne ka function
+ */
+function saveAndCloseModal() {
+    const modal = document.getElementById('action-modal');
+    if(modal) modal.style.display = 'none';
+    currentModalIndex = null;
+}
+
+/**
+ * Playlist modal ke andar playlists render karna
+ */
+function renderModalPlaylists() {
+    const container = document.getElementById('modal-playlists-list');
+    if(!container) return;
+    container.innerHTML = "";
+
+    Object.keys(userLibrary.playlists).forEach(name => {
+        // Check karo ki gaana pehle se is playlist mein hai ya nahi
+        const isAdded = userLibrary.playlists[name].includes(currentModalIndex);
+        const safeId = name.replace(/\s/g, '');
+        
+        const div = document.createElement('div');
+        div.className = "modal-option";
+        div.onclick = () => toggleTick('playlist', name);
+        div.innerHTML = `
+            <i class="fas fa-list-ul"></i>
+            <span>${name}</span>
+            <i class="fas fa-check-circle tick-icon ${isAdded ? 'active' : ''}" id="tick-pl-${safeId}"></i>
+        `;
+        container.appendChild(div);
+    });
+}
+
+/**
+ * Kisi playlist ya library mein gaana add/remove (tick) karna
+ */
+function toggleTick(type, playlistName = null) {
+    const tickId = playlistName ? `tick-pl-${playlistName.replace(/\s/g, '')}` : `tick-${type}`;
+    const tickIcon = document.getElementById(tickId);
+    
+    if (!tickIcon) return;
+
+    const isActive = tickIcon.classList.contains('active');
+    
+    if (playlistName) {
+        // Playlist logic: Add or Remove
+        if (!isActive) {
+            userLibrary.playlists[playlistName].push(currentModalIndex);
+            tickIcon.classList.add('active');
+        } else {
+            userLibrary.playlists[playlistName] = userLibrary.playlists[playlistName].filter(idx => idx !== currentModalIndex);
+            tickIcon.classList.remove('active');
+        }
+    } else {
+        // Library or Favourite logic
+        const targetArray = type === 'library' ? userLibrary.songs : userLibrary.favourites;
+        if (!isActive) {
+            targetArray.push(currentModalIndex);
+            tickIcon.classList.add('active');
+        } else {
+            const index = targetArray.indexOf(currentModalIndex);
+            if (index > -1) targetArray.splice(index, 1);
+            tickIcon.classList.remove('active');
+        }
+    }
+    // Storage mein save karo taaki refresh par na udde
+    saveLibraryToDisk();
+}
+
+/**
+ * Gaane ka menu khulne par ya Player se '+' dabane par modal dikhao
+ */
+function handleMenuAddPlaylist() {
+    // 1. Agar gaane ki list wala menu khula hai toh use band karo
+    const songMenu = document.getElementById('song-options-menu');
+    if(songMenu) songMenu.style.display = 'none'; 
+
+    // 2. Index set karo
+    currentModalIndex = selectedMenuIndex; 
+    
+    if (currentModalIndex === null || currentModalIndex === undefined) return;
+
+    const song = playlist[currentModalIndex];
+
+    // 3. Modal UI update
+    document.getElementById('modal-song-name').innerText = song.name;
+    document.getElementById('modal-song-artist').innerText = song.artist;
+
+    // 4. Tick status update
+    updateTickUI('library', userLibrary.songs.includes(currentModalIndex));
+    updateTickUI('favourite', userLibrary.favourites.includes(currentModalIndex));
+
+    renderModalPlaylists();
+    document.getElementById('action-modal').style.display = 'block';
+}
+
+function updateTickUI(type, status) {
+    const tick = document.getElementById(`tick-${type}`);
+    if(tick) status ? tick.classList.add('active') : tick.classList.remove('active');
+}
 
 function handleMenuAddPlaylistFromPlayer() {
     selectedMenuIndex = currentIndex; 
     handleMenuAddPlaylist(); 
+}
+
+/**
+ * Nayi Playlist banane ka logic
+ */
+function confirmCreatePlaylist() {
+    const nameInput = document.getElementById('new-playlist-input');
+    const name = nameInput.value.trim();
+
+    if (name) {
+        if (!userLibrary.playlists[name]) {
+            userLibrary.playlists[name] = [currentModalIndex];
+            saveLibraryToDisk();
+            nameInput.value = "";
+            document.getElementById('playlist-name-modal').style.display = 'none';
+            saveAndCloseModal();
+            alert(`Created & Added to "${name}"`);
+        } else {
+            alert("Playlist already exists!");
+        }
+    }
 }
