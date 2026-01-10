@@ -18,7 +18,6 @@ const defaultImg = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745
 const savedPlaylist = JSON.parse(localStorage.getItem('appPlaylist'));
 let playlist = savedPlaylist && savedPlaylist.length ? savedPlaylist : [
     { "name": "APSARA", "artist": "Billa sonipat aala", "url": "music/Apsara.mp3", "img": "https://files.catbox.moe/qrgvpq.webp" },
-    { "name": "Yaran gail", "artist": "Billa sonipat aala", "url": "music/Yaaran Gail.mp3", "img": "https://files.catbox.moe/iswwju.jpeg" },
     { "name": "AZUL", "artist": "Guru Randhawa", "url": "music/Azul Lavish Dhiman 320 Kbps.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" },
     { "name": "Pan india", "artist": "Guru randhawa", "url": "music/PAN INDIA - Guru Randhawa.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
     { "name": "Perfect", "artist": "Guru randhawa", "url": "music/Perfect.mp3", "img": "https://files.catbox.moe/k6emom.webp" }
@@ -617,25 +616,28 @@ async function handleDownload() {
 }
 
 /* ================= DOWNLOADED SONGS RENDER FIXED ================= */
-/* ================= DOWNLOADED SONGS LOGIC ================= */
+/*/* ================= FEATURE: DOWNLOADED SONGS SCANNER ================= */
 async function renderDownloadedSongs() {
     const container = document.getElementById('library-content-area');
     if (!container) return;
 
-    // Loading indicator
+    // 1. Scanning message dikhao
     container.innerHTML = '<p style="text-align:center; padding:20px; color:#aaa;">Scanning offline storage...</p>';
 
     try {
+        // 2. Cache folder ko open karo
         const cache = await caches.open('apple-music-v2');
         const cachedRequests = await cache.keys();
-        // Saare cached URLs ka ek Set banao taaki matching fast ho
+        
+        // 3. Saare cached URLs ka ek Set banao (matching fast karne ke liye)
         const cachedURLs = new Set(cachedRequests.map(req => req.url));
 
         container.innerHTML = '';
         let found = false;
 
+        // 4. Apni playlist ke har gaane ko check karo
         playlist.forEach((song, index) => {
-            // Song URL ko absolute path mein badlo match karne ke liye
+            // Song URL ko absolute path mein badlo taaki cache URL se match ho sake
             const songFullURL = new URL(song.url, window.location.origin).href;
             
             if (cachedURLs.has(songFullURL)) {
@@ -654,18 +656,20 @@ async function renderDownloadedSongs() {
             }
         });
 
+        // 5. Agar koi gaana nahi mila toh empty state dikhao
         if (!found) {
             container.innerHTML = `
                 <div style="text-align:center; padding:40px; color:#666;">
-                    <i class="fas fa-arrow-alt-circle-down" style="font-size:40px; margin-bottom:10px;"></i>
-                    <p>No offline songs found.</p>
+                    <i class="fas fa-cloud-download-alt" style="font-size:40px; margin-bottom:10px;"></i>
+                    <p>No offline songs found.<br><small>Download some songs to see them here.</small></p>
                 </div>`;
         }
     } catch (e) {
         console.error("Cache Scan Error:", e);
-        container.innerHTML = `<p style="text-align:center; color:red;">Storage Error</p>`;
+        container.innerHTML = `<p style="text-align:center; color:red; padding:20px;">Storage Error: Could not scan downloads.</p>`;
     }
 }
+
 
 
 /* ================= LIBRARY VIEW RENDERING ================= */
