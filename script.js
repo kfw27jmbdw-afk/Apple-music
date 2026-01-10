@@ -765,50 +765,52 @@ function removeFromPlaylist(event, playlistName, songIndex) {
     // ... uska logic ...
 }
 
-// ================= DOWNLOADED SONGS RENDER =================
+// ================= STEP 2: DOWNLOADED SONGS RENDER (FIXED) =================
 async function renderDownloadedSongs() {
     const container = document.getElementById('library-content-area');
     if (!container) return;
 
-    container.innerHTML = '';
+    // Loading state dikhao
+    container.innerHTML = '<p style="text-align:center; padding:20px; color:#aaa;">Scanning Downloads...</p>';
 
-    const cache = await caches.open('apple-music-v2');
-    const cachedRequests = await cache.keys();
-    const cachedURLs = new Set(cachedRequests.map(req => req.url));
+    try {
+        const cache = await caches.open('apple-music-v2');
+        const cachedRequests = await cache.keys();
+        // Browser cache se saare stored URLs ki list lo
+        const cachedURLs = new Set(cachedRequests.map(req => req.url));
 
-    let found = false;
+        container.innerHTML = '';
+        let found = false;
 
-    playlist.forEach((song, index) => {
-        if (cachedURLs.has(new URL(song.url, location.origin).href)) {
-            found = true;
+        playlist.forEach((song, index) => {
+            // Song URL ko absolute path mein badalna zaroori hai match karne ke liye
+            const songFullURL = new URL(song.url, window.location.origin).href;
+            
+            if (cachedURLs.has(songFullURL)) {
+                found = true;
+                const div = document.createElement('div');
+                div.className = 'song-item';
+                div.innerHTML = `
+                    <div class="song-info-container" onclick="loadSong(${index}); maximizePlayer(); if(audio) audio.play(); updatePlayIcons(true);">
+                        <img src="${song.img || defaultImg}">
+                        <div>
+                            <h4>${song.name}</h4>
+                            <p>${song.artist}</p>
+                        </div>
+                    </div>`;
+                container.appendChild(div);
+            }
+        });
 
-            const div = document.createElement('div');
-            div.className = 'song-item';
-            div.innerHTML = `
-                <div class="song-info-container">
-                    <img src="${song.img || defaultImg}">
-                    <div>
-                        <h4>${song.name}</h4>
-                        <p>${song.artist}</p>
-                    </div>
-                </div>
-            `;
-
-            div.onclick = () => {
-                loadSong(index);
-                maximizePlayer();
-                audio.play();
-                updatePlayIcons(true);
-            };
-
-            container.appendChild(div);
+        if (!found) {
+            container.innerHTML = `<p style="text-align:center; padding:20px; color:#aaa;">No downloaded songs found.</p>`;
         }
-    });
-
-    if (!found) {
-        container.innerHTML = `<p style="text-align:center;color:#aaa;">No downloaded songs</p>`;
+    } catch (e) {
+        console.error("Cache Error:", e);
+        container.innerHTML = `<p style="text-align:center; color:red;">Error loading storage.</p>`;
     }
 }
+
 /**
  * Playlist cover photo se color nikal kar background badalne ka function
  */
@@ -935,3 +937,14 @@ function handleMenuAddPlaylistFromPlayer() {
     selectedMenuIndex = currentIndex; 
     handleMenuAddPlaylist(); 
 }
+
+
+window.addEventListener('online', () => {
+    console.log("Internet is back!");
+    renderPlaylist();
+});
+
+window.addEventListener('offline', () => {
+    console.log("No internet!");
+    renderPlaylist();
+});
