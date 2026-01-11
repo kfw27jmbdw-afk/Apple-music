@@ -729,5 +729,33 @@ body {
     box-shadow: 0 -15px 35px rgba(0,0,0,0.8) !important;
     display: none;
 }
+/* Spotify Style Equalizer Animation */
+.playing-animation {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    width: 15px;
+    height: 15px;
+}
 
+.playing-animation span {
+    width: 3px;
+    background-color: #1DB954; /* Spotify Green */
+    animation: bounce 0.5s ease-in-out infinite alternate;
+}
+
+/* Har bar ki height alag rakhenge dynamic look ke liye */
+.playing-animation span:nth-child(2) { animation-delay: 0.2s; }
+.playing-animation span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+    0% { height: 3px; }
+    100% { height: 100%; }
+}
+/* Jab gaana pause ho toh bars ko dots banane ke liye */
+.playing-animation.paused span {
+    animation-play-state: paused; /* Animation ruk jayega */
+    height: 3px !important;       /* Saari lines ek barabar choti ho jayengi */
+    border-radius: 50%;          /* Dots wala look dene ke liye */
+}
 
