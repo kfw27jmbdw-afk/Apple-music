@@ -212,6 +212,32 @@ async function renderPlaylist() {
         container.appendChild(div);
     }
 }
+/* ================= FIXED: SEEK BAR & TIME UPDATE ================= */
+if(audio) {
+    audio.ontimeupdate = () => {
+        if(audio.duration) {
+            const seekBar = document.getElementById('seek-bar');
+            const currentText = document.getElementById('current');
+            const durationText = document.getElementById('duration');
+
+            // Bar update
+            if(seekBar) seekBar.value = (audio.currentTime / audio.duration) * 100;
+            
+            // Time text update (00:00)
+            if(currentText) currentText.innerText = formatTime(audio.currentTime);
+            if(durationText) durationText.innerText = formatTime(audio.duration);
+        }
+    };
+}
+
+// Drag karne par gaana aage-piche karne ke liye
+function seekSong() { 
+    if (audio && audio.duration) {
+        const seekBar = document.getElementById('seek-bar');
+        audio.currentTime = (seekBar.value / 100) * audio.duration;
+    }
+}
+
 /* ================= STEP 1: MODAL & STORAGE CORE ================= */
 
 /**
