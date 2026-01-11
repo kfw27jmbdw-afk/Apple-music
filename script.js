@@ -540,14 +540,19 @@ function openPlaylistDetail(playlistName) {
  * Playlist detail se wapas Library par jaane ka logic
  */
 function backToLibraryPlaylists() {
+    // 1. Ye lines buttons (Download, Playlist, Fav) ko wapas dikhati hain
     const subNavs = document.querySelectorAll('.library-sub-nav');
     subNavs.forEach(nav => nav.style.setProperty('display', 'flex', 'important'));
     
-    // Color ko wapas default black karo
-    document.getElementById('library-content-area').style.setProperty('--pl-bg-color', '#121212');
+    // 2. Full screen color ko wapas default black karo
+    // document.documentElement use karne se upar ka black area bhi reset hoga
+    document.documentElement.style.setProperty('--pl-pl-bg-color', '#121212');
+    document.documentElement.style.setProperty('--pl-bg-color', '#121212');
     
+    // 3. Wapas library ki main screen par jao
     switchLibraryView('playlists');
 }
+
 
 
 /**
@@ -1118,16 +1123,13 @@ function updatePlaylistAdaptiveColor(imgSrc) {
         ctx.drawImage(img, 0, 0, 1, 1);
         const d = ctx.getImageData(0, 0, 1, 1).data;
         
-        // Asli Jadoo: Color ko thoda dark (multiplied by 0.7) rakho
-        const r = Math.floor(d[0] * 0.7);
-        const g = Math.floor(d[1] * 0.7);
-        const b = Math.floor(d[2] * 0.7);
+        // Color ko dark rakho taaki Spotify vibe aaye
+        const r = Math.floor(d[0] * 0.6);
+        const g = Math.floor(d[1] * 0.6);
+        const b = Math.floor(d[2] * 0.6);
         const rgb = `rgb(${r},${g},${b})`;
         
-        const container = document.getElementById('library-content-area');
-        if(container) {
-            container.style.setProperty('--pl-bg-color', rgb);
-        }
+        // Pure document par color apply karo (Top se Bottom tak)
+        document.documentElement.style.setProperty('--pl-bg-color', rgb);
     };
 }
-
