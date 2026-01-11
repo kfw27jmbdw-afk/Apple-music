@@ -605,34 +605,56 @@ async function handleDownload() {
     const cache = await caches.open('apple-music-v2');
     const songURL = new URL(song.url, window.location.origin).href;
 
-    const alreadyDownloaded = userLibrary.downloaded.includes(song.id);
+    // 1️⃣ Info popup (non-blocking)
+    showTempMessage("Downloading " + song.name);
 
-    if (alreadyDownloaded) {
-        // ❌ REMOVE OFFLINE
-        await cache.delete(songURL);
-        userLibrary.downloaded =
-            userLibrary.downloaded.filter(id => id !== song.id);
+    // 2️⃣ Start background download
+    cache.add(songURL).then(() => {
+        // ✅ Download complete
+        if (!userLibrary.downloaded.includes(song.id)) {
+            userLibrary.downloaded.push(song.id);
+            saveLibraryToDisk();
 
-        alert("Offline removed");
-    } else {
-        // ⬇️ DOWNLOAD
-        alert("Downloading " + song.name);
-        await cache.add(songURL);
+            // 3️⃣ Show “Available offline” message
+            showTempMessage("Available offline: " + song.name);
 
-        userLibrary.downloaded.push(song.id);
+            // 4️⃣ Refresh Library UI if visible
+            renderPlaylist();
+            if (document.getElementById('library-screen').style.display === 'block') {
+                renderLibraryContent('down');
+            }
+        }
+    }).catch(err => {
+        console.error("Download failed:", err);
+        showTempMessage("Download failed: " + song.name);
+    });
 
-        alert("Available offline");
-    }
-
-    saveLibraryToDisk();
-
-    // UI refresh
-    renderPlaylist();
-    if (document.getElementById('library-screen').style.display === 'block') {
-        renderLibraryContent('down');
-    }
-
+    // 5️⃣ Close menu instantly
     document.getElementById('song-options-menu').style.display = 'none';
+}
+
+// 🔹 Helper function for temporary messages
+function showTempMessage(msg) {
+    let div = document.getElementById('temp-msg');
+    if (!div) {
+        div = document.createElement('div');
+        div.id = 'temp-msg';
+        div.style.position = 'fixed';
+        div.style.top = '10px';
+        div.style.left = '50%';
+        div.style.transform = 'translateX(-50%)';
+        div.style.background = 'rgba(0,0,0,0.8)';
+        div.style.color = 'white';
+        div.style.padding = '10px 20px';
+        div.style.borderRadius = '10px';
+        div.style.zIndex = '9999';
+        div.style.transition = 'opacity 0.3s ease';
+        div.style.opacity = '0';
+        document.body.appendChild(div);
+    }
+    div.innerText = msg;
+    div.style.opacity = '1';
+    setTimeout(() => { div.style.opacity = '0'; }, 2500);
 }
 
 /* ================= DOWNLOADED SONGS RENDER FIXED ================= */
