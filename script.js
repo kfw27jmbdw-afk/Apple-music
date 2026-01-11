@@ -17,7 +17,7 @@ const defaultImg = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745
 // Load saved playlist OR fallback to default
 const savedPlaylist = JSON.parse(localStorage.getItem('appPlaylist'));
 let playlist = savedPlaylist && savedPlaylist.length ? savedPlaylist : [
-    { "name": "APSARA", "artist": "Billa sonipat aala", "url": "music/Apsara.mp3", "img": "https://files.catbox.moe/qrgvpq.webp" },
+    { "name": "APSARA", "artist": "Billa sonipat aala", "url": "https://files.catbox.moe/41aleb.mp3", "img": "https://files.catbox.moe/qrgvpq.webp" },
     { "name": "Yaran gail", "artist": "Billa sonipat aala", "url": "music/Yaaran Gail.mp3", "img": "https://files.catbox.moe/iswwju.jpeg" },
     { "name": "AZUL", "artist": "Guru Randhawa", "url": "music/Azul Lavish Dhiman 320 Kbps.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" },
     { "name": "Pan india", "artist": "Guru randhawa", "url": "music/PAN INDIA - Guru Randhawa.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
@@ -600,40 +600,57 @@ document.addEventListener('click', (e) => {
 
 
 /* ================= FEATURE: BACKGROUND DOWNLOAD ================= */
+/* ================= FEATURE: BACKGROUND DOWNLOAD ================= */
 async function handleDownload() {
+    // ✅ Step 0: Ensure a song is selected
+    if (selectedMenuIndex === null || selectedMenuIndex === undefined) {
+        console.warn("No song selected for download");
+        showTempMessage("Please select a song first!");
+        return;
+    }
+
     const song = playlist[selectedMenuIndex];
     const cache = await caches.open('apple-music-v2');
     const songURL = new URL(song.url, window.location.origin).href;
 
-    // 1️⃣ Info popup (non-blocking)
+    // 1️⃣ Show temporary "Downloading" message
     showTempMessage("Downloading " + song.name);
 
-    // 2️⃣ Start background download
-    cache.add(songURL).then(() => {
-        // ✅ Download complete
-        if (!userLibrary.downloaded.includes(song.id)) {
-            userLibrary.downloaded.push(song.id);
+    try {
+        // 2️⃣ Fetch the song (iOS safe)
+        const response = await fetch(songURL, { mode: 'cors' });
+        if (!response.ok) throw new Error("Network error");
+
+        // 3️⃣ Save to cache
+        await cache.put(songURL, response.clone());
+
+        // 4️⃣ Mark song as downloaded in library
+        if (!userLibrary.downloaded) userLibrary.downloaded = [];
+        if (!userLibrary.downloaded.includes(selectedMenuIndex)) {
+            userLibrary.downloaded.push(selectedMenuIndex);
             saveLibraryToDisk();
-
-            // 3️⃣ Show “Available offline” message
-            showTempMessage("Available offline: " + song.name);
-
-            // 4️⃣ Refresh Library UI if visible
-            renderPlaylist();
-            if (document.getElementById('library-screen').style.display === 'block') {
-                renderLibraryContent('down');
-            }
         }
-    }).catch(err => {
+
+        // 5️⃣ Show "Available offline" message
+        showTempMessage("Available offline: " + song.name);
+
+        // 6️⃣ Refresh UI
+        renderPlaylist();
+        if (document.getElementById('library-screen').style.display === 'block') {
+            renderLibraryContent('down');
+        }
+
+    } catch (err) {
         console.error("Download failed:", err);
         showTempMessage("Download failed: " + song.name);
-    });
+    }
 
-    // 5️⃣ Close menu instantly
-    document.getElementById('song-options-menu').style.display = 'none';
+    // 7️⃣ Close song options menu
+    const menu = document.getElementById('song-options-menu');
+    if(menu) menu.style.display = 'none';
 }
 
-// 🔹 Helper function for temporary messages
+/* ================= TEMP MESSAGE HELPER ================= */
 function showTempMessage(msg) {
     let div = document.getElementById('temp-msg');
     if (!div) {
@@ -656,7 +673,6 @@ function showTempMessage(msg) {
     div.style.opacity = '1';
     setTimeout(() => { div.style.opacity = '0'; }, 2500);
 }
-
 /* ================= DOWNLOADED SONGS RENDER FIXED ================= */
 /*/* ================= FEATURE: DOWNLOADED SONGS SCANNER ================= */
 function renderDownloadedSongs() {
