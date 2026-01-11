@@ -603,42 +603,37 @@ document.addEventListener('click', (e) => {
 async function handleDownload() {
     const song = playlist[selectedMenuIndex];
     const cache = await caches.open('apple-music-v2');
-
     const songURL = new URL(song.url, window.location.origin).href;
-    const isCached = await cache.match(songURL);
 
-    if (isCached) {
+    const alreadyDownloaded = userLibrary.downloaded.includes(song.id);
+
+    if (alreadyDownloaded) {
+        // ❌ REMOVE OFFLINE
         await cache.delete(songURL);
-
         userLibrary.downloaded =
-            userLibrary.downloaded.filter(i => i !== selectedMenuIndex);
+            userLibrary.downloaded.filter(id => id !== song.id);
 
         alert("Offline removed");
     } else {
+        // ⬇️ DOWNLOAD
         alert("Downloading " + song.name);
         await cache.add(songURL);
 
-        if (!userLibrary.downloaded.includes(selectedMenuIndex)) {
-            userLibrary.downloaded.push(selectedMenuIndex);
-        }
+        userLibrary.downloaded.push(song.id);
 
         alert("Available offline");
     }
 
     saveLibraryToDisk();
 
-    // 🔥 DEBUG ALERT — YAHI HONA CHAHIYE
-    alert("Downloaded list: " + JSON.stringify(userLibrary.downloaded));
-
+    // UI refresh
     renderPlaylist();
-
     if (document.getElementById('library-screen').style.display === 'block') {
         renderLibraryContent('down');
     }
 
     document.getElementById('song-options-menu').style.display = 'none';
 }
-
 
 /* ================= DOWNLOADED SONGS RENDER FIXED ================= */
 /*/* ================= FEATURE: DOWNLOADED SONGS SCANNER ================= */
