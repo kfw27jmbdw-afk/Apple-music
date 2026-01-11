@@ -759,3 +759,76 @@ body {
     border-radius: 50%;          /* Dots wala look dene ke liye */
 }
 
+/* Spotify Style Playlist Header */
+.playlist-detail-header {
+    display: flex;
+    flex-direction: column; /* Mobile first stack */
+    align-items: flex-start !important;
+    text-align: left !important;
+    padding: 60px 20px 20px 20px !important;
+    background: linear-gradient(to bottom, var(--bg-color, #282828) 0%, #121212 100%);
+}
+
+.pl-hero-content {
+    display: flex;
+    align-items: flex-end; /* Text image ke niche se align hoga */
+    gap: 20px;
+    width: 100%;
+    margin-top: 20px;
+}
+
+#pl-detail-img {
+    width: 160px !important; /* Thoda bada cover */
+    height: 160px !important;
+    border-radius: 4px !important; /* Spotify minor rounding use karta hai */
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.pl-info-text h1 {
+    font-size: 24px;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -1px;
+}
+
+.pl-info-text p {
+    font-size: 14px;
+    color: #b3b3b3;
+    margin-top: 8px;
+}
+/* Poora container adaptive color lega */
+#library-content-area {
+    background-color: var(--pl-bg-color, #121212);
+    transition: background 0.8s ease;
+    min-height: 100vh;
+}
+
+/* Header mein gradient dalo taaki color niche smoothly black mein merge ho */
+.playlist-detail-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 60px 20px 30px 20px;
+    /* Top par main color, niche aate-aate dark gradient */
+    background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(18,18,18,0.6) 100%) !important;
+}
+
+/* Gaano ki list ka area thoda dark rakho taaki text saaf dikhe */
+#playlist-internal-songs {
+    background: linear-gradient(to bottom, rgba(18,18,18,0.6) 0%, #121212 100%) !important;
+    padding: 10px 0 100px 0;
+}
+#library-content-area {
+    background-color: var(--pl-bg-color, #121212);
+    transition: background 0.8s ease;
+    min-height: 100vh;
+}
+
+.playlist-detail-header {
+    background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(18,18,18,0.4) 100%) !important;
+}
+
+#playlist-internal-songs {
+    /* Isse gaano ka background poori screen ke color se match karega */
+    background: linear-gradient(to bottom, rgba(18,18,18,0.4) 0%, #121212 100%) !important;
+}
