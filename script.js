@@ -18,6 +18,7 @@ const defaultImg = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745
 const savedPlaylist = JSON.parse(localStorage.getItem('appPlaylist'));
 let playlist = savedPlaylist && savedPlaylist.length ? savedPlaylist : [
     { "name": "APSARA", "artist": "Billa sonipat aala", "url": "music/Apsara.mp3", "img": "https://files.catbox.moe/qrgvpq.webp" },
+    { "name": "Yaran gail", "artist": "Billa sonipat aala", "url": "music/Yaaran Gail.mp3", "img": "https://files.catbox.moe/iswwju.jpeg" },
     { "name": "AZUL", "artist": "Guru Randhawa", "url": "music/Azul Lavish Dhiman 320 Kbps.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" },
     { "name": "Pan india", "artist": "Guru randhawa", "url": "music/PAN INDIA - Guru Randhawa.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
     { "name": "Perfect", "artist": "Guru randhawa", "url": "music/Perfect.mp3", "img": "https://files.catbox.moe/k6emom.webp" }
@@ -26,7 +27,11 @@ let playlist = savedPlaylist && savedPlaylist.length ? savedPlaylist : [
 function savePlaylistToDisk() { localStorage.setItem('appPlaylist', JSON.stringify(playlist)); }
 
 let userLibrary = JSON.parse(localStorage.getItem('userLibrary')) || {
-    songs: [], favourites: [], playlists: {}, playlistThumbs: {}
+    songs: [],
+    favourites: [],
+    playlists: {},
+    playlistThumbs: {},
+    downloaded: []   // ✅ STEP 1 added
 };
 function saveLibraryToDisk() { localStorage.setItem('userLibrary', JSON.stringify(userLibrary)); }
 
@@ -598,20 +603,42 @@ document.addEventListener('click', (e) => {
 async function handleDownload() {
     const song = playlist[selectedMenuIndex];
     const cache = await caches.open('apple-music-v2');
-    const isCached = await cache.match(song.url);
+
+    // 🔥 IMPORTANT: absolute URL banao
+    const songURL = new URL(song.url, window.location.origin).href;
+
+    const isCached = await cache.match(songURL);
 
     if (isCached) {
-        await cache.delete(song.url);
-        alert("Gana remove ho gaya!");
-        renderPlaylist();
+        // ❌ REMOVE OFFLINE
+        await cache.delete(songURL);
+
+        // Library se bhi hatao
+        userLibrary.downloaded =
+            userLibrary.downloaded.filter(i => i !== selectedMenuIndex);
+
+        alert("Offline removed");
     } else {
-        alert("Downloading " + song.name + "...\nClick OK to continue using the app.");
-        cache.add(song.url).then(() => {
-            alert("Ready Offline: " + song.name);
-            renderPlaylist(); 
-            if (document.getElementById('library-screen').style.display === 'block') renderDownloadedSongs();
-        }).catch(() => alert("Download failed!"));
+        // ⬇️ DOWNLOAD
+        alert("Downloading " + song.name);
+        await cache.add(songURL);
+
+        // Library me mark karo
+        if (!userLibrary.downloaded.includes(selectedMenuIndex)) {
+            userLibrary.downloaded.push(selectedMenuIndex);
+        }
+
+        alert("Available offline");
     }
+
+    // 💾 save + UI refresh
+    saveLibraryToDisk();
+    renderPlaylist();
+
+    if (document.getElementById('library-screen').style.display === 'block') {
+        renderLibraryContent('down');
+    }
+
     document.getElementById('song-options-menu').style.display = 'none';
 }
 
