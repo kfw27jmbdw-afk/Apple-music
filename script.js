@@ -604,26 +604,20 @@ async function handleDownload() {
     const song = playlist[selectedMenuIndex];
     const cache = await caches.open('apple-music-v2');
 
-    // 🔥 IMPORTANT: absolute URL banao
     const songURL = new URL(song.url, window.location.origin).href;
-
     const isCached = await cache.match(songURL);
 
     if (isCached) {
-        // ❌ REMOVE OFFLINE
         await cache.delete(songURL);
 
-        // Library se bhi hatao
         userLibrary.downloaded =
             userLibrary.downloaded.filter(i => i !== selectedMenuIndex);
 
         alert("Offline removed");
     } else {
-        // ⬇️ DOWNLOAD
         alert("Downloading " + song.name);
         await cache.add(songURL);
 
-        // Library me mark karo
         if (!userLibrary.downloaded.includes(selectedMenuIndex)) {
             userLibrary.downloaded.push(selectedMenuIndex);
         }
@@ -631,8 +625,11 @@ async function handleDownload() {
         alert("Available offline");
     }
 
-    // 💾 save + UI refresh
     saveLibraryToDisk();
+
+    // 🔥 DEBUG ALERT — YAHI HONA CHAHIYE
+    alert("Downloaded list: " + JSON.stringify(userLibrary.downloaded));
+
     renderPlaylist();
 
     if (document.getElementById('library-screen').style.display === 'block') {
@@ -641,6 +638,7 @@ async function handleDownload() {
 
     document.getElementById('song-options-menu').style.display = 'none';
 }
+
 
 /* ================= DOWNLOADED SONGS RENDER FIXED ================= */
 /*/* ================= FEATURE: DOWNLOADED SONGS SCANNER ================= */
