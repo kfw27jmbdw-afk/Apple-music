@@ -239,18 +239,26 @@ async function renderPlaylist() {
     }
 }
 function updatePlayIcons(isPlaying) {
-    // 1. Play/Pause Icons ko update karo
-    const iconClass = isPlaying ? 'fa-pause' : 'fa-play'; 
+    const iconClass = isPlaying ? 'fa-pause' : 'fa-play';
     
-    const playBtn = document.getElementById('play-btn');
-    const miniPlayBtn = document.getElementById('mini-play-btn');
-    
-    if(playBtn) playBtn.className = `fas ${iconClass}`; 
-    if(miniPlayBtn) miniPlayBtn.className = `fas ${iconClass}`; 
+    // 1. Main Buttons badlo
+    const pBtn = document.getElementById('play-btn');
+    const mBtn = document.getElementById('mini-play-btn');
+    if(pBtn) pBtn.className = `fas ${iconClass}`;
+    if(mBtn) mBtn.className = `fas ${iconClass}`;
 
-    // 2. Pure Playlist ko refresh karo taaki Dots/Bars sahi se dikhein
-    renderPlaylist(); // Ye zaroori hai state change dikhane ke liye
+    // 2. POORA RENDER MAT KARO
+    // Sirf animation wali class ko On/Off karo
+    const anim = document.querySelector('.playing-animation');
+    if(anim) {
+        if(isPlaying) {
+            anim.classList.remove('paused');
+        } else {
+            anim.classList.add('paused');
+        }
+    }
 }
+
 
 
 
@@ -452,6 +460,81 @@ function openPlaylistDetail(playlistName) {
     }
 }
 
+function openPlaylistDetail(playlistName) {
+    const container = document.getElementById('library-content-area');
+    const subNavs = document.querySelectorAll('.library-sub-nav');
+    
+    // 1. Library ke tabs hide karo
+    subNavs.forEach(nav => nav.style.setProperty('display', 'none', 'important'));
+    container.classList.remove('grid-view');
+
+    const songIndices = userLibrary.playlists[playlistName] || [];
+    const thumb = (userLibrary.playlistThumbs && userLibrary.playlistThumbs[playlistName]) 
+                  ? userLibrary.playlistThumbs[playlistName] 
+                  : 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300';
+
+    // 2. Updated HTML: CENTER-ALIGNED HERO SECTION
+    container.innerHTML = `
+        <div class="playlist-detail-header" id="playlist-header-bg" style="display: flex; flex-direction: column; align-items: center; padding: 40px 20px; transition: background 0.5s ease;">
+            
+            <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 25px;">
+                <div onclick="backToLibraryPlaylists()" style="background: rgba(0,0,0,0.4); width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor:pointer;">
+                    <i class="fas fa-chevron-left" style="font-size: 14px; color: white;"></i>
+                </div>
+                <div onclick="document.getElementById('pl-cover-upload').click()" style="background: rgba(255,255,255,0.1); padding: 6px 15px; border-radius: 20px; color: white; cursor:pointer; font-size: 12px; font-weight: bold; border: 1px solid rgba(255,255,255,0.3);">
+                    Edit Cover
+                </div>
+            </div>
+
+            <input type="file" id="pl-cover-upload" hidden accept="image/*" onchange="uploadPlaylistCover(event, '${playlistName}')">
+
+            <img id="pl-detail-img" src="${thumb}" style="width: 200px; height: 200px; border-radius: 8px; object-fit: cover; box-shadow: 0 15px 50px rgba(0,0,0,0.6);">
+            
+            <div style="text-align: center; margin-top: 25px;">
+                <h1 style="font-size: 30px; font-weight: 800; color: white; margin: 0; letter-spacing: -1px;">${playlistName}</h1>
+                <p style="color: rgba(255,255,255,0.6); margin-top: 8px; font-size: 14px; font-weight: 500;">Playlist • ${songIndices.length} songs</p>
+            </div>
+            
+            <div onclick="deletePlaylist('${playlistName}')" style="margin-top: 20px; color: rgba(255,255,255,0.4); cursor:pointer; font-size: 14px;">
+                <i class="fas fa-trash-alt"></i>
+            </div>
+        </div>
+        <div id="playlist-internal-songs" style="padding: 10px 0; background: transparent;"></div>
+    `;
+
+    // 3. Adaptive color turant apply karo
+    updatePlaylistAdaptiveColor(thumb);
+
+    const listArea = document.getElementById('playlist-internal-songs');
+    if (songIndices.length === 0) {
+        listArea.innerHTML = `<p style="text-align:center; padding:40px; color:#666;">No songs in this playlist.</p>`;
+    } else {
+        songIndices.forEach(idx => {
+            const song = playlist[idx];
+            const div = document.createElement('div');
+            div.className = "song-item";
+            div.id = `song-item-${idx}`; 
+            
+            div.innerHTML = `
+                <div class="song-info-container" onclick="loadSong(${idx}); maximizePlayer(); audio.play(); updatePlayIcons(true);">
+                    <img src="${song.img || defaultImg}" style="border-radius: 4px;">
+                    <div>
+                        <h4 class="song-name-text" style="font-weight: 500;">${song.name}</h4>
+                        <p>${song.artist}</p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div class="status-container"></div>
+                    <div class="song-menu-btn" onclick="confirmRemoveFromPlaylist(event, '${playlistName}', ${idx})">
+                        <i class="fas fa-trash-alt" style="color: rgba(255,255,255,0.2); font-size: 14px;"></i>
+                    </div>
+                </div>`;
+            listArea.appendChild(div);
+        });
+    }
+    updatePlayingUI();
+}
+
 
 /**
  * Playlist detail se wapas Library par jaane ka logic
@@ -459,8 +542,13 @@ function openPlaylistDetail(playlistName) {
 function backToLibraryPlaylists() {
     const subNavs = document.querySelectorAll('.library-sub-nav');
     subNavs.forEach(nav => nav.style.setProperty('display', 'flex', 'important'));
+    
+    // Color ko wapas default black karo
+    document.getElementById('library-content-area').style.setProperty('--pl-bg-color', '#121212');
+    
     switchLibraryView('playlists');
 }
+
 
 /**
  * Playlist ke andar se gaana delete karne ka logic
@@ -983,3 +1071,63 @@ function getPlayingAnimation() {
             <span></span>
         </div>`;
 }
+/* ================= PLAYLIST COVER & COLOR LOGIC ================= */
+
+/**
+ * 1. Playlist ki photo badalne aur save karne ke liye
+ */
+function uploadPlaylistCover(event, playlistName) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const newImg = e.target.result;
+            
+            // UI par turant photo badlo
+            const plImg = document.getElementById('pl-detail-img');
+            if(plImg) plImg.src = newImg;
+            
+            // Library Object mein save karo
+            if (!userLibrary.playlistThumbs) userLibrary.playlistThumbs = {};
+            userLibrary.playlistThumbs[playlistName] = newImg;
+            
+            // Disk par permanent save karo
+            saveLibraryToDisk();
+            
+            // Background color bhi update karo
+            updatePlaylistAdaptiveColor(newImg);
+            
+            // Library screen refresh karo taaki thumbnail wahan bhi dikhe
+            renderLibraryContent('playlists');
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+/**
+ * 2. Playlist ka background color uske cover jaisa banane ke liye
+ */
+function updatePlaylistAdaptiveColor(imgSrc) {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = imgSrc;
+    img.onload = function() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 1; canvas.height = 1;
+        ctx.drawImage(img, 0, 0, 1, 1);
+        const d = ctx.getImageData(0, 0, 1, 1).data;
+        
+        // Asli Jadoo: Color ko thoda dark (multiplied by 0.7) rakho
+        const r = Math.floor(d[0] * 0.7);
+        const g = Math.floor(d[1] * 0.7);
+        const b = Math.floor(d[2] * 0.7);
+        const rgb = `rgb(${r},${g},${b})`;
+        
+        const container = document.getElementById('library-content-area');
+        if(container) {
+            container.style.setProperty('--pl-bg-color', rgb);
+        }
+    };
+}
+
