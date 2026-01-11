@@ -644,57 +644,38 @@ async function handleDownload() {
 
 /* ================= DOWNLOADED SONGS RENDER FIXED ================= */
 /*/* ================= FEATURE: DOWNLOADED SONGS SCANNER ================= */
-async function renderDownloadedSongs() {
+function renderDownloadedSongs() {
     const container = document.getElementById('library-content-area');
     if (!container) return;
 
-    // 1. Scanning message dikhao
-    container.innerHTML = '<p style="text-align:center; padding:20px; color:#aaa;">Scanning offline storage...</p>';
+    container.innerHTML = "";
 
-    try {
-        // 2. Cache folder ko open karo
-        const cache = await caches.open('apple-music-v2');
-        const cachedRequests = await cache.keys();
-        
-        // 3. Saare cached URLs ka ek Set banao (matching fast karne ke liye)
-        const cachedURLs = new Set(cachedRequests.map(req => req.url));
-
-        container.innerHTML = '';
-        let found = false;
-
-        // 4. Apni playlist ke har gaane ko check karo
-        playlist.forEach((song, index) => {
-            // Song URL ko absolute path mein badlo taaki cache URL se match ho sake
-            const songFullURL = new URL(song.url, window.location.origin).href;
-            
-            if (cachedURLs.has(songFullURL)) {
-                found = true;
-                const div = document.createElement('div');
-                div.className = 'song-item';
-                div.innerHTML = `
-                    <div class="song-info-container" onclick="loadSong(${index}); maximizePlayer(); if(audio) audio.play(); updatePlayIcons(true);">
-                        <img src="${song.img || defaultImg}">
-                        <div>
-                            <h4>${song.name}</h4>
-                            <p>${song.artist}</p>
-                        </div>
-                    </div>`;
-                container.appendChild(div);
-            }
-        });
-
-        // 5. Agar koi gaana nahi mila toh empty state dikhao
-        if (!found) {
-            container.innerHTML = `
-                <div style="text-align:center; padding:40px; color:#666;">
-                    <i class="fas fa-cloud-download-alt" style="font-size:40px; margin-bottom:10px;"></i>
-                    <p>No offline songs found.<br><small>Download some songs to see them here.</small></p>
-                </div>`;
-        }
-    } catch (e) {
-        console.error("Cache Scan Error:", e);
-        container.innerHTML = `<p style="text-align:center; color:red; padding:20px;">Storage Error: Could not scan downloads.</p>`;
+    if (!userLibrary.downloaded || userLibrary.downloaded.length === 0) {
+        container.innerHTML = `
+            <div style="text-align:center; padding:40px; color:#666;">
+                <i class="fas fa-cloud-download-alt" style="font-size:40px;"></i>
+                <p>No downloaded songs</p>
+            </div>`;
+        return;
     }
+
+    userLibrary.downloaded.forEach(index => {
+        const song = playlist[index];
+        if (!song) return;
+
+        const div = document.createElement('div');
+        div.className = "song-item";
+        div.innerHTML = `
+            <div class="song-info-container"
+                 onclick="loadSong(${index}); maximizePlayer(); audio.play(); updatePlayIcons(true);">
+                <img src="${song.img || defaultImg}">
+                <div>
+                    <h4>${song.name}</h4>
+                    <p>${song.artist}</p>
+                </div>
+            </div>`;
+        container.appendChild(div);
+    });
 }
 
 
