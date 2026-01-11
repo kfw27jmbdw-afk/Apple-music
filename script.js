@@ -194,24 +194,66 @@ function prevSong() { currentIndex = (currentIndex - 1 + playlist.length) % play
 async function renderPlaylist() {
     const container = document.getElementById('song-list-container');
     if(!container) return;
+    
     const cache = await caches.open('apple-music-v2');
     const isOffline = !navigator.onLine;
-    container.innerHTML = "";
+    container.innerHTML = ""; 
+
     for (let index = 0; index < playlist.length; index++) {
         const song = playlist[index];
         const div = document.createElement('div');
         div.className = "song-item";
+        
+        // Check 1: Kya ye gaana selected hai?
+        const isCurrent = (index === currentIndex);
+        // Check 2: Kya audio chal raha hai?
+        const isPlaying = isCurrent && audio && !audio.paused;
+        // Check 3: Kya audio paused hai?
+        const isPaused = isCurrent && audio && audio.paused;
+
         const isCached = await cache.match(song.url);
-        if (isOffline && !isCached) { div.style.opacity = "0.3"; div.style.pointerEvents = "none"; }
+        if (isOffline && !isCached) { 
+            div.style.opacity = "0.3"; 
+            div.style.pointerEvents = "none"; 
+        }
+
         div.innerHTML = `
-            <div class="song-info-container" onclick="loadSong(${index}); maximizePlayer(); audio.play(); updatePlayIcons(true);">
+            <div class="song-info-container" onclick="loadSong(${index}); maximizePlayer(); if(audio) audio.play(); updatePlayIcons(true);">
                 <img src="${song.img || defaultImg}">
-                <div><h4>${song.name}</h4><p>${song.artist}</p></div>
+                <div>
+                    <h4 style="color: ${isCurrent ? '#1DB954' : 'white'}">${song.name}</h4>
+                    <p>${song.artist}</p>
+                </div>
             </div>
-            <div class="song-menu-btn" onclick="event.stopPropagation(); openSongMenu(event, ${index})"><i class="fas fa-ellipsis-v"></i></div>`;
+            <div style="display: flex; align-items: center; gap: 12px;">
+                ${isCurrent ? `
+                    <div class="playing-animation ${isPaused ? 'paused' : ''}">
+                        <span></span><span></span><span></span>
+                    </div>` : ''}
+                <div class="song-menu-btn" onclick="event.stopPropagation(); openSongMenu(event, ${index})">
+                    <i class="fas fa-ellipsis-v"></i>
+                </div>
+            </div>`;
+
         container.appendChild(div);
     }
 }
+function updatePlayIcons(isPlaying) {
+    // 1. Play/Pause Icons ko update karo
+    const iconClass = isPlaying ? 'fa-pause' : 'fa-play'; 
+    
+    const playBtn = document.getElementById('play-btn');
+    const miniPlayBtn = document.getElementById('mini-play-btn');
+    
+    if(playBtn) playBtn.className = `fas ${iconClass}`; 
+    if(miniPlayBtn) miniPlayBtn.className = `fas ${iconClass}`; 
+
+    // 2. Pure Playlist ko refresh karo taaki Dots/Bars sahi se dikhein
+    renderPlaylist(); // Ye zaroori hai state change dikhane ke liye
+}
+
+
+
 /* ================= FIXED: SEEK BAR & TIME UPDATE ================= */
 if(audio) {
     audio.ontimeupdate = () => {
@@ -574,12 +616,21 @@ function switchTab(tabName) {
     } else if (tabName === 'library') {
         document.getElementById('library-screen').style.display = 'block';
         document.getElementById('tab-library').classList.add('active');
-        renderLibraryContent('all');
+        
+        // POSSIBLITY FIX: Pehle 'all' tha, isliye empty dikh raha tha
+        // Ab hum direct 'down' call karenge taaki pehli baar mein hi downloads dikhein
+        renderLibraryContent('down'); 
+        
+        // Sath hi Downloaded button ko active class bhi de do (CSS fix)
+        document.querySelectorAll('.sub-nav-btn').forEach(btn => btn.classList.remove('active'));
+        const downBtn = document.querySelector('[onclick*="down"]');
+        if(downBtn) downBtn.classList.add('active');
     } else if (tabName === 'all-songs') {
         document.getElementById('playlist-screen').style.display = 'block';
         document.getElementById('tab-browse').classList.add('active');
     }
 }
+
 
 function openSearchStack() {
     const tabStack = document.getElementById('tab-stack');
@@ -920,4 +971,15 @@ function confirmCreatePlaylist() {
             alert("Playlist already exists!");
         }
     }
+}
+/**
+ * Equalizer bars generate karne ka function
+ */
+function getPlayingAnimation() {
+    return `
+        <div class="playing-animation">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>`;
 }
