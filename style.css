@@ -760,14 +760,26 @@ body {
 }
 
 /* Spotify Style Playlist Header */
+/* Playlist header ko ekdam upar le jaane ke liye */
 .playlist-detail-header {
+    margin-top: -10px !important; /* Agar gap hai toh use kheench lega */
+    padding-top: 10px !important;
     display: flex;
-    flex-direction: column; /* Mobile first stack */
-    align-items: flex-start !important;
-    text-align: left !important;
-    padding: 60px 20px 20px 20px !important;
-    background: linear-gradient(to bottom, var(--bg-color, #282828) 0%, #121212 100%);
+    flex-direction: column;
+    align-items: center;
 }
+
+/* Library title area jab hide ho toh jagah na ghere */
+.library-header {
+    margin-bottom: 0 !important;
+}
+
+/* Ensure karo container top se shuru ho */
+#library-content-area {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
 
 .pl-hero-content {
     display: flex;
@@ -849,3 +861,14 @@ body, #app-container, #library-screen {
 .playlist-detail-header {
     background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(18,18,18,0.4) 100%) !important;
 }
+#library-screen {
+    height: 100vh;
+    overflow-y: auto !important; /* Touch scroll enable karo */
+    -webkit-overflow-scrolling: touch;
+}
+
+#playlist-internal-songs {
+    min-height: 50vh;
+    padding-bottom: 160px !important; /* Taaki aakhri gaana mini-player ke piche na chhup jaye */
+}
+
