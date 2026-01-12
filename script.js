@@ -21,8 +21,13 @@ let playlist = savedPlaylist && savedPlaylist.length ? savedPlaylist : [
     { "name": "Yaran gail", "artist": "Billa sonipat aala", "url": "music/Yaaran Gail.mp3", "img": "https://files.catbox.moe/iswwju.jpeg" },
     { "name": "AZUL", "artist": "Guru Randhawa", "url": "music/Azul Lavish Dhiman 320 Kbps.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" },
     { "name": "Pan india", "artist": "Guru randhawa", "url": "music/PAN INDIA - Guru Randhawa.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
-    { "name": "Perfect", "artist": "Guru randhawa", "url": "music/Perfect.mp3", "img": "https://files.catbox.moe/k6emom.webp" }
+    { "name": "Perfect", "artist": "Guru randhawa", "url": "music/Perfect.mp3", "img": "https://files.catbox.moe/k6emom.webp" },
+{ "name": "Over Confidence", "artist": "Billa sonipat", "url": "https://files.catbox.moe/7880hs.mp3", "img": "https://files.catbox.moe/9j0hwa.webp" },
+{ "name": "Shkini", "artist": "Guru randhawa", "url": "https://dl.dropboxusercontent.com/scl/fi/0f1f6xsa0jgrwjgrl7v1c/SHKINI-Guru-Randhawa.mp3?rlkey=peyfv22ua5ny9bdyvz3dn8r1b", "img": "https://www.dropbox.com/scl/fi/iyygmnxzml34569mo7bsk/Photo-Jan-05-2026-10-50-31-PM.webp?rlkey=x2ue9b4k0u2ettczbcypsavrx&st=ntrpbywg&raw=1" },
 ];
+
+
+
 
 function savePlaylistToDisk() { localStorage.setItem('appPlaylist', JSON.stringify(playlist)); }
 
@@ -240,24 +245,18 @@ async function renderPlaylist() {
 }
 function updatePlayIcons(isPlaying) {
     const iconClass = isPlaying ? 'fa-pause' : 'fa-play';
-    
-    // 1. Main Buttons badlo
     const pBtn = document.getElementById('play-btn');
     const mBtn = document.getElementById('mini-play-btn');
     if(pBtn) pBtn.className = `fas ${iconClass}`;
     if(mBtn) mBtn.className = `fas ${iconClass}`;
 
-    // 2. POORA RENDER MAT KARO
-    // Sirf animation wali class ko On/Off karo
-    const anim = document.querySelector('.playing-animation');
-    if(anim) {
-        if(isPlaying) {
-            anim.classList.remove('paused');
-        } else {
-            anim.classList.add('paused');
-        }
-    }
+    // Saare animation bars ko control karo (Browse aur Playlist dono)
+    document.querySelectorAll('.playing-animation').forEach(anim => {
+        if(isPlaying) anim.classList.remove('paused');
+        else anim.classList.add('paused');
+    });
 }
+
 
 
 
@@ -405,66 +404,17 @@ function updateTickUI(type, status) {
 /**
  * Kisi specific playlist par click karne par uske andar ke gaane dikhana
  */
+
+/* ================= FINAL UPDATED OPEN PLAYLIST DETAIL ================= */
 function openPlaylistDetail(playlistName) {
     const container = document.getElementById('library-content-area');
     const subNavs = document.querySelectorAll('.library-sub-nav');
     
-    // 1. Library ke tabs hide karo
-    subNavs.forEach(nav => nav.style.setProperty('display', 'none', 'important'));
+    // 1. NAVIGATION FIX: Library title aur tabs dono ko hide karo
+    // Isse upar ki khali black jagah khatam ho jayegi
+    const libHeader = document.querySelector('.library-header');
+    if(libHeader) libHeader.style.display = 'none'; 
     
-    // 2. Grid view hatao taaki gaane list mein dikhein
-    container.classList.remove('grid-view');
-
-    const songIndices = userLibrary.playlists[playlistName] || [];
-    const thumb = (userLibrary.playlistThumbs && userLibrary.playlistThumbs[playlistName]) 
-                  ? userLibrary.playlistThumbs[playlistName] 
-                  : 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300';
-
-    // 3. Playlist Header (Isme Delete Button add kiya gaya hai)
-    container.innerHTML = `
-        <div class="playlist-detail-header" style="padding: 20px; text-align: center;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <div onclick="backToLibraryPlaylists()" style="color: #ff3b30; cursor:pointer; font-weight: 600;">
-                    <i class="fas fa-chevron-left"></i> Library
-                </div>
-                <div onclick="deletePlaylist('${playlistName}')" style="color: #8e8e93; cursor:pointer; font-size: 14px;">
-                    <i class="fas fa-trash"></i> Delete
-                </div>
-            </div>
-            <img src="${thumb}" style="width: 180px; height: 180px; border-radius: 15px; object-fit: cover; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-            <h1 style="margin-top: 15px; font-size: 28px; color: white;">${playlistName}</h1>
-            <p style="color: #8e8e93;">${songIndices.length} Songs</p>
-        </div>
-        <div id="playlist-internal-songs"></div>
-    `;
-
-    // 4. Playlist ke andar ke gaane render karo
-    const listArea = document.getElementById('playlist-internal-songs');
-    if (songIndices.length === 0) {
-        listArea.innerHTML = `<p style="text-align:center; padding:40px; color:#666;">No songs in this playlist.</p>`;
-    } else {
-        songIndices.forEach(idx => {
-            const song = playlist[idx];
-            const div = document.createElement('div');
-            div.className = "song-item";
-            div.innerHTML = `
-                <div class="song-info-container" onclick="loadSong(${idx}); maximizePlayer(); audio.play(); updatePlayIcons(true);">
-                    <img src="${song.img || defaultImg}">
-                    <div><h4>${song.name}</h4><p>${song.artist}</p></div>
-                </div>
-                <div class="song-menu-btn" onclick="confirmRemoveFromPlaylist(event, '${playlistName}', ${idx})">
-                    <i class="fas fa-trash-alt" style="color: #ff453a;"></i>
-                </div>`;
-            listArea.appendChild(div);
-        });
-    }
-}
-
-function openPlaylistDetail(playlistName) {
-    const container = document.getElementById('library-content-area');
-    const subNavs = document.querySelectorAll('.library-sub-nav');
-    
-    // 1. Library ke tabs hide karo
     subNavs.forEach(nav => nav.style.setProperty('display', 'none', 'important'));
     container.classList.remove('grid-view');
 
@@ -473,60 +423,61 @@ function openPlaylistDetail(playlistName) {
                   ? userLibrary.playlistThumbs[playlistName] 
                   : 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300';
 
-    // 2. Updated HTML: CENTER-ALIGNED HERO SECTION
+    // 2. POSITION FIX: Padding ko 10px kar diya hai aur margin-top 0
     container.innerHTML = `
-        <div class="playlist-detail-header" id="playlist-header-bg" style="display: flex; flex-direction: column; align-items: center; padding: 40px 20px; transition: background 0.5s ease;">
+        <div class="playlist-detail-header" id="playlist-header-bg" 
+             style="display: flex; flex-direction: column; align-items: center; padding: 10px 20px; margin-top: 0; transition: background 0.5s ease;">
             
-            <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 25px;">
-                <div onclick="backToLibraryPlaylists()" style="background: rgba(0,0,0,0.4); width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor:pointer;">
+            <div style="display: flex; justify-content: space-between; width: 100%; margin-bottom: 10px; padding-top: 5px;">
+                <div onclick="backToLibraryPlaylists()" style="background: rgba(0,0,0,0.4); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor:pointer;">
                     <i class="fas fa-chevron-left" style="font-size: 14px; color: white;"></i>
                 </div>
-                <div onclick="document.getElementById('pl-cover-upload').click()" style="background: rgba(255,255,255,0.1); padding: 6px 15px; border-radius: 20px; color: white; cursor:pointer; font-size: 12px; font-weight: bold; border: 1px solid rgba(255,255,255,0.3);">
+                <div onclick="document.getElementById('pl-cover-upload').click()" style="background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 20px; color: white; cursor:pointer; font-size: 11px; font-weight: bold; border: 1px solid rgba(255,255,255,0.2);">
                     Edit Cover
                 </div>
             </div>
 
             <input type="file" id="pl-cover-upload" hidden accept="image/*" onchange="uploadPlaylistCover(event, '${playlistName}')">
 
-            <img id="pl-detail-img" src="${thumb}" style="width: 200px; height: 200px; border-radius: 8px; object-fit: cover; box-shadow: 0 15px 50px rgba(0,0,0,0.6);">
+            <img id="pl-detail-img" src="${thumb}" 
+                 style="width: 170px; height: 170px; border-radius: 6px; object-fit: cover; box-shadow: 0 10px 35px rgba(0,0,0,0.6);">
             
-            <div style="text-align: center; margin-top: 25px;">
-                <h1 style="font-size: 30px; font-weight: 800; color: white; margin: 0; letter-spacing: -1px;">${playlistName}</h1>
-                <p style="color: rgba(255,255,255,0.6); margin-top: 8px; font-size: 14px; font-weight: 500;">Playlist • ${songIndices.length} songs</p>
+            <div style="text-align: center; margin-top: 12px;">
+                <h1 style="font-size: 24px; font-weight: 800; color: white; margin: 0; letter-spacing: -0.5px;">${playlistName}</h1>
+                <p style="color: rgba(255,255,255,0.6); margin-top: 2px; font-size: 12px; font-weight: 500;">Playlist • ${songIndices.length} songs</p>
             </div>
             
-            <div onclick="deletePlaylist('${playlistName}')" style="margin-top: 20px; color: rgba(255,255,255,0.4); cursor:pointer; font-size: 14px;">
-                <i class="fas fa-trash-alt"></i>
+            <div onclick="deletePlaylist('${playlistName}')" style="margin-top: 8px; color: rgba(255,255,255,0.25); cursor:pointer; font-size: 11px;">
+                <i class="fas fa-trash"></i> Delete
             </div>
         </div>
-        <div id="playlist-internal-songs" style="padding: 10px 0; background: transparent;"></div>
+
+        <div id="playlist-internal-songs" style="padding: 5px 0 160px 0; background: transparent;"></div>
     `;
 
-    // 3. Adaptive color turant apply karo
     updatePlaylistAdaptiveColor(thumb);
 
     const listArea = document.getElementById('playlist-internal-songs');
     if (songIndices.length === 0) {
-        listArea.innerHTML = `<p style="text-align:center; padding:40px; color:#666;">No songs in this playlist.</p>`;
+        listArea.innerHTML = `<p style="text-align:center; padding:40px; color:#666;">No songs yet.</p>`;
     } else {
         songIndices.forEach(idx => {
             const song = playlist[idx];
             const div = document.createElement('div');
             div.className = "song-item";
             div.id = `song-item-${idx}`; 
-            
             div.innerHTML = `
-                <div class="song-info-container" onclick="loadSong(${idx}); maximizePlayer(); audio.play(); updatePlayIcons(true);">
-                    <img src="${song.img || defaultImg}" style="border-radius: 4px;">
+                <div class="song-info-container" onclick="loadSong(${idx}); maximizePlayer(); if(audio) audio.play(); updatePlayIcons(true);">
+                    <img src="${song.img || defaultImg}" style="border-radius: 4px; width: 45px; height: 45px;">
                     <div>
-                        <h4 class="song-name-text" style="font-weight: 500;">${song.name}</h4>
-                        <p>${song.artist}</p>
+                        <h4 class="song-name-text" style="font-size: 14px; margin-bottom: 2px;">${song.name}</h4>
+                        <p style="font-size: 12px;">${song.artist}</p>
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <div class="status-container"></div>
                     <div class="song-menu-btn" onclick="confirmRemoveFromPlaylist(event, '${playlistName}', ${idx})">
-                        <i class="fas fa-trash-alt" style="color: rgba(255,255,255,0.2); font-size: 14px;"></i>
+                        <i class="fas fa-trash-alt" style="color: rgba(255,255,255,0.15); font-size: 13px;"></i>
                     </div>
                 </div>`;
             listArea.appendChild(div);
@@ -534,6 +485,56 @@ function openPlaylistDetail(playlistName) {
     }
     updatePlayingUI();
 }
+
+/* ================= UI SYNC FUNCTION ================= */
+function updatePlayingUI() {
+    // 1. Saare purane highlights aur animations saaf karo
+    document.querySelectorAll('.song-item h4').forEach(h4 => h4.style.color = 'white');
+    document.querySelectorAll('.playing-animation').forEach(a => a.remove());
+
+    // 2. Current bajne wale gaane ka URL pakdo
+    if (!audio || !audio.src) return;
+    const currentPlayingUrl = audio.src;
+
+    // 3. Poori list mein wahi gaana dhoondho jiska URL match kare
+    const allItems = document.querySelectorAll('.song-item');
+    
+    allItems.forEach(item => {
+        // Hum check karenge ki is item ke click function mein wahi URL hai ya nahi
+        // Ya phir hum uske image/info se pehchanenge. Sabse best hai 'onclick' content check karna.
+        const infoContainer = item.querySelector('.song-info-container');
+        if (!infoContainer) return;
+
+        // Hum index se match karenge jo playlist array mein hai
+        const onclickAttr = infoContainer.getAttribute('onclick');
+        const match = onclickAttr ? onclickAttr.match(/loadSong\((\d+)\)/) : null;
+        
+        if (match) {
+            const songIndex = parseInt(match[1]);
+            const songInList = playlist[songIndex];
+
+            // Agar list wale gaane ka URL current bajne wale gaane ke URL se match kar gaya
+            if (songInList && new URL(songInList.url, window.location.origin).href === currentPlayingUrl) {
+                
+                // 4. UI Update: Green Color
+                const title = item.querySelector('h4');
+                if (title) title.style.color = '#1DB954';
+
+                // 5. Animation Inject karo
+                const statusContainer = item.querySelector('.status-container');
+                if (statusContainer) {
+                    const isPaused = audio.paused;
+                    statusContainer.innerHTML = `
+                        <div class="playing-animation ${isPaused ? 'paused' : ''}">
+                            <span></span><span></span><span></span>
+                        </div>`;
+                }
+            }
+        }
+    });
+}
+
+
 
 
 /**
@@ -710,20 +711,31 @@ function switchTab(tabName) {
         document.getElementById('library-screen').style.display = 'block';
         document.getElementById('tab-library').classList.add('active');
         
-        // POSSIBLITY FIX: Pehle 'all' tha, isliye empty dikh raha tha
-        // Ab hum direct 'down' call karenge taaki pehli baar mein hi downloads dikhein
-        renderLibraryContent('down'); 
+        // --- FIX STARTS HERE ---
+        // 1. Library Title aur Sub-Nav (Download, Playlist buttons) wapas dikhao
+        const libHeader = document.querySelector('.library-header');
+        if(libHeader) libHeader.style.display = 'block'; 
         
-        // Sath hi Downloaded button ko active class bhi de do (CSS fix)
+        const subNavs = document.querySelectorAll('.library-sub-nav');
+        subNavs.forEach(nav => nav.style.setProperty('display', 'flex', 'important'));
+
+        // 2. Color reset karo taaki black patti na aaye
+        document.documentElement.style.setProperty('--pl-bg-color', '#121212');
+
+        // 3. Default view 'playlists' par set karo
+        renderLibraryContent('playlists'); 
+        
+        // Buttons mein active class update karo
         document.querySelectorAll('.sub-nav-btn').forEach(btn => btn.classList.remove('active'));
-        const downBtn = document.querySelector('[onclick*="down"]');
-        if(downBtn) downBtn.classList.add('active');
+        const plBtn = document.querySelector('[onclick*="playlists"]');
+        if(plBtn) plBtn.classList.add('active');
+        // --- FIX ENDS HERE ---
+
     } else if (tabName === 'all-songs') {
         document.getElementById('playlist-screen').style.display = 'block';
         document.getElementById('tab-browse').classList.add('active');
     }
 }
-
 
 function openSearchStack() {
     const tabStack = document.getElementById('tab-stack');
