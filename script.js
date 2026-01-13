@@ -23,9 +23,8 @@ let playlist = savedPlaylist && savedPlaylist.length ? savedPlaylist : [
     { "name": "Pan india", "artist": "Guru randhawa", "url": "music/PAN INDIA - Guru Randhawa.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
     { "name": "Perfect", "artist": "Guru randhawa", "url": "music/Perfect.mp3", "img": "https://files.catbox.moe/k6emom.webp" },
 { "name": "Over Confidence", "artist": "Billa sonipat", "url": "https://files.catbox.moe/7880hs.mp3", "img": "https://files.catbox.moe/9j0hwa.webp" },
-{ "name": "Shkini", "artist": "Guru randhawa", "url": "https://dl.dropboxusercontent.com/scl/fi/0f1f6xsa0jgrwjgrl7v1c/SHKINI-Guru-Randhawa.mp3?rlkey=peyfv22ua5ny9bdyvz3dn8r1b", "img": "https://www.dropbox.com/scl/fi/iyygmnxzml34569mo7bsk/Photo-Jan-05-2026-10-50-31-PM.webp?rlkey=x2ue9b4k0u2ettczbcypsavrx&st=ntrpbywg&raw=1" },
+{ "name": "Shkini", "artist": "Guru Randhawa", "url": "https://dl.dropboxusercontent.com/scl/fi/0f1f6xsa0jgrwjgrl7v1c/SHKINI-Guru-Randhawa.mp3?rlkey=peyfv22ua5ny9bdyvz3dn8r1b", "img": "https://files.catbox.moe/ghhwxv.jpeg" }
 ];
-
 
 
 
@@ -783,40 +782,76 @@ document.addEventListener('click', (e) => {
 
 /* ================= FEATURE: BACKGROUND DOWNLOAD ================= */
 /* ================= FEATURE: BACKGROUND DOWNLOAD ================= */
+/* ================= COMPLETE UPGRADED DOWNLOAD BLOCK ================= */
 async function handleDownload() {
-    // ✅ Step 0: Ensure a song is selected
+    // 0. Pehle check karo ki koi gaana select hua hai ya nahi
     if (selectedMenuIndex === null || selectedMenuIndex === undefined) {
         console.warn("No song selected for download");
         showTempMessage("Please select a song first!");
         return;
     }
 
+    // Storage array ko initialize karo agar wo nahi hai
+    if (!userLibrary.downloaded) {
+        userLibrary.downloaded = [];
+    }
+
     const song = playlist[selectedMenuIndex];
-    const cache = await caches.open('apple-music-v2');
     const songURL = new URL(song.url, window.location.origin).href;
 
-    // 1️⃣ Show temporary "Downloading" message
+    // UI Elements for Progress Bar
+    const progressContainer = document.getElementById('download-progress-container');
+    const progressBar = document.getElementById('download-progress-bar');
+    
+    // Download shuru hone par bar dikhao
+    if (progressContainer) progressContainer.style.display = 'block';
+    if (progressBar) progressBar.style.width = "0%";
+    
+    // 1. Downloading message dikhao
     showTempMessage("Downloading " + song.name);
 
     try {
-        // 2️⃣ Fetch the song (iOS safe)
+        // 2. Fetch the song (iOS safe mode)
         const response = await fetch(songURL, { mode: 'cors' });
         if (!response.ok) throw new Error("Network error");
 
-        // 3️⃣ Save to cache
-        await cache.put(songURL, response.clone());
+        // --- PROGRESS TRACKING LOGIC ---
+        const reader = response.body.getReader();
+        const contentLength = +response.headers.get('Content-Length'); // Total File Size
+        
+        let receivedLength = 0; 
+        let chunks = []; 
 
-        // 4️⃣ Mark song as downloaded in library
-        if (!userLibrary.downloaded) userLibrary.downloaded = [];
+        // Data ko tukdon (chunks) mein read karna taaki bar update ho sake
+        while(true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+
+            chunks.push(value);
+            receivedLength += value.length;
+
+            // Bar ko update karo percentage ke sath
+            if (contentLength && progressBar) {
+                const step = (receivedLength / contentLength) * 100;
+                progressBar.style.width = step + "%";
+            }
+        }
+
+        // 3. Save to cache (Chunks ko jod kar file banai)
+        const blob = new Blob(chunks);
+        const cache = await caches.open('apple-music-v2');
+        await cache.put(songURL, new Response(blob));
+
+        // 4. Library mein download mark karo
         if (!userLibrary.downloaded.includes(selectedMenuIndex)) {
             userLibrary.downloaded.push(selectedMenuIndex);
             saveLibraryToDisk();
         }
 
-        // 5️⃣ Show "Available offline" message
+        // 5. Success message
         showTempMessage("Available offline: " + song.name);
 
-        // 6️⃣ Refresh UI
+        // 6. UI Refresh (Lists update karo)
         renderPlaylist();
         if (document.getElementById('library-screen').style.display === 'block') {
             renderLibraryContent('down');
@@ -825,12 +860,19 @@ async function handleDownload() {
     } catch (err) {
         console.error("Download failed:", err);
         showTempMessage("Download failed: " + song.name);
-    }
+    } finally {
+        // 7. Cleanup: Bar ko hide aur reset karo
+        setTimeout(() => {
+            if (progressContainer) progressContainer.style.display = 'none';
+            if (progressBar) progressBar.style.width = "0%";
+        }, 500);
 
-    // 7️⃣ Close song options menu
-    const menu = document.getElementById('song-options-menu');
-    if(menu) menu.style.display = 'none';
+        // Song menu band karo
+        const menu = document.getElementById('song-options-menu');
+        if (menu) menu.style.display = 'none';
+    }
 }
+
 
 /* ================= TEMP MESSAGE HELPER ================= */
 function showTempMessage(msg) {
