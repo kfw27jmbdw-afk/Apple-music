@@ -872,23 +872,3 @@ body, #app-container, #library-screen {
     padding-bottom: 160px !important; /* Taaki aakhri gaana mini-player ke piche na chhup jaye */
 }
 
-/* ================= DOWNLOAD PROGRESS BAR ================= */
-#download-progress-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 4px; /* Ek dam patli line */
-    background: rgba(255, 255, 255, 0.1);
-    z-index: 99999; /* Taaki ye player aur header sabke upar dikhe */
-    display: none; /* By default hidden rahega */
-}
-
-#download-progress-bar {
-    width: 0%;
-    height: 100%;
-    background: #1DB954; /* Spotify Green */
-    box-shadow: 0 0 10px rgba(29, 185, 84, 0.5); /* Halki si chamak */
-    transition: width 0.3s ease; /* Smoothly aage badhne ke liye */
-}
-
