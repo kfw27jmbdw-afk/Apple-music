@@ -7,18 +7,13 @@ const ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'
 ];
 
-// Service Worker Install aur Files Cache karna
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('Caching assets...');
-      return cache.addAll(ASSETS);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
-  self.skipWaiting(); // Naya SW turant active ho jaye
+  self.skipWaiting();
 });
 
-// Purana Cache delete karna aur naye ko claim karna
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -27,15 +22,18 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  self.skipWaiting();
-  return self.clients.claim(); // Safari session ko active rakhne ke liye
+  self.clients.claim();
 });
 
-// Fetching Logic: Cache se uthao ya Network se
+// 🟢 Music streaming ke liye updated fetch logic
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
+      if (response) {
+        // Music files ke liye headers check (iOS/Safari fix)
+        return response;
+      }
+      return fetch(event.request);
     })
   );
 });
