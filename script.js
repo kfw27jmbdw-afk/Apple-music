@@ -23,7 +23,7 @@ let playlist = savedPlaylist && savedPlaylist.length ? savedPlaylist : [
     { "name": "Pan india", "artist": "Guru randhawa", "url": "music/PAN INDIA - Guru Randhawa.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
     { "name": "Perfect", "artist": "Guru randhawa", "url": "music/Perfect.mp3", "img": "https://files.catbox.moe/k6emom.webp" },
 { "name": "Over Confidence", "artist": "Billa sonipat", "url": "https://files.catbox.moe/7880hs.mp3", "img": "https://files.catbox.moe/9j0hwa.webp" },
-{ "name": "Shkini", "artist": "Guru Randhawa", "url": "https://dl.dropboxusercontent.com/scl/fi/0f1f6xsa0jgrwjgrl7v1c/SHKINI-Guru-Randhawa.mp3?rlkey=peyfv22ua5ny9bdyvz3dn8r1b", "img": "https://files.catbox.moe/ghhwxv.jpeg" }
+{ "name": "Shkini", "artist": "Guru Randhawa", "url": "https://dl.dropboxusercontent.com/scl/fi/0f1f6xsa0jgrwjgrl7v1c/SHKINI-Guru-Randhawa.mp3?rlkey=peyfv22ua5ny9bdyvz3dn8r1b", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2056.webp" }
 ];
 
 
