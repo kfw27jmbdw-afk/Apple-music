@@ -158,15 +158,19 @@ async function loadSong(index) {
         const songURL = new URL(s.url, window.location.origin).href;
         const cachedResponse = await cache.match(songURL);
 
-        if (cachedResponse) {
+                if (cachedResponse) {
             const blob = await cachedResponse.blob();
             audio.src = URL.createObjectURL(blob); // Local memory se chalao
+            audio.load(); // 🟢 Ye line add karo
         } else {
             audio.src = s.url; // Internet se chalao
+            audio.load(); // 🟢 Ye line add karo
         }
     } catch (e) {
         audio.src = s.url;
+        audio.load(); // 🟢 Ye line add karo
     }
+
     
     // Auto-play next logic
     audio.onended = () => {
@@ -797,6 +801,7 @@ document.addEventListener('click', (e) => {
 /* ================= FEATURE: BACKGROUND DOWNLOAD ================= */
 /* ================= FEATURE: BACKGROUND DOWNLOAD ================= */
 /* ================= COMPLETE UPGRADED DOWNLOAD BLOCK ================= */
+/* ================= FULL UPDATED DOWNLOAD HANDLE (FIXED PLAYBACK) ================= */
 async function handleDownload() {
     // 0. Pehle check karo ki koi gaana select hua hai ya nahi
     if (selectedMenuIndex === null || selectedMenuIndex === undefined) {
@@ -825,18 +830,17 @@ async function handleDownload() {
     showTempMessage("Downloading " + song.name);
 
     try {
-        // 2. Fetch the song (iOS safe mode)
+        // 2. Fetch the song (CORS mode enable)
         const response = await fetch(songURL, { mode: 'cors' });
         if (!response.ok) throw new Error("Network error");
 
         // --- PROGRESS TRACKING LOGIC ---
         const reader = response.body.getReader();
-        const contentLength = +response.headers.get('Content-Length'); // Total File Size
+        const contentLength = +response.headers.get('Content-Length'); 
         
         let receivedLength = 0; 
         let chunks = []; 
 
-        // Data ko tukdon (chunks) mein read karna taaki bar update ho sake
         while(true) {
             const {done, value} = await reader.read();
             if (done) break;
@@ -844,17 +848,25 @@ async function handleDownload() {
             chunks.push(value);
             receivedLength += value.length;
 
-            // Bar ko update karo percentage ke sath
+            // Bar update
             if (contentLength && progressBar) {
                 const step = (receivedLength / contentLength) * 100;
                 progressBar.style.width = step + "%";
             }
         }
 
-        // 3. Save to cache (Chunks ko jod kar file banai)
-        const blob = new Blob(chunks);
+        // 3. FIX: Chunks ko Audio Blob mein badlo aur correct headers ke sath save karo
+        const blob = new Blob(chunks, { type: 'audio/mpeg' }); 
         const cache = await caches.open('apple-music-v2');
-        await cache.put(songURL, new Response(blob));
+        
+        // Correct Response object banakar Cache mein dalo
+        const responseToCache = new Response(blob, {
+            headers: {
+                'Content-Type': 'audio/mpeg',
+                'Content-Length': blob.size
+            }
+        });
+        await cache.put(songURL, responseToCache);
 
         // 4. Library mein download mark karo
         if (!userLibrary.downloaded.includes(selectedMenuIndex)) {
@@ -865,7 +877,7 @@ async function handleDownload() {
         // 5. Success message
         showTempMessage("Available offline: " + song.name);
 
-        // 6. UI Refresh (Lists update karo)
+        // 6. UI Refresh
         renderPlaylist();
         if (document.getElementById('library-screen').style.display === 'block') {
             renderLibraryContent('down');
@@ -875,17 +887,17 @@ async function handleDownload() {
         console.error("Download failed:", err);
         showTempMessage("Download failed: " + song.name);
     } finally {
-        // 7. Cleanup: Bar ko hide aur reset karo
+        // 7. Cleanup
         setTimeout(() => {
             if (progressContainer) progressContainer.style.display = 'none';
             if (progressBar) progressBar.style.width = "0%";
         }, 500);
 
-        // Song menu band karo
         const menu = document.getElementById('song-options-menu');
         if (menu) menu.style.display = 'none';
     }
 }
+
 
 
 /* ================= TEMP MESSAGE HELPER ================= */
