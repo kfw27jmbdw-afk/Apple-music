@@ -147,25 +147,38 @@ function maximizePlayer() {
 
 
 /* ================= CORE PLAYER LOGIC (FIXED) ================= */
-function loadSong(index) {
+async function loadSong(index) {
     currentIndex = index;
     const s = playlist[index];
-    if(audio) audio.src = s.url;
-    
-    /* ================= FEATURE: AUTO-PLAY NEXT ================= */
-    if (audio) {
-        audio.onended = () => {
-            console.log("Song ended, playing next...");
-            nextSong(); 
-            audio.play().catch(e => console.log("Auto-play blocked"));
-        };
+    if(!audio) return;
+
+    // 🟢 OFFLINE CHECK: Pehle dhoondho ki kya ye gaana downloaded hai?
+    try {
+        const cache = await caches.open('apple-music-v2');
+        const songURL = new URL(s.url, window.location.origin).href;
+        const cachedResponse = await cache.match(songURL);
+
+        if (cachedResponse) {
+            const blob = await cachedResponse.blob();
+            audio.src = URL.createObjectURL(blob); // Local memory se chalao
+        } else {
+            audio.src = s.url; // Internet se chalao
+        }
+    } catch (e) {
+        audio.src = s.url;
     }
+    
+    // Auto-play next logic
+    audio.onended = () => {
+        nextSong(); 
+        audio.play().catch(e => {});
+    };
 
     // 1. Main Player update karo
     document.getElementById('player-title').innerText = s.name;
     document.getElementById('player-artist').innerText = s.artist;
     
-    // 2. MINI PLAYER UPDATE (Ye lines uda di thi maine pehle, ab wapas hain)
+    // 2. MINI PLAYER UPDATE
     document.getElementById('mini-title').innerText = s.name;
     document.getElementById('mini-artist').innerText = s.artist;
     
@@ -179,6 +192,7 @@ function loadSong(index) {
     renderPlaylist();
     updateMediaSession(s);
 }
+
 
 function togglePlay() { 
     if(!audio) return;
