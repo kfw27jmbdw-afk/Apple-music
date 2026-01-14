@@ -147,56 +147,55 @@ function maximizePlayer() {
 
 
 /* ================= CORE PLAYER LOGIC (FIXED) ================= */
+/* ================= CORE PLAYER LOGIC (OPTIMIZED & OFFLINE READY) ================= */
 async function loadSong(index) {
     currentIndex = index;
     const s = playlist[index];
     if(!audio) return;
 
-    // 🟢 OFFLINE CHECK: Pehle dhoondho ki kya ye gaana downloaded hai?
+    // 1. UI Updates Turant Karo (Taaki App Fast Lage)
+    document.getElementById('player-title').innerText = s.name;
+    document.getElementById('player-artist').innerText = s.artist;
+    document.getElementById('mini-title').innerText = s.name;
+    document.getElementById('mini-artist').innerText = s.artist;
+    
+    // Photos update
+    if(mainImg) mainImg.src = s.img || defaultImg;
+    const miniImg = document.getElementById('mini-img');
+    if(miniImg) miniImg.src = s.img || defaultImg;
+    
+    // Background features update (Non-blocking)
+    updatePlayerAdaptiveColor(s.img || defaultImg);
+    renderPlaylist();
+    updateMediaSession(s);
+
+    // 2. 🟢 OFFLINE CHECK: Data background mein uthao
     try {
         const cache = await caches.open('apple-music-v2');
         const songURL = new URL(s.url, window.location.origin).href;
         const cachedResponse = await cache.match(songURL);
 
-                if (cachedResponse) {
+        if (cachedResponse) {
+            console.log("Playing from Cache: " + s.name);
             const blob = await cachedResponse.blob();
-            audio.src = URL.createObjectURL(blob); // Local memory se chalao
-            audio.load(); // 🟢 Ye line add karo
+            audio.src = URL.createObjectURL(blob); // Local memory playback
         } else {
-            audio.src = s.url; // Internet se chalao
-            audio.load(); // 🟢 Ye line add karo
+            console.log("Playing from Network: " + s.name);
+            audio.src = s.url; // Network playback
         }
+        audio.load(); // Buffer fresh karo
     } catch (e) {
+        console.warn("Playback Error, falling back to URL", e);
         audio.src = s.url;
-        audio.load(); // 🟢 Ye line add karo
+        audio.load();
     }
-
     
     // Auto-play next logic
     audio.onended = () => {
         nextSong(); 
-        audio.play().catch(e => {});
+        audio.play().catch(e => console.error("Auto-play blocked"));
     };
-
-    // 1. Main Player update karo
-    document.getElementById('player-title').innerText = s.name;
-    document.getElementById('player-artist').innerText = s.artist;
-    
-    // 2. MINI PLAYER UPDATE
-    document.getElementById('mini-title').innerText = s.name;
-    document.getElementById('mini-artist').innerText = s.artist;
-    
-    // 3. Photos update karo
-    if(mainImg) mainImg.src = s.img || defaultImg;
-    const miniImg = document.getElementById('mini-img');
-    if(miniImg) miniImg.src = s.img || defaultImg;
-    
-    // 4. Adaptive color aur baki features
-    updatePlayerAdaptiveColor(s.img || defaultImg);
-    renderPlaylist();
-    updateMediaSession(s);
 }
-
 
 function togglePlay() { 
     if(!audio) return;
@@ -206,8 +205,16 @@ function togglePlay() {
 
 function updatePlayIcons(isPlaying) { 
     const iconClass = isPlaying ? 'fa-pause' : 'fa-play'; 
-    document.getElementById('play-btn').className = `fas ${iconClass}`; 
-    document.getElementById('mini-play-btn').className = `fas ${iconClass}`; 
+    const pBtn = document.getElementById('play-btn');
+    const mBtn = document.getElementById('mini-play-btn');
+    if(pBtn) pBtn.className = `fas ${iconClass}`; 
+    if(mBtn) mBtn.className = `fas ${iconClass}`; 
+
+    // Equalizer bars ko pause/play karo
+    document.querySelectorAll('.playing-animation').forEach(anim => {
+        if(isPlaying) anim.classList.remove('paused');
+        else anim.classList.add('paused');
+    });
 }
 
 function nextSong() { currentIndex = (currentIndex + 1) % playlist.length; loadSong(currentIndex); audio.play(); updatePlayIcons(true); }
@@ -226,11 +233,8 @@ async function renderPlaylist() {
         const div = document.createElement('div');
         div.className = "song-item";
         
-        // Check 1: Kya ye gaana selected hai?
         const isCurrent = (index === currentIndex);
-        // Check 2: Kya audio chal raha hai?
         const isPlaying = isCurrent && audio && !audio.paused;
-        // Check 3: Kya audio paused hai?
         const isPaused = isCurrent && audio && audio.paused;
 
         const isCached = await cache.match(song.url);
@@ -240,7 +244,7 @@ async function renderPlaylist() {
         }
 
         div.innerHTML = `
-            <div class="song-info-container" onclick="loadSong(${index}); maximizePlayer(); if(audio) audio.play(); updatePlayIcons(true);">
+            <div class="song-info-container" onclick="loadSong(${index}); maximizePlayer(); audio.play(); updatePlayIcons(true);">
                 <img src="${song.img || defaultImg}">
                 <div>
                     <h4 style="color: ${isCurrent ? '#1DB954' : 'white'}">${song.name}</h4>
@@ -260,6 +264,7 @@ async function renderPlaylist() {
         container.appendChild(div);
     }
 }
+
 function updatePlayIcons(isPlaying) {
     const iconClass = isPlaying ? 'fa-pause' : 'fa-play';
     const pBtn = document.getElementById('play-btn');
