@@ -23,13 +23,8 @@ let playlist = savedPlaylist && savedPlaylist.length ? savedPlaylist : [
     { "name": "Pan india", "artist": "Guru randhawa", "url": "music/PAN INDIA - Guru Randhawa.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
     { "name": "Perfect", "artist": "Guru randhawa", "url": "music/Perfect.mp3", "img": "https://files.catbox.moe/k6emom.webp" },
 { "name": "Over Confidence", "artist": "Billa sonipat", "url": "https://files.catbox.moe/7880hs.mp3", "img": "https://files.catbox.moe/9j0hwa.webp" },
-{ "name": "Shkini", "artist": "Guru Randhawa", "url": "https://dl.dropboxusercontent.com/scl/fi/0f1f6xsa0jgrwjgrl7v1c/SHKINI-Guru-Randhawa.mp3?rlkey=peyfv22ua5ny9bdyvz3dn8r1b", "img": "https://files.catbox.moe/ghhwxv.jpeg" },
-{ "name": "Afghan Jalebi", "artist": "8d Audio", "url": "https://dl.dropboxusercontent.com/scl/fi/ztuvb4233enfrgcdolpns/Afghan-Jalebi-8D-Audio-Song-Phantom-Saif-Ali-Khan-Katrina-Kaif-T-Series.mp3?rlkey=g6a3a15ea33isr6j1oo6656nu", "img": "https://files.catbox.moe/n1feln.jpeg" },
-{ "name": "Sapne", "artist": "Artcriminal", "url": "https://dl.dropboxusercontent.com/scl/fi/qmhm260p3sng4mdmael92/artcriminal-SAPNE-Arabic-Afro-House.mp3?rlkey=w48svo5z8u5mf9ww0gu5d9mmb", "img": "https://files.catbox.moe/p8ale0.jpeg" },
-{ "name": "Shkini", "artist": "Guru Randhawa", "url": "https://dl.dropboxusercontent.com/scl/fi/0f1f6xsa0jgrwjgrl7v1c/SHKINI-Guru-Randhawa.mp3?rlkey=peyfv22ua5ny9bdyvz3dn8r1b", "img": "https://files.catbox.moe/ghhwxv.jpeg" },
 { "name": "Shkini", "artist": "Guru Randhawa", "url": "https://dl.dropboxusercontent.com/scl/fi/0f1f6xsa0jgrwjgrl7v1c/SHKINI-Guru-Randhawa.mp3?rlkey=peyfv22ua5ny9bdyvz3dn8r1b", "img": "https://files.catbox.moe/ghhwxv.jpeg" }
 ];
-
 
 
 
@@ -152,25 +147,42 @@ function maximizePlayer() {
 
 
 /* ================= CORE PLAYER LOGIC (FIXED) ================= */
-function loadSong(index) {
+async function loadSong(index) {
     currentIndex = index;
     const s = playlist[index];
-    if(audio) audio.src = s.url;
-    
-    /* ================= FEATURE: AUTO-PLAY NEXT ================= */
-    if (audio) {
-        audio.onended = () => {
-            console.log("Song ended, playing next...");
-            nextSong(); 
-            audio.play().catch(e => console.log("Auto-play blocked"));
-        };
+    if(!audio) return;
+
+    // 🟢 OFFLINE CHECK: Pehle dhoondho ki kya ye gaana downloaded hai?
+    try {
+        const cache = await caches.open('apple-music-v2');
+        const songURL = new URL(s.url, window.location.origin).href;
+        const cachedResponse = await cache.match(songURL);
+
+                if (cachedResponse) {
+            const blob = await cachedResponse.blob();
+            audio.src = URL.createObjectURL(blob); // Local memory se chalao
+            audio.load(); // 🟢 Ye line add karo
+        } else {
+            audio.src = s.url; // Internet se chalao
+            audio.load(); // 🟢 Ye line add karo
+        }
+    } catch (e) {
+        audio.src = s.url;
+        audio.load(); // 🟢 Ye line add karo
     }
+
+    
+    // Auto-play next logic
+    audio.onended = () => {
+        nextSong(); 
+        audio.play().catch(e => {});
+    };
 
     // 1. Main Player update karo
     document.getElementById('player-title').innerText = s.name;
     document.getElementById('player-artist').innerText = s.artist;
     
-    // 2. MINI PLAYER UPDATE (Ye lines uda di thi maine pehle, ab wapas hain)
+    // 2. MINI PLAYER UPDATE
     document.getElementById('mini-title').innerText = s.name;
     document.getElementById('mini-artist').innerText = s.artist;
     
@@ -184,6 +196,7 @@ function loadSong(index) {
     renderPlaylist();
     updateMediaSession(s);
 }
+
 
 function togglePlay() { 
     if(!audio) return;
@@ -787,40 +800,84 @@ document.addEventListener('click', (e) => {
 
 /* ================= FEATURE: BACKGROUND DOWNLOAD ================= */
 /* ================= FEATURE: BACKGROUND DOWNLOAD ================= */
+/* ================= COMPLETE UPGRADED DOWNLOAD BLOCK ================= */
+/* ================= FULL UPDATED DOWNLOAD HANDLE (FIXED PLAYBACK) ================= */
 async function handleDownload() {
-    // ✅ Step 0: Ensure a song is selected
+    // 0. Pehle check karo ki koi gaana select hua hai ya nahi
     if (selectedMenuIndex === null || selectedMenuIndex === undefined) {
         console.warn("No song selected for download");
         showTempMessage("Please select a song first!");
         return;
     }
 
+    // Storage array ko initialize karo agar wo nahi hai
+    if (!userLibrary.downloaded) {
+        userLibrary.downloaded = [];
+    }
+
     const song = playlist[selectedMenuIndex];
-    const cache = await caches.open('apple-music-v2');
     const songURL = new URL(song.url, window.location.origin).href;
 
-    // 1️⃣ Show temporary "Downloading" message
+    // UI Elements for Progress Bar
+    const progressContainer = document.getElementById('download-progress-container');
+    const progressBar = document.getElementById('download-progress-bar');
+    
+    // Download shuru hone par bar dikhao
+    if (progressContainer) progressContainer.style.display = 'block';
+    if (progressBar) progressBar.style.width = "0%";
+    
+    // 1. Downloading message dikhao
     showTempMessage("Downloading " + song.name);
 
     try {
-        // 2️⃣ Fetch the song (iOS safe)
+        // 2. Fetch the song (CORS mode enable)
         const response = await fetch(songURL, { mode: 'cors' });
         if (!response.ok) throw new Error("Network error");
 
-        // 3️⃣ Save to cache
-        await cache.put(songURL, response.clone());
+        // --- PROGRESS TRACKING LOGIC ---
+        const reader = response.body.getReader();
+        const contentLength = +response.headers.get('Content-Length'); 
+        
+        let receivedLength = 0; 
+        let chunks = []; 
 
-        // 4️⃣ Mark song as downloaded in library
-        if (!userLibrary.downloaded) userLibrary.downloaded = [];
+        while(true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+
+            chunks.push(value);
+            receivedLength += value.length;
+
+            // Bar update
+            if (contentLength && progressBar) {
+                const step = (receivedLength / contentLength) * 100;
+                progressBar.style.width = step + "%";
+            }
+        }
+
+        // 3. FIX: Chunks ko Audio Blob mein badlo aur correct headers ke sath save karo
+        const blob = new Blob(chunks, { type: 'audio/mpeg' }); 
+        const cache = await caches.open('apple-music-v2');
+        
+        // Correct Response object banakar Cache mein dalo
+        const responseToCache = new Response(blob, {
+            headers: {
+                'Content-Type': 'audio/mpeg',
+                'Content-Length': blob.size
+            }
+        });
+        await cache.put(songURL, responseToCache);
+
+        // 4. Library mein download mark karo
         if (!userLibrary.downloaded.includes(selectedMenuIndex)) {
             userLibrary.downloaded.push(selectedMenuIndex);
             saveLibraryToDisk();
         }
 
-        // 5️⃣ Show "Available offline" message
+        // 5. Success message
         showTempMessage("Available offline: " + song.name);
 
-        // 6️⃣ Refresh UI
+        // 6. UI Refresh
         renderPlaylist();
         if (document.getElementById('library-screen').style.display === 'block') {
             renderLibraryContent('down');
@@ -829,12 +886,19 @@ async function handleDownload() {
     } catch (err) {
         console.error("Download failed:", err);
         showTempMessage("Download failed: " + song.name);
-    }
+    } finally {
+        // 7. Cleanup
+        setTimeout(() => {
+            if (progressContainer) progressContainer.style.display = 'none';
+            if (progressBar) progressBar.style.width = "0%";
+        }, 500);
 
-    // 7️⃣ Close song options menu
-    const menu = document.getElementById('song-options-menu');
-    if(menu) menu.style.display = 'none';
+        const menu = document.getElementById('song-options-menu');
+        if (menu) menu.style.display = 'none';
+    }
 }
+
+
 
 /* ================= TEMP MESSAGE HELPER ================= */
 function showTempMessage(msg) {
