@@ -1,104 +1,77 @@
-/* ================= CONFIGURATION ================= */
-// Multiple backup servers
-const instances = [
-    'https://inv.vern.cc',
-    'https://invidious.nerdvpn.de',
-    'https://invidious.asir.dev',
-    'https://invidious.projectsegfau.lt'
-];
-
-let activeServer = instances[0];
-
-/* ================= SEARCH LOGIC ================= */
-async function ytSearch() {
+/* ================= SEARCH LOGIC (JSONP BYPASS) ================= */
+function ytSearch() {
     const query = document.getElementById('yt-search').value;
     const container = document.getElementById('search-results');
+    
     if (!query.trim()) return;
+    container.innerHTML = "<p style='text-align:center; color:#1DB954;'>Connecting to Global Library... 🚀</p>";
 
-    container.innerHTML = "<p style='text-align:center; color:#1DB954;'>Searching YouTube...</p>";
+    // JSONP Technique: Ye CORS error ko bypass karne ka sabse purana aur pakka tareeka hai
+    const script = document.createElement('script');
+    const callbackName = 'appleCallback';
+    
+    window[callbackName] = function(data) {
+        renderResults(data.results);
+        delete window[callbackName];
+        document.body.removeChild(script);
+    };
 
-    // Try multiple servers for search
-    for (let url of instances) {
-        try {
-            const res = await fetch(`${url}/api/v1/search?q=${encodeURIComponent(query)}&type=video`, { signal: AbortSignal.timeout(5000) });
-            if (!res.ok) continue;
-            const data = await res.json();
-            if (data && data.length > 0) {
-                activeServer = url; // Update current working server
-                renderResults(data);
-                return;
-            }
-        } catch (e) { console.warn("Trying next search server..."); }
-    }
-    container.innerHTML = "<p style='text-align:center;'>Search failed. Try again.</p>";
+    script.src = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=15&callback=${callbackName}`;
+    script.onerror = () => {
+        container.innerHTML = "<p style='text-align:center; color:red;'>Network Blocked. Try switching to Mobile Data/Wi-Fi.</p>";
+    };
+    document.body.appendChild(script);
 }
 
-function renderResults(data) {
+function renderResults(results) {
     const container = document.getElementById('search-results');
-    container.innerHTML = "";
-    data.slice(0, 10).forEach(video => {
-        const div = document.createElement('div');
-        div.className = "item";
-        div.onclick = () => playSong(video.videoId, video.title, video.author, video.videoThumbnails[0].url);
-        div.innerHTML = `
-            <img src="${video.videoThumbnails[0].url}">
-            <div style="flex:1">
-                <h4 style="margin:0; font-size:14px; color:white;">${video.title}</h4>
-                <p style="margin:2px 0 0; color:#888; font-size:12px;">${video.author}</p>
-            </div>
-            <i class="fas fa-play-circle" style="color:#1DB954; font-size:20px;"></i>`;
-        container.appendChild(div);
-    });
+    container.innerHTML = ""; 
+
+    if (results && results.length > 0) {
+        results.forEach(track => {
+            const div = document.createElement('div');
+            div.className = "item";
+            // Thumbnail quality increase
+            const highResThumb = track.artworkUrl100.replace('100x100', '300x300');
+            
+            div.onclick = () => playSong(track.trackName, track.artistName, highResThumb);
+            div.innerHTML = `
+                <img src="${track.artworkUrl100}">
+                <div style="flex:1; overflow:hidden;">
+                    <h4 style="margin:0; font-size:14px; color:white; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${track.trackName}</h4>
+                    <p style="margin:2px 0 0; color:#888; font-size:12px;">${track.artistName}</p>
+                </div>
+                <i class="fas fa-play-circle" style="color:#1DB954; font-size:24px;"></i>`;
+            container.appendChild(div);
+        });
+    } else {
+        container.innerHTML = "<p style='text-align:center;'>Gaana nahi mila bhai.</p>";
+    }
 }
 
-/* ================= POWERFUL PLAYBACK LOGIC ================= */
-async function playSong(id, title, artist, thumb) {
+/* ================= PLAYBACK LOGIC ================= */
+async function playSong(name, artist, thumb) {
     const audio = document.getElementById('yt-audio');
     const titleDisp = document.getElementById('yt-title');
-    const thumbDisp = document.getElementById('yt-thumb');
     
-    titleDisp.innerText = "Connecting...";
-    thumbDisp.src = thumb;
-    thumbDisp.style.display = "block";
+    titleDisp.innerText = "Searching Sound... 🎧";
+    document.getElementById('yt-thumb').src = thumb;
+    document.getElementById('yt-thumb').style.display = "block";
     document.getElementById('yt-artist').innerText = artist;
 
-    // Method 1: Try Multiple Invidious Servers for Stream
-    for (let server of instances) {
-        try {
-            titleDisp.innerText = `Trying Server...`;
-            const res = await fetch(`${server}/api/v1/videos/${id}`, { signal: AbortSignal.timeout(5000) });
-            const data = await res.json();
-            
-            // Audio formats find karo (m4a/webm)
-            const format = data.adaptiveFormats.find(f => f.type.includes('audio'));
-            
-            if (format && format.url) {
-                audio.src = format.url;
-                titleDisp.innerText = title;
-                audio.play().catch(() => titleDisp.innerText = "Tap Play");
-                return; // SUCCESS!
-            }
-        } catch (e) {
-            console.error(`Server ${server} failed, moving to next.`);
-        }
-    }
-
-    // Method 2: Final Backup (Piped API)
     try {
-        titleDisp.innerText = "Final attempt...";
-        const res = await fetch(`https://pipedapi.kavin.rocks/streams/${id}`);
+        // Direct stream fetcher
+        const searchUrl = `https://inv.tux.rs/api/v1/search?q=${encodeURIComponent(name + " " + artist)}`;
+        const res = await fetch(searchUrl);
         const data = await res.json();
-        const audioStream = data.audioStreams.sort((a, b) => b.bitrate - a.bitrate)[0];
         
-        if (audioStream) {
-            audio.src = audioStream.url;
-            titleDisp.innerText = title;
+        if(data && data[0]) {
+            // Cobalt fallback
+            audio.src = `https://pipedproxy.kavin.rocks/videoplayback?id=${data[0].videoId}&itag=140`;
+            titleDisp.innerText = name;
             audio.play();
-            return;
         }
     } catch (e) {
-        console.error("All streaming methods failed.");
+        titleDisp.innerText = "Playback Error. Try again.";
     }
-
-    titleDisp.innerText = "Stream Error. Try another song.";
 }
