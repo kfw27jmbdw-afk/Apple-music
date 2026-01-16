@@ -1,77 +1,93 @@
-/* ================= SEARCH LOGIC (JSONP BYPASS) ================= */
-function ytSearch() {
+/* ================= CONFIGURATION ================= */
+const API_KEY = 'AIzaSyB9uVSwB9MAIGH8YW2YnLWHdiwtUXtbaUk'; 
+
+/* ================= SEARCH LOGIC ================= */
+async function ytSearch() {
     const query = document.getElementById('yt-search').value;
     const container = document.getElementById('search-results');
-    
     if (!query.trim()) return;
-    container.innerHTML = "<p style='text-align:center; color:#1DB954;'>Connecting to Global Library... 🚀</p>";
 
-    // JSONP Technique: Ye CORS error ko bypass karne ka sabse purana aur pakka tareeka hai
-    const script = document.createElement('script');
-    const callbackName = 'appleCallback';
-    
-    window[callbackName] = function(data) {
-        renderResults(data.results);
-        delete window[callbackName];
-        document.body.removeChild(script);
-    };
+    container.innerHTML = "<p style='text-align:center; color:#1DB954;'>Searching Official Library... 🚀</p>";
 
-    script.src = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=15&callback=${callbackName}`;
-    script.onerror = () => {
-        container.innerHTML = "<p style='text-align:center; color:red;'>Network Blocked. Try switching to Mobile Data/Wi-Fi.</p>";
-    };
-    document.body.appendChild(script);
-}
+    try {
+        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=10&q=${encodeURIComponent(query)}&type=video&key=${API_KEY}`;
+        const response = await fetch(url);
+        const data = await response.json();
 
-function renderResults(results) {
-    const container = document.getElementById('search-results');
-    container.innerHTML = ""; 
-
-    if (results && results.length > 0) {
-        results.forEach(track => {
-            const div = document.createElement('div');
-            div.className = "item";
-            // Thumbnail quality increase
-            const highResThumb = track.artworkUrl100.replace('100x100', '300x300');
-            
-            div.onclick = () => playSong(track.trackName, track.artistName, highResThumb);
-            div.innerHTML = `
-                <img src="${track.artworkUrl100}">
-                <div style="flex:1; overflow:hidden;">
-                    <h4 style="margin:0; font-size:14px; color:white; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${track.trackName}</h4>
-                    <p style="margin:2px 0 0; color:#888; font-size:12px;">${track.artistName}</p>
-                </div>
-                <i class="fas fa-play-circle" style="color:#1DB954; font-size:24px;"></i>`;
-            container.appendChild(div);
-        });
-    } else {
-        container.innerHTML = "<p style='text-align:center;'>Gaana nahi mila bhai.</p>";
+        if (data.items) {
+            renderResults(data.items);
+        } else {
+            container.innerHTML = "<p style='text-align:center;'>Limit Over. Try tomorrow.</p>";
+        }
+    } catch (e) {
+        container.innerHTML = "<p style='text-align:center; color:red;'>Search Error. Check Internet.</p>";
     }
 }
 
-/* ================= PLAYBACK LOGIC ================= */
-async function playSong(name, artist, thumb) {
+function renderResults(items) {
+    const container = document.getElementById('search-results');
+    container.innerHTML = "";
+    items.forEach(item => {
+        const vId = item.id.videoId;
+        const div = document.createElement('div');
+        div.className = "item";
+        div.onclick = () => playSong(vId, item.snippet.title, item.snippet.channelTitle, item.snippet.thumbnails.high.url);
+        div.innerHTML = `
+            <img src="${item.snippet.thumbnails.default.url}">
+            <div style="flex:1">
+                <h4 style="margin:0; font-size:14px; color:white;">${item.snippet.title}</h4>
+                <p style="margin:2px 0 0; color:#888; font-size:12px;">${item.snippet.channelTitle}</p>
+            </div>
+            <i class="fas fa-play-circle" style="color:#1DB954; font-size:24px;"></i>`;
+        container.appendChild(div);
+    });
+}
+
+/* ================= POWERFUL PLAYBACK (NO LOADING) ================= */
+async function playSong(id, title, artist, thumb) {
     const audio = document.getElementById('yt-audio');
     const titleDisp = document.getElementById('yt-title');
     
-    titleDisp.innerText = "Searching Sound... 🎧";
+    titleDisp.innerText = "Connecting to Stream... 🎧";
     document.getElementById('yt-thumb').src = thumb;
     document.getElementById('yt-thumb').style.display = "block";
     document.getElementById('yt-artist').innerText = artist;
 
-    try {
-        // Direct stream fetcher
-        const searchUrl = `https://inv.tux.rs/api/v1/search?q=${encodeURIComponent(name + " " + artist)}`;
-        const res = await fetch(searchUrl);
-        const data = await res.json();
-        
-        if(data && data[0]) {
-            // Cobalt fallback
-            audio.src = `https://pipedproxy.kavin.rocks/videoplayback?id=${data[0].videoId}&itag=140`;
-            titleDisp.innerText = name;
-            audio.play();
+    // List of multiple working proxies (Agar ek load ho, toh dusra try karega)
+    const proxyList = [
+        `https://iv.ggtyler.dev/latest/videoplayback?id=${id}&itag=140`,
+        `https://invidious.flokinet.is/latest/videoplayback?id=${id}&itag=140`,
+        `https://pipedproxy.kavin.rocks/videoplayback?id=${id}&itag=140`,
+        `https://inv.tux.rs/latest/videoplayback?id=${id}&itag=140`
+    ];
+
+    let currentProxy = 0;
+
+    async function tryNextProxy() {
+        if (currentProxy < proxyList.length) {
+            console.log("Trying Proxy: " + currentProxy);
+            audio.src = proxyList[currentProxy];
+            currentProxy++;
+            
+            audio.play().then(() => {
+                titleDisp.innerText = title;
+            }).catch(e => {
+                console.log("Proxy failed, jumping to next...");
+                tryNextProxy();
+            });
+        } else {
+            titleDisp.innerText = "All servers busy. Try again later.";
         }
-    } catch (e) {
-        titleDisp.innerText = "Playback Error. Try again.";
     }
+
+    // Start trying from the first proxy
+    tryNextProxy();
+
+    // Error handling if stream stops
+    audio.onerror = () => {
+        console.warn("Stream broken, switching...");
+        tryNextProxy();
+    };
 }
+
+document.getElementById('yt-search').addEventListener('keypress', (e) => { if (e.key === 'Enter') ytSearch(); });
