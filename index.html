@@ -1,38 +1,193 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unlimited YT Player</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        body { background: #121212; color: white; font-family: sans-serif; display: flex; justify-content: center; padding: 20px; }
-        .app { width: 100%; max-width: 400px; }
-        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { flex: 1; padding: 12px; border-radius: 8px; border: none; background: #222; color: white; }
-        button { padding: 10px 15px; background: #1DB954; border: none; border-radius: 8px; color: white; cursor: pointer; }
-        .results { max-height: 300px; overflow-y: auto; margin-bottom: 20px; }
-        .item { display: flex; gap: 10px; padding: 10px; background: #1a1a1a; margin-bottom: 8px; border-radius: 8px; cursor: pointer; align-items: center; }
-        .item img { width: 50px; height: 50px; border-radius: 4px; object-fit: cover; }
-        .player { text-align: center; padding: 20px; background: #1a1a1a; border-radius: 12px; }
-        #yt-thumb { width: 100%; border-radius: 10px; margin-bottom: 10px; display: none; }
-        audio { width: 100%; margin-top: 15px; filter: invert(100%); }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YT Audio Player</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+body {
+    background:#121212;
+    color:white;
+    font-family:Arial, sans-serif;
+    display:flex;
+    justify-content:center;
+    padding:20px;
+}
+.app {
+    width:100%;
+    max-width:400px;
+}
+.search-box {
+    display:flex;
+    gap:10px;
+    margin-bottom:15px;
+}
+input {
+    flex:1;
+    padding:12px;
+    border:none;
+    border-radius:8px;
+    background:#222;
+    color:white;
+}
+button {
+    background:#1DB954;
+    border:none;
+    border-radius:8px;
+    padding:0 15px;
+    color:white;
+    cursor:pointer;
+}
+.results {
+    max-height:280px;
+    overflow-y:auto;
+    margin-bottom:15px;
+}
+.item {
+    display:flex;
+    gap:10px;
+    background:#1a1a1a;
+    padding:10px;
+    border-radius:8px;
+    margin-bottom:8px;
+    cursor:pointer;
+}
+.item img {
+    width:50px;
+    height:50px;
+    border-radius:4px;
+}
+.player {
+    background:#1a1a1a;
+    border-radius:12px;
+    padding:15px;
+    text-align:center;
+}
+#thumb {
+    width:100%;
+    border-radius:10px;
+    display:none;
+}
+.controls {
+    display:flex;
+    justify-content:center;
+    gap:25px;
+    margin-top:10px;
+}
+.controls i {
+    font-size:26px;
+    color:#1DB954;
+    cursor:pointer;
+}
+</style>
 </head>
+
 <body>
-    <div class="app">
-        <div class="search-box">
-            <input type="text" id="yt-search" placeholder="Search YouTube Music...">
-            <button onclick="ytSearch()"><i class="fas fa-search"></i></button>
-        </div>
-        <div id="search-results" class="results"></div>
-        <div class="player">
-            <img id="yt-thumb" src="" alt="Cover">
-            <h3 id="yt-title" style="margin: 5px 0;">Search & Play</h3>
-            <p id="yt-artist" style="color: #888; font-size: 14px;"></p>
-            <audio id="yt-audio" controls></audio>
+
+<div class="app">
+
+    <div class="search-box">
+        <input id="query" placeholder="Search YouTube music">
+        <button onclick="searchYT()">
+            <i class="fas fa-search"></i>
+        </button>
+    </div>
+
+    <div id="results" class="results"></div>
+
+    <div class="player">
+        <img id="thumb">
+        <h3 id="title">Search & Play</h3>
+        <p id="artist" style="color:#888;font-size:14px"></p>
+
+        <div class="controls">
+            <i class="fas fa-play" onclick="play()"></i>
+            <i class="fas fa-pause" onclick="pause()"></i>
+            <i class="fas fa-stop" onclick="stopSong()"></i>
         </div>
     </div>
-    <script src="script.js"></script>
+
+</div>
+
+<!-- 🔒 Hidden YouTube Player (Audio Only) -->
+<div id="player" style="width:0;height:0;overflow:hidden"></div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<script>
+let ytPlayer;
+
+/* ================= YT PLAYER READY ================= */
+function onYouTubeIframeAPIReady() {
+    ytPlayer = new YT.Player('player', {
+        height: '0',
+        width: '0',
+        playerVars: {
+            autoplay: 1,
+            playsinline: 1,
+            controls: 0
+        }
+    });
+}
+
+/* ================= SEARCH ================= */
+async function searchYT() {
+    const q = document.getElementById("query").value.trim();
+    const results = document.getElementById("results");
+
+    if (!q) return;
+    results.innerHTML = "Searching...";
+
+    try {
+        const res = await fetch(
+            `https://invidious.projectsegfau.lt/api/v1/search?q=${encodeURIComponent(q)}&type=video`
+        );
+        const data = await res.json();
+
+        results.innerHTML = "";
+        data.slice(0,10).forEach(v => {
+            const div = document.createElement("div");
+            div.className = "item";
+            div.innerHTML = `
+                <img src="${v.videoThumbnails[0].url}">
+                <div>
+                    <b>${v.title}</b>
+                    <p style="font-size:12px;color:#888">${v.author}</p>
+                </div>
+            `;
+            div.onclick = () => loadSong(v);
+            results.appendChild(div);
+        });
+
+    } catch {
+        results.innerHTML = "Search failed ❌";
+    }
+}
+
+/* ================= LOAD SONG ================= */
+function loadSong(v) {
+    document.getElementById("thumb").src = v.videoThumbnails.at(-1).url;
+    document.getElementById("thumb").style.display = "block";
+    document.getElementById("title").innerText = v.title;
+    document.getElementById("artist").innerText = v.author;
+
+    ytPlayer.loadVideoById(v.videoId);
+}
+
+/* ================= CONTROLS ================= */
+function play() {
+    ytPlayer.playVideo();
+}
+function pause() {
+    ytPlayer.pauseVideo();
+}
+function stopSong() {
+    ytPlayer.stopVideo();
+}
+</script>
+
 </body>
 </html>
