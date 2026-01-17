@@ -1,192 +1,235 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YT Audio Player</title>
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
-<style>
-body {
-    background:#121212;
-    color:white;
-    font-family:Arial, sans-serif;
-    display:flex;
-    justify-content:center;
-    padding:20px;
-}
-.app {
-    width:100%;
-    max-width:400px;
-}
-.search-box {
-    display:flex;
-    gap:10px;
-    margin-bottom:15px;
-}
-input {
-    flex:1;
-    padding:12px;
-    border:none;
-    border-radius:8px;
-    background:#222;
-    color:white;
-}
-button {
-    background:#1DB954;
-    border:none;
-    border-radius:8px;
-    padding:0 15px;
-    color:white;
-    cursor:pointer;
-}
-.results {
-    max-height:280px;
-    overflow-y:auto;
-    margin-bottom:15px;
-}
-.item {
-    display:flex;
-    gap:10px;
-    background:#1a1a1a;
-    padding:10px;
-    border-radius:8px;
-    margin-bottom:8px;
-    cursor:pointer;
-}
-.item img {
-    width:50px;
-    height:50px;
-    border-radius:4px;
-}
-.player {
-    background:#1a1a1a;
-    border-radius:12px;
-    padding:15px;
-    text-align:center;
-}
-#thumb {
-    width:100%;
-    border-radius:10px;
-    display:none;
-}
-.controls {
-    display:flex;
-    justify-content:center;
-    gap:25px;
-    margin-top:10px;
-}
-.controls i {
-    font-size:26px;
-    color:#1DB954;
-    cursor:pointer;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Apple Music</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1DB954">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-
 <body>
+<div id="download-progress-container">
+    <div id="download-progress-bar"></div>
+</div>
 
-<div class="app">
-
-    <div class="search-box">
-        <input id="query" placeholder="Search YouTube music">
-        <button onclick="searchYT()">
-            <i class="fas fa-search"></i>
-        </button>
+<div id="main-app">
+    <div id="home-screen" class="tab-content" style="display:none;">
+        <div class="playlist-header">
+            <h2>Home</h2>
+        </div>
+        <div id="recent-played-container"></div>
     </div>
 
-    <div id="results" class="results"></div>
-
-    <div class="player">
-        <img id="thumb">
-        <h3 id="title">Search & Play</h3>
-        <p id="artist" style="color:#888;font-size:14px"></p>
-
-        <div class="controls">
-            <i class="fas fa-play" onclick="play()"></i>
-            <i class="fas fa-pause" onclick="pause()"></i>
-            <i class="fas fa-stop" onclick="stopSong()"></i>
+    <div id="library-screen" class="tab-content" style="display:none;">
+        <div class="playlist-header">
+            <h2>Library</h2>
+        </div>
+        <div class="library-sub-nav">
+            <button class="sub-nav-btn active" onclick="switchLibraryView('down')">DOWNLOADED</button>
+            <button class="sub-nav-btn" onclick="switchLibraryView('playlists')">PLAYLIST</button>
+            <button class="sub-nav-btn" onclick="switchLibraryView('fav')">FAVORITE</button>
+            <button class="sub-nav-btn" onclick="switchLibraryView('all')">ALBUM</button>
+        </div>
+        <div id="library-content-area">
+            <div id="downloaded-list-container"></div>
         </div>
     </div>
 
+    <div id="playlist-screen" class="tab-content">
+        <div class="playlist-header">
+            <h2>Your Library</h2>
+            <div class="header-icons">
+                <i class="fas fa-plus" onclick="openForm()"></i>
+            </div>
+        </div>
+        <div id="song-list-container"></div>
+    </div>
+
+    <div id="player-screen">
+        <div class="drag-handle" id="drag-area">
+            <div class="handle-bar"></div>
+        </div>
+        
+        <div class="top-bar">
+            <i class="fas fa-chevron-down" onclick="minimizePlayer()"></i>
+            <span id="nav-playlist-name">Now Playing</span>
+            <i class="fas fa-ellipsis-h" onclick="toggleMenu()"></i>
+            
+            <div id="side-menu" class="hidden-menu">
+                <label for="cover-upload" style="cursor:pointer; display:block; padding: 5px 0;">
+                    <i class="fas fa-image"></i> Change Album
+                </label>
+                <input type="file" id="cover-upload" accept="image/*" style="display:none">
+                <hr style="border:0.1px solid #555; margin:5px 0;">
+                <div onclick="openForm()" style="cursor:pointer; padding: 5px 0;">
+                    <i class="fas fa-link"></i> Add Song Link
+                </div>
+            </div>
+        </div>
+
+        <div class="player-content">
+            <div class="banner-container">
+                <img src="" id="song-image" crossorigin="anonymous">
+            </div>
+
+            <div class="song-info-area">
+                <div class="meta">
+                    <h2 id="player-title">Song Title</h2>
+                    <p id="player-artist">Artist Name</p>
+                </div>
+                <i class="fas fa-plus-circle plus-btn" id="like-btn" onclick="handleMenuAddPlaylistFromPlayer()"></i>
+            </div>
+
+            <div class="controls-wrapper">
+                <input type="range" id="seek-bar" value="0" step="0.1" oninput="seekSong()">
+                <div class="time-stamps">
+                    <span id="current">0:00</span>
+                    <span id="duration">0:00</span>
+                </div>
+                <div class="main-controls">
+                    <i class="fas fa-random"></i>
+                    <i class="fas fa-step-backward" onclick="prevSong()"></i>
+                    <div class="play-trigger" onclick="togglePlay()">
+                        <i class="fas fa-play" id="play-btn"></i>
+                    </div>
+                    <i class="fas fa-step-forward" onclick="nextSong()"></i>
+                    <i class="fas fa-redo-alt"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mini-player" onclick="maximizePlayer()">
+        <div class="mini-left">
+            <img src="" id="mini-img">
+            <div class="mini-meta">
+                <h4 id="mini-title">Title</h4>
+                <p id="mini-artist">Artist</p>
+            </div>
+        </div>
+        <div class="mini-right">
+            <i class="fas fa-play" id="mini-play-btn" onclick="event.stopPropagation(); togglePlay();"></i>
+        </div>
+    </div>
+
+    <div id="add-music-form" class="overlay">
+        <h2>Add Music Link</h2>
+        <input type="text" id="new-name" placeholder="Song Name">
+        <input type="text" id="new-artist" placeholder="Artist Name">
+        <input type="text" id="new-url" placeholder="MP3 URL (Catbox)">
+        <input type="text" id="new-img" placeholder="Album Image URL (Optional)">
+        <button onclick="addNewSong()" class="btn-green">Generate Code</button>
+        <button onclick="closeForm()" class="btn-outline">Cancel</button>
+        <div id="export-area" style="display:none; margin-top:15px;">
+            <button onclick="copyToClipboard()" class="btn-copy">Copy All Code</button>
+            <textarea id="final-code" readonly></textarea>
+        </div>
+    </div>
+
+    <div id="bottom-navigation-container">
+        <div id="tab-stack" class="nav-stack">
+            <div class="nav-item active" id="tab-home" onclick="switchTab('home')">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </div>
+            <div class="nav-item" id="tab-browse" onclick="switchTab('all-songs')">
+                <i class="fas fa-th-large"></i>
+                <span>Browse</span>
+            </div>
+            <div class="nav-item" id="tab-library" onclick="switchTab('library')">
+                <i class="fas fa-play-circle"></i>
+                <span>Library</span>
+            </div>
+            <div class="nav-item" onclick="openSearchStack()">
+                <i class="fas fa-search"></i>
+                <span>Search</span>
+            </div>
+        </div>
+
+        <div id="search-stack" class="nav-stack" style="display: none; position: relative;">
+            <div class="search-active-tab" id="current-active-indicator">
+                <i class="fas fa-home"></i>
+            </div>
+            <div class="search-input-wrapper" style="position: relative;">
+                <i class="fas fa-search search-inside-icon"></i>
+                <input type="text" id="app-search-input" placeholder="Search Songs..." oninput="filterSongs()" autocomplete="off">
+            </div>
+        </div>
+        
+        <div id="global-search-results" style="display: none; position: fixed; bottom: 85px; left: 12px; right: 12px; background: #1c1c1e; z-index: 999999; max-height: 60vh; overflow-y: auto; border-radius: 20px; border: 1px solid #333; box-shadow: 0 -15px 35px rgba(0,0,0,0.8);"></div>
+
+        <div id="search-backdrop"></div>
+    </div>
+
+    <audio id="main-audio" preload="metadata"></audio>
 </div>
 
-<!-- 🔒 Hidden YouTube Player (Audio Only) -->
-<div id="player" style="width:0;height:0;overflow:hidden"></div>
+<div id="action-modal" class="overlay" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-song-name">Song Name</h3>
+            <p id="modal-song-artist">Artist Name</p>
+        </div>
+        <div class="modal-options-list">
+            <div class="modal-option" onclick="toggleTick('library')">
+                <i class="fas fa-plus-square"></i>
+                <span>Add to Library</span>
+                <i class="fas fa-check-circle tick-icon" id="tick-library"></i>
+            </div>
+            <div class="modal-option" onclick="toggleTick('favourite')">
+                <i class="fas fa-heart"></i>
+                <span>Add to Favourite</span>
+                <i class="fas fa-check-circle tick-icon" id="tick-favourite"></i>
+            </div>
+            <hr class="modal-divider">
+            <div id="modal-playlists-list"></div>
+            <div class="modal-option create-new" onclick="showNewPlaylistPrompt()">
+                <i class="fas fa-plus-circle"></i>
+                <span>New Playlist...</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-done" onclick="saveAndCloseModal()">DONE</button>
+        </div>
+    </div>
+</div>
 
-<script src="https://www.youtube.com/iframe_api"></script>
+<div id="playlist-name-modal" class="overlay" style="display:none; z-index: 20005;">
+    <div class="modal-content small">
+        <h3>New Playlist</h3>
+        <input type="text" id="new-playlist-input" placeholder="Playlist Name...">
+        <div class="modal-footer">
+            <button class="btn-outline" onclick="closePlaylistPrompt()">Cancel</button>
+            <button class="btn-green" onclick="confirmCreatePlaylist()">DONE</button>
+        </div>
+    </div>
+</div>
 
+<div id="song-options-menu" class="song-context-menu">
+    <div class="menu-item" onclick="handleMenuAddPlaylist()">
+        <i class="fas fa-plus"></i> Add to Playlist
+    </div>
+    <div id="download-toggle-btn" class="menu-item" onclick="handleDownload()">
+        <i class="fas fa-arrow-down"></i> Download
+    </div>
+    <div class="menu-item" onclick="handleMenuChangeCover()">
+        <i class="fas fa-image"></i> Change Cover
+    </div>
+</div>
+
+<script src="script.js"></script>
 <script>
-let ytPlayer;
-
-/* ================= YT PLAYER READY ================= */
-function onYouTubeIframeAPIReady() {
-    ytPlayer = new YT.Player('player', {
-        height: '0',
-        width: '0',
-        playerVars: {
-            autoplay: 1,
-            playsinline: 1,
-            controls: 0
-        }
-    });
-}
-
-/* ================= SEARCH ================= */
-async function searchYT() {
-    const q = document.getElementById("query").value.trim();
-    const results = document.getElementById("results");
-
-    if (!q) return;
-    results.innerHTML = "Searching...";
-
-    try {
-        const res = await fetch(
-            `https://invidious.projectsegfau.lt/api/v1/search?q=${encodeURIComponent(q)}&type=video`
-        );
-        const data = await res.json();
-
-        results.innerHTML = "";
-        data.slice(0,10).forEach(v => {
-            const div = document.createElement("div");
-            div.className = "item";
-            div.innerHTML = `
-                <img src="${v.videoThumbnails[0].url}">
-                <div>
-                    <b>${v.title}</b>
-                    <p style="font-size:12px;color:#888">${v.author}</p>
-                </div>
-            `;
-            div.onclick = () => loadSong(v);
-            results.appendChild(div);
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js');
         });
-
-    } catch {
-        results.innerHTML = "Search failed ❌";
     }
-}
-
-/* ================= LOAD SONG ================= */
-function loadSong(v) {
-    document.getElementById("thumb").src = v.videoThumbnails.at(-1).url;
-    document.getElementById("thumb").style.display = "block";
-    document.getElementById("title").innerText = v.title;
-    document.getElementById("artist").innerText = v.author;
-
-    ytPlayer.loadVideoById(v.videoId);
-}
-
-/* ================= CONTROLS ================= */
-function play() {
-    ytPlayer.playVideo();
-}
-function pause() {
-    ytPlayer.pauseVideo();
-}
-function stopSong() {
-    ytPlayer.stopVideo();
-}
 </script>
 
 </body>
