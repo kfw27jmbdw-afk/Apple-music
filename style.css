@@ -116,6 +116,37 @@ body {
     z-index: 500; /* Player screen ke niche */
     border-top: 1px solid #333;
 }
+#mini-player {
+    position: fixed; 
+    bottom: 85px; 
+    left: 12px;
+    right: 12px;
+    width: auto; 
+    height: 68px;
+    
+    /* 1. ULTRA TRANSPARENCY: Sirf 15% safed rang, baaki sab transparent */
+    background: rgba(255, 255, 255, 0.08) !important; 
+    
+    /* 2. LENS BLUR: 30px blur se ekdam premium frosted feel aayega */
+    backdrop-filter: blur(35px) saturate(180%) !important; 
+    -webkit-backdrop-filter: blur(35px) saturate(180%); 
+    
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    padding: 0 15px; 
+    box-sizing: border-box; 
+    z-index: 5000;
+    
+    /* 3. SHARP EDGES: Apple jaisi patli chamakti border */
+    border-radius: 18px; 
+    border: 1px solid rgba(255, 255, 255, 0.15); 
+    
+    /* 4. SOFT SHADOW: Glass ko lift karne ke liye */
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); 
+    
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
 
 .drag-handle { width: 100%; height: 40px; display: flex; justify-content: center; align-items: center; cursor: grab; }
@@ -151,23 +182,7 @@ body {
     border-radius: 50%; display: flex; justify-content: center; align-items: center; 
 }
 
-/* --- MINI PLAYER BAR --- */
-#mini-player {
-    position: fixed; 
-    bottom: 0; 
-    left: 0; 
-    width: 100%; 
-    height: 75px;
-    background: #282828; 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center;
-    padding: 0 20px 10px 20px; 
-    box-sizing: border-box; 
-    z-index: 50;
-    border-top: 1px solid #333;
-    transition: transform 0.4s ease, opacity 0.4s ease;
-}
+
 
 #mini-player.hidden { 
     transform: translateY(100%); 
@@ -414,25 +429,37 @@ body {
     width: 100vw;
 }
 
-/* 2. Mini Player: Isko Tabs ke theek upar floating dikhana hai */
 #mini-player {
     position: fixed; 
-    bottom: 85px; /* Tabs (75px) + 10px ka gap = Floating Look */
-    left: 10px;
-    right: 10px;
-    width: calc(100% - 20px); /* Side se thoda space */
-    height: 65px;
-    background: rgba(45, 45, 45, 0.98); /* Apple Music jaisa dark grey */
-    backdrop-filter: blur(15px); /* Premium glass effect */
-    border-radius: 15px; /* Rounded corners */
-    z-index: 5000;
-    display: flex;
+    bottom: 85px; 
+    left: 12px;
+    right: 12px;
+    width: auto; 
+    height: 68px;
+    
+    /* 1. CRYSTAL CLEAR: White color ko 2% kar diya (Na ke barabar) */
+    background: rgba(255, 255, 255, 0.02) !important; 
+    
+    /* 2. MINIMUM BLUR: Sirf 5px blur jo lens ki finishing dega */
+    backdrop-filter: blur(5px) saturate(200%) brightness(120%) !important; 
+    -webkit-backdrop-filter: blur(5px) saturate(200%) brightness(120%); 
+    
+    display: flex; 
+    justify-content: space-between; 
     align-items: center;
-    padding: 0 15px;
-    box-sizing: border-box;
-    border: 0.5px solid rgba(255,255,255,0.1); /* Patli border */
-    box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
+    padding: 0 15px; 
+    z-index: 5000;
+    
+    /* 3. LENS EDGE: Border ko bahut patla rakha hai */
+    border-radius: 18px; 
+    border: 0.5px solid rgba(255, 255, 255, 0.1); 
+    
+    /* 4. NO HEAVY SHADOW: Taaki light transparent lage */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); 
+    
+    transition: transform 0.4s ease;
 }
+
 
 /* 3. Bottom Tabs: Inki height fix rakho */
 #bottom-navigation-container {
@@ -441,6 +468,7 @@ body {
     background: #000;
     border-top: 0.5px solid #333;
 }
+
 
 /* 4. Content Area: Taaki aakhri gaana mini player ke peeche na chhup jaye */
 #playlist-screen, #home-screen, #library-screen {
