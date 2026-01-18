@@ -1171,3 +1171,31 @@ body,
     background-color: #000000 !important;
     border-top: 0.5px solid rgba(255, 255, 255, 0.1); /* Halka sa border premium look ke liye */
 }
+/* 1. Library Content area ka division hatane ke liye */
+#library-screen, 
+#library-content-area {
+    background-color: #000000 !important; /* Pure Black Ground */
+    border: none !important;
+    outline: none !important;
+}
+
+/* 2. Library Navigation patti (Downloaded, Playlist, Fav) ka background */
+.library-sub-nav {
+    background-color: #000000 !important; /* Divider line hatane ke liye same color */
+    border-bottom: none !important; /* Agar koi patti niche dikh rahi ho */
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+/* 3. Sub-nav buttons ka appearance (Optional: subtle contrast) */
+.sub-nav-btn {
+    background: #1c1c1e; /* Halka greyish black buttons ke liye */
+    border: none;
+    color: #8e8e93;
+}
+
+.sub-nav-btn.active {
+    background: #ff3b30; /* Active button color */
+    color: #fff;
+}
+
