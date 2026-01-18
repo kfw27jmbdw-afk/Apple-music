@@ -1146,3 +1146,28 @@ body, #app-container, #library-screen {
     -webkit-overflow-scrolling: touch;
     padding-bottom: 180px; /* mini-player + tabs */
 }
+/* 1. Poore App ka Ground ek jaisa karo */
+body, 
+.tab-content, 
+#home-screen, 
+#library-screen, 
+#playlist-screen {
+    background-color: #000000 !important; /* Pure Black */
+}
+
+/* 2. Header Area ko Ground se match karo */
+.playlist-header, 
+.library-header,
+#home-screen .playlist-header,
+#playlist-screen .playlist-header {
+    background-color: #000000 !important; /* Same as ground */
+    /* Agar koi halki line ya shadow dikh rahi hai toh use hatao */
+    border-bottom: none !important;
+    box-shadow: none !important;
+}
+
+/* 3. Navigation Bar ko bhi sync kar lo */
+.bottom-nav {
+    background-color: #000000 !important;
+    border-top: 0.5px solid rgba(255, 255, 255, 0.1); /* Halka sa border premium look ke liye */
+}
