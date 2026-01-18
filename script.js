@@ -32,6 +32,11 @@ let playlist = savedPlaylist && savedPlaylist.length ? savedPlaylist : [
 { "name": "Cheri cheri Ladies", "artist": "Modern Talking", "url": "https://dl.dropboxusercontent.com/scl/fi/b2dx6e09iy5coujtp8ayd/Cheri-Cheri-Lady-SambalpuriStar.In.mp3?rlkey=ocs9f63vkl3w3dhc4279vjjzr&st=t48akzxh&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2379.webp" },
 { "name": "Aakh Ye Taalibaani ", "artist": "Manish Sonipat Aala", "url": "https://dl.dropboxusercontent.com/scl/fi/6haayptodhi3j6jsq5jqc/Aakh-Ye-Taalibaani-Manish-Sonipat-Aala-320-Kbps.mp3?rlkey=7b6ik32efv4obhy9vbrp4vvy1&st=4irdosoc&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2380.jpeg" },
 { "name": "EZ EZ", "artist": "Diljit Dosanjh ,Hanuman kind ", "url": "https://dl.dropboxusercontent.com/scl/fi/z79alrhs6hazsascn2cpq/Ez-Ez-Dhurandhar-320-Kbps.mp3?rlkey=uys7vxe09o32gqnzjzm5j547r&st=18jt0gmb&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2381.jpeg" },
+{ "name": "Hopeless", "artist": "Amanraj Gill & Prem Lata", "url": "https://dl.dropboxusercontent.com/scl/fi/6audihhnt9eg9lj2otu41/Hopeless-320Kbps-Mr-Jat.in.mp3?rlkey=qwmgmam57smhz6x2id9akm93x&st=gx24ksvt&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2406.webp" },
+{ "name": "Sarpanch", "artist": "Masoom sharma,Shiva choudhary", "url": "https://dl.dropboxusercontent.com/scl/fi/6ph9y4ex2oj5uvfipqd1v/Sarpanch.mp3?rlkey=hz2h99wug9y7tdlcmv2xi8sm2&st=n0mzum1l&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2407.webp" },
+{ "name": "Circle", "artist": "Amanraj Gill,Manisha Sharma", "url": "https://dl.dropboxusercontent.com/scl/fi/9n1c967qcjql1xrs41vy0/Circle-320Kbps-Mr-Jat.in.mp3?rlkey=k3arxnvp8z7i3ktq0hbmpyaod&st=uxw8an0o&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2409.webp" },
+{ "name": "Lut Le Gaya", "artist": "Simran Choudhary", "url": "https://dl.dropboxusercontent.com/scl/fi/favvofz50z6ggpzf427z8/Lutt-Le-Gaya-Dhurandhar-320-Kbps.mp3?rlkey=8vypgiphgxfjmiqysikq0rrmf&st=b56p9vlk&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2408.jpeg" },
+{ "name": "Big Things", "artist": "Jordan Sandhu,Gur sidhu", "url": "https://dl.dropboxusercontent.com/scl/fi/a7q61oo9mx503a63xr62f/Big-Things-Jordan-Sandhu.mp3?rlkey=euag5w99spdx3c3wz6ix5cs3p&st=k243mo00&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2420.webp" },
 ];
 
 
@@ -969,6 +974,7 @@ function renderDownloadedSongs() {
 
 
 
+
 /* ================= LIBRARY VIEW RENDERING ================= */
 function switchLibraryView(view) {
     document.querySelectorAll('.sub-nav-btn').forEach(btn => btn.classList.remove('active'));
@@ -1026,8 +1032,153 @@ function updateMediaSession(s) {
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.metadata = new MediaMetadata({ title: s.name, artist: s.artist, artwork: [{ src: s.img || defaultImg, sizes: '512x512', type: 'image/png' }] });
 }
+/* =================  HOME ENGINE INITIALIZATION ================= */
 
-window.addEventListener('load', async () => { await renderPlaylist(); loadSong(0); });
+// 1. History aur Mix ko track karne ke liye variables
+let recentPlayed = JSON.parse(localStorage.getItem('recentlyPlayed')) || [];
+let dailyMixIndices = []; // Made For You ko stable rakhne ke liye
+
+// Made For You generation (Sirf app khulte hi ya naye session par)
+function generateDailyMix() {
+    dailyMixIndices = [...Array(playlist.length).keys()]
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 8); // Top 8 random songs
+}
+
+// Recently Played logic
+function addToRecent(index) {
+    recentPlayed = recentPlayed.filter(i => i !== index);
+    recentPlayed.unshift(index);
+    if(recentPlayed.length > 15) recentPlayed.pop(); // Limit history to 15
+    localStorage.setItem('recentlyPlayed', JSON.stringify(recentPlayed));
+    
+    // Agar user home screen par hai toh turant UI update karo
+    if(document.getElementById('home-screen').style.display !== 'none') {
+        renderHomeScreen(); 
+    }
+}
+
+// loadSong override (History update karne ke liye)
+const originalLoadSong = loadSong;
+loadSong = function(index) {
+    originalLoadSong(index);
+    addToRecent(index);
+};
+
+// Main Home Rendering Function
+function renderHomeScreen() {
+    const container = document.getElementById('recent-played-container');
+    if (!container) return;
+    container.innerHTML = "";
+
+    let homeHTML = "";
+
+    // --- ROW 1: RECENTLY PLAYED ---
+    if(recentPlayed.length > 0) {
+        homeHTML += createHomeRow("Recently Played", recentPlayed, true);
+    }
+
+    // --- ROW 2: MADE FOR YOU (Uses Stable Mix) ---
+    if(dailyMixIndices.length === 0) generateDailyMix();
+    homeHTML += createHomeRow("Made For You", dailyMixIndices, false);
+
+    // --- ROW 3+: USER PLAYLISTS (Dynamic Sync) ---
+    const currentLib = JSON.parse(localStorage.getItem('userLibrary')) || userLibrary;
+    if (currentLib.playlists) {
+        Object.keys(currentLib.playlists).forEach(name => {
+            const indices = currentLib.playlists[name];
+            // Sirf wahi playlist dikhao jisme gaane hon
+            if(indices && indices.length > 0) {
+                homeHTML += createHomeRow(name, indices, false);
+            }
+        });
+    }
+
+    container.innerHTML = homeHTML || `<p style="text-align:center; margin-top:50px; color:#444;">No Music Found</p>`;
+}
+
+// Home Row Generator
+function createHomeRow(title, indices, showSeeAll) {
+    let row = `
+        <div class="home-section" style="margin-bottom: 35px; padding-left: 15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding-right:15px; margin-bottom:12px;">
+                <h2 style="font-size:22px; margin:0; font-weight:700; letter-spacing:-0.5px;">${title}</h2>
+                ${showSeeAll ? `<span onclick="showFullRecentList()" style="color:#ff3b30; font-size:14px; font-weight:500; cursor:pointer;">See All</span>` : ''}
+            </div>
+            <div class="scroll-row" style="display:flex; overflow-x:auto; gap:15px; scrollbar-width:none; padding-bottom:5px;">`;
+
+    indices.forEach(idx => {
+        const s = playlist[idx];
+        if(s) {
+            row += `
+                <div class="home-card" onclick="loadSong(${idx});" style="min-width:145px; max-width:145px; cursor:pointer;">
+                    <img src="${s.img || defaultImg}" style="width:145px; height:145px; border-radius:12px; object-fit:cover; box-shadow:0 8px 20px rgba(0,0,0,0.5); background:#1c1c1e;">
+                    <p style="margin:10px 0 2px; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.name}</p>
+                    <span style="font-size:11px; color:#8e8e93;">${s.artist}</span>
+                </div>`;
+        }
+    });
+
+    row += `</div></div>`;
+    return row;
+}
+
+// Full History View (See All)
+function showFullRecentList() {
+    const container = document.getElementById('recent-played-container');
+    container.innerHTML = `
+        <div style="padding: 20px;">
+            <div style="display:flex; align-items:center; gap:15px; margin-bottom:20px;">
+                <i class="fas fa-chevron-left" onclick="renderHomeScreen()" style="font-size:20px; color:#ff3b30; cursor:pointer;"></i>
+                <h2 style="margin:0;">Recently Played</h2>
+            </div>
+            <div id="full-recent-list"></div>
+        </div>`;
+    
+    const listArea = document.getElementById('full-recent-list');
+    recentPlayed.forEach(idx => {
+        const s = playlist[idx];
+        if(s) {
+            const div = document.createElement('div');
+            div.className = "song-item";
+            div.innerHTML = `
+                <div class="song-info-container" onclick="loadSong(${idx})">
+                    <img src="${s.img || defaultImg}" style="width:50px; height:50px; border-radius:6px;">
+                    <div><h4>${s.name}</h4><p>${s.artist}</p></div>
+                </div>`;
+            listArea.appendChild(div);
+        }
+    });
+}
+
+
+
+/* =================  FINAL INITIALIZATION FIX ================= */
+window.addEventListener('load', async () => { 
+    // 1. Home screen ko default set karo
+    document.querySelectorAll('.tab-content').forEach(screen => screen.style.display = 'none');
+    document.getElementById('home-screen').style.display = 'block';
+    
+    // 2. Navigation items mein Home highlight karo
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+    document.getElementById('tab-home').classList.add('active');
+
+    // 3. Pehle playlist load hone ka wait karo
+    await renderPlaylist(); 
+
+    // 4. Ab Home Screen render karo (Taki playlist empty na mile)
+    renderHomeScreen(); 
+
+    // 5. Full Player aur Mini Player ko shuruat mein hide rakho
+    if(playerScreen) {
+        playerScreen.style.display = 'none';
+        playerScreen.classList.add('minimized');
+    }
+    const mini = document.getElementById('mini-player');
+    if(mini) mini.style.display = 'none'; 
+});
+
+
 window.addEventListener('online', () => renderPlaylist());
 window.addEventListener('offline', () => renderPlaylist());
 
@@ -1230,3 +1381,4 @@ function updatePlaylistAdaptiveColor(imgSrc) {
         document.documentElement.style.setProperty('--pl-bg-color', rgb);
     };
 }
+
