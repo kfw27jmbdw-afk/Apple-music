@@ -37,6 +37,7 @@ let playlist = savedPlaylist && savedPlaylist.length ? savedPlaylist : [
 { "name": "Circle", "artist": "Amanraj Gill,Manisha Sharma", "url": "https://dl.dropboxusercontent.com/scl/fi/9n1c967qcjql1xrs41vy0/Circle-320Kbps-Mr-Jat.in.mp3?rlkey=k3arxnvp8z7i3ktq0hbmpyaod&st=uxw8an0o&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2409.webp" },
 { "name": "Lut Le Gaya", "artist": "Simran Choudhary", "url": "https://dl.dropboxusercontent.com/scl/fi/favvofz50z6ggpzf427z8/Lutt-Le-Gaya-Dhurandhar-320-Kbps.mp3?rlkey=8vypgiphgxfjmiqysikq0rrmf&st=b56p9vlk&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2408.jpeg" },
 { "name": "Big Things", "artist": "Jordan Sandhu,Gur sidhu", "url": "https://dl.dropboxusercontent.com/scl/fi/a7q61oo9mx503a63xr62f/Big-Things-Jordan-Sandhu.mp3?rlkey=euag5w99spdx3c3wz6ix5cs3p&st=k243mo00&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2420.webp" },
+{ "name": "First Kiss", "artist": "Yo Yo Honey Singh,IPSITAA", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS91Z3lkdmk4MDNrcDRndTZpZTQ4Y2UvRmlyc3QtS2lzcy1Zby1Zby1Ib25leS1TaW5naC5tcDM/cmF3PTE=", "img": "aHR0cHM6Ly9naXRodWIuY29tL2tmdzI3am1iZHctYWZrL0FwcGxlLW11c2ljL2Jsb2IvbWFpbi9tdXNpYy9JTUdfMjQzMC5qcGVn" },
 ];
 
 
@@ -172,12 +173,16 @@ async function loadSong(index) {
     document.getElementById('mini-title').innerText = s.name;
     document.getElementById('mini-artist').innerText = s.artist;
     
-    if(mainImg) mainImg.src = s.img || defaultImg;
+        // Image smart decode logic
+    const finalImg = (s.img && !s.img.startsWith("http")) ? atob(s.img) : (s.img || defaultImg);
+
+    if(mainImg) mainImg.src = finalImg;
     const miniImg = document.getElementById('mini-img');
-    if(miniImg) miniImg.src = s.img || defaultImg;
+    if(miniImg) miniImg.src = finalImg;
     
-        updatePlayerAdaptiveColor(s.img || defaultImg);
-    
+    // Adaptive color bhi decoded image se aayega
+    updatePlayerAdaptiveColor(finalImg);
+
     // 🟢 Magic line: Poori list refresh nahi hogi, sirf status badlega
     updatePlayingUI(); 
     
@@ -192,34 +197,41 @@ async function loadSong(index) {
         mini.style.opacity = '1';
     }
 
-    // Playback logic
+     // Playback logic (Updated for Hybrid Support)
     try {
         const cache = await caches.open('apple-music-v2');
-        const songURL = new URL(s.url, window.location.origin).href;
+        
+        // 🟢 SMART DECODE: Agar link encrypted hai (http nahi hai), tabhi decode karo
+        const decodedURL = s.url.startsWith("http") ? s.url : atob(s.url); 
+        
+        const songURL = new URL(decodedURL, window.location.origin).href;
         const cachedResponse = await cache.match(songURL);
 
         if (cachedResponse) {
             const blob = await cachedResponse.blob();
             audio.src = URL.createObjectURL(blob);
         } else {
-            audio.src = s.url;
+            audio.src = decodedURL; 
         }
+        
         audio.load(); 
         await audio.play();
         updatePlayIcons(true);
     } catch (e) {
-        audio.src = s.url;
+        // Fallback: Yahan bhi smart decode lagao
+        const fallbackURL = s.url.startsWith("http") ? s.url : atob(s.url);
+        audio.src = fallbackURL; 
         audio.load();
         audio.play().catch(() => {});
         updatePlayIcons(false);
     }
-    
-    audio.onended = () => {
-        nextSong(); 
-        audio.play().catch(e => {});
-    };
-}
 
+
+audio.onended = () => {
+    nextSong(); 
+    audio.play().catch(e => {});
+};
+}
 
 function togglePlay() { 
     if(!audio) return;
