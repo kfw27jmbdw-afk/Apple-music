@@ -17,30 +17,20 @@ const defaultImg = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745
 // Load saved playlist OR fallback to default
 const savedPlaylist = JSON.parse(localStorage.getItem('appPlaylist'));
 let playlist = savedPlaylist && savedPlaylist.length ? savedPlaylist : [
-    { "name": "APSARA", "artist": "Billa sonipat aala", "url": "https://files.catbox.moe/41aleb.mp3", "img": "https://files.catbox.moe/qrgvpq.webp" },
-    { "name": "Yaran gail", "artist": "Billa sonipat aala", "url": "music/Yaaran Gail.mp3", "img": "https://files.catbox.moe/iswwju.jpeg" },
-    { "name": "AZUL", "artist": "Guru Randhawa", "url": "music/Azul Lavish Dhiman 320 Kbps.mp3", "img": "https://files.catbox.moe/85n1j0.jpeg" },
-    { "name": "Pan india", "artist": "Guru randhawa", "url": "music/PAN INDIA - Guru Randhawa.mp3", "img": "https://files.catbox.moe/uzltk5.jpeg" },
-    { "name": "Perfect", "artist": "Guru randhawa", "url": "music/Perfect.mp3", "img": "https://files.catbox.moe/k6emom.webp" },
-{ "name": "Over Confidence", "artist": "Billa sonipat", "url": "https://files.catbox.moe/7880hs.mp3", "img": "https://files.catbox.moe/9j0hwa.webp" },
-{ "name": "Shkini", "artist": "Guru Randhawa", "url": "https://dl.dropboxusercontent.com/scl/fi/0f1f6xsa0jgrwjgrl7v1c/SHKINI-Guru-Randhawa.mp3?rlkey=peyfv22ua5ny9bdyvz3dn8r1b", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2056.webp" },
-{ "name": "Kufar", "artist": "Diljit Dosanjh", "url": "https://www.dropbox.com/scl/fi/i1mbyp14366nr2k5jg1y6/Kufar.mp3?rlkey=1eff9yvieweoo4iu40dhjcvao&st=kwtyvb5o&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2376.webp" },
-{ "name": "Tere Bina", "artist": "A.R Rahman", "url": "https://dl.dropboxusercontent.com/scl/fi/p9bglzkm7vhipetumhxeu/Tere-Bina-Guru-320-Kbps.mp3?rlkey=8r5sa2mrfuky3ygb0gmcuzqq2&st=mqc8g7d2&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2375.webp" },
-{ "name": "Afghan Jalebi ", "artist": "Unknown", "url": "https://dl.dropboxusercontent.com/scl/fi/ztuvb4233enfrgcdolpns/Afghan-Jalebi-8D-Audio-Song-Phantom-Saif-Ali-Khan-Katrina-Kaif-T-Series.mp3?rlkey=g6a3a15ea33isr6j1oo6656nu&st=h3q02pg6&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2076.jpeg" },
-{ "name": "Financer", "artist": "Bintu Pabra, Shiva Choudhary", "url": "https://dl.dropboxusercontent.com/scl/fi/sqv5mw3xoedeedz1i2g1p/Financer.mp3?rlkey=0lu193qesm7jh4gv00jrv65nf&st=1q59s8qv&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2377.webp" },
-{ "name": "College ki ladkiyon", "artist": "Udit Nayran", "url": "https://dl.dropboxusercontent.com/scl/fi/hryqmsjfjznx8do9ztkf5/College-Ki-Ladkiyan-Yeh-Dil-Aashiqana-320-Kbps.mp3?rlkey=59ey878yqrgck26qojyt1e3zr&st=kwcy00ij&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2378.jpeg" },
-{ "name": "Cheri cheri Ladies", "artist": "Modern Talking", "url": "https://dl.dropboxusercontent.com/scl/fi/b2dx6e09iy5coujtp8ayd/Cheri-Cheri-Lady-SambalpuriStar.In.mp3?rlkey=ocs9f63vkl3w3dhc4279vjjzr&st=t48akzxh&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2379.webp" },
-{ "name": "Aakh Ye Taalibaani ", "artist": "Manish Sonipat Aala", "url": "https://dl.dropboxusercontent.com/scl/fi/6haayptodhi3j6jsq5jqc/Aakh-Ye-Taalibaani-Manish-Sonipat-Aala-320-Kbps.mp3?rlkey=7b6ik32efv4obhy9vbrp4vvy1&st=4irdosoc&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2380.jpeg" },
-{ "name": "EZ EZ", "artist": "Diljit Dosanjh ,Hanuman kind ", "url": "https://dl.dropboxusercontent.com/scl/fi/z79alrhs6hazsascn2cpq/Ez-Ez-Dhurandhar-320-Kbps.mp3?rlkey=uys7vxe09o32gqnzjzm5j547r&st=18jt0gmb&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2381.jpeg" },
-{ "name": "Hopeless", "artist": "Amanraj Gill & Prem Lata", "url": "https://dl.dropboxusercontent.com/scl/fi/6audihhnt9eg9lj2otu41/Hopeless-320Kbps-Mr-Jat.in.mp3?rlkey=qwmgmam57smhz6x2id9akm93x&st=gx24ksvt&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2406.webp" },
-{ "name": "Sarpanch", "artist": "Masoom sharma,Shiva choudhary", "url": "https://dl.dropboxusercontent.com/scl/fi/6ph9y4ex2oj5uvfipqd1v/Sarpanch.mp3?rlkey=hz2h99wug9y7tdlcmv2xi8sm2&st=n0mzum1l&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2407.webp" },
-{ "name": "Circle", "artist": "Amanraj Gill,Manisha Sharma", "url": "https://dl.dropboxusercontent.com/scl/fi/9n1c967qcjql1xrs41vy0/Circle-320Kbps-Mr-Jat.in.mp3?rlkey=k3arxnvp8z7i3ktq0hbmpyaod&st=uxw8an0o&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2409.webp" },
-{ "name": "Lut Le Gaya", "artist": "Simran Choudhary", "url": "https://dl.dropboxusercontent.com/scl/fi/favvofz50z6ggpzf427z8/Lutt-Le-Gaya-Dhurandhar-320-Kbps.mp3?rlkey=8vypgiphgxfjmiqysikq0rrmf&st=b56p9vlk&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2408.jpeg" },
-{ "name": "Big Things", "artist": "Jordan Sandhu,Gur sidhu", "url": "https://dl.dropboxusercontent.com/scl/fi/a7q61oo9mx503a63xr62f/Big-Things-Jordan-Sandhu.mp3?rlkey=euag5w99spdx3c3wz6ix5cs3p&st=k243mo00&raw=1", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2420.webp" },
-{ "name": "First Kiss", "artist": "Yo Yo Honey Singh,IPSITAA", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS91Z3lkdmk4MDNrcDRndTZpZTQ4Y2UvRmlyc3QtS2lzcy1Zby1Zby1Ib25leS1TaW5naC5tcDM/cmF3PTE=", "img": "aHR0cHM6Ly9naXRodWIuY29tL2tmdzI3am1iZHctYWZrL0FwcGxlLW11c2ljL2Jsb2IvbWFpbi9tdXNpYy9JTUdfMjQzMC5qcGVn" },
+    
+{ 
+  "name": "First Kiss", 
+  "artist": "Yo Yo Honey Singh,IPSITAA", 
+  "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS91Z3lkdmk4MDNrcDRndTZpZTQ4Y2UvRmlyc3QtS2lzcy1Zby1Zby1Ib25leS1TaW5naC5tcDM/cmxrZXk9dWpkN3lvMzM2cmZvOWptMTIyYW5peXJheSZzdD1sajVzcG8yaCZyYXc9MQ==", 
+  "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2430.jpeg"},
+{ "name": "Tere Bina", "artist": "A.R Rahman", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS9wOWJnbHprbTd2aGlwZXR1bWh4ZXUvVGVyZS1CaW5hLUd1cnUtMzIwLUticHMubXAzP3Jsa2V5PThyNXNhMm1yZnVreTN5Z2IwZ21jdXpxcTImc3Q9bXFjOGdkMjImcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2375.webp"},
+{ "name": "Sarpanch", "artist": "Masoom sharma,Shiva choudhary", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS82cGg5eTRleDJvajV1dmZpcHFkMXYvU2FycGFuY2gubXAzP3Jsa2V5PWh6Mmg5OXd1Zzl5N3RkbGNtdjJ4aThzbTImc3Q9bjBtenVtbGwmcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2407.webp" },
+{ "name": "Circle", "artist": "Amanraj Gill,Manisha Sharma", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS85bjFjOTY3cWNqcWwxeHJzNDF2eTAvQ2lyY2xlLTMyMEticHMtTXItSmF0LmluLm1wMz9ybGtleT1rM2FyeG52cDh6N2kza3RxMGhibXB5YW9kJnN0PTZqY2lxeTkxJnJhdz0x", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2409.webp" },
+{ "name": "Big Things", "artist": "Jordan Sandhu", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS9hN3E2MW9vOW14NTAzYTYzeHI2MmYvQmlnLVRoaW5ncy1Kb3JkYW4tU2FuZGh1Lm1wMz9ybGtleT1ldWFnNXc5OXNwZHgzYzN3ejZpeDVjczNwJnN0PWY4NnlrczUxJnJhdz0x", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2420.webp" },
+{ "name": "Lut Le Gaya", "artist": "Shashwat Sachdev", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS9mYXZ2b2Z6NTB6NmdncHpmNDI3ejgvTHV0dC1MZS1HYXlhLURodXJhbmRoYXItMzIwLUticHMubXAzP3Jsa2V5PTh2eXBnaXBoZ3hmam1pcXlzaWtxMHJybWYmc3Q9ZDM4NTUyamQmcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2408.jpeg" },
+{ "name": "Hopeless", "artist": "Amanraj Gill,Prem Lata", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS82YXVkaWhobnQ5ZWc5bGoyb3R1NDEvSG9wZWxlc3MtMzIwS2Jwcy1Nci1KYXQuaW4ubXAzP3Jsa2V5PXF3bWdtYW01N3NtaHo2eDJpZDlha205M3gmc3Q9N3JuemxoYTEmcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2406.webp" },
+{ "name": "Ez-Ez", "artist": "Diljit Dosanjh,Hanuman Kind", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS96NzlhbHJoczZoYXpzYXNjbjJjcHEvRXotRXotRGh1cmFuZGhhci0zMjAtS2Jwcy5tcDM/cmxrZXk9dXlzN3Z4ZTA5bzMyZ3Fuemp6bTVqNTQ3ciZzdD14MXEyN3E5diZyYXc9MQ==", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2381.jpeg" },
 ];
-
-
 
 function savePlaylistToDisk() { localStorage.setItem('appPlaylist', JSON.stringify(playlist)); }
 
@@ -160,36 +150,29 @@ function maximizePlayer() {
 }
 
 
-/* ================= CORE PLAYER LOGIC (FIXED) ================= */
-/* ================= CORE PLAYER LOGIC (OPTIMIZED & OFFLINE READY) ================= */
+/* ================= CORE PLAYER LOGIC /* ================= CORE PLAYER LOGIC (FIXED & CLEAN) ================= */
 async function loadSong(index) {
     currentIndex = index;
     const s = playlist[index];
-    if(!audio) return;
+    if(!s || !audio) return; // Safety check taaki undefined error na aaye
 
-    // UI Updates turant karo
+    // 1. UI Updates
     document.getElementById('player-title').innerText = s.name;
     document.getElementById('player-artist').innerText = s.artist;
     document.getElementById('mini-title').innerText = s.name;
     document.getElementById('mini-artist').innerText = s.artist;
     
-        // Image smart decode logic
-    const finalImg = (s.img && !s.img.startsWith("http")) ? atob(s.img) : (s.img || defaultImg);
-
+    // 2. Normal Image Logic (Bina decoding ke seedha GitHub/Direct link support)
+    const finalImg = s.img || defaultImg;
     if(mainImg) mainImg.src = finalImg;
     const miniImg = document.getElementById('mini-img');
     if(miniImg) miniImg.src = finalImg;
     
-    // Adaptive color bhi decoded image se aayega
+    // 3. Adaptive Color & UI Sync
     updatePlayerAdaptiveColor(finalImg);
-
-    // 🟢 Magic line: Poori list refresh nahi hogi, sirf status badlega
     updatePlayingUI(); 
-    
     updateMediaSession(s);
 
-
-    // Mini Player show karo
     const mini = document.getElementById('mini-player');
     if(mini) {
         mini.classList.remove('hidden');
@@ -197,12 +180,19 @@ async function loadSong(index) {
         mini.style.opacity = '1';
     }
 
-     // Playback logic (Updated for Hybrid Support)
+    // 4. Playback Logic with Smart Decoding (Sirf Audio ke liye)
     try {
         const cache = await caches.open('apple-music-v2');
+        let decodedURL;
         
-        // 🟢 SMART DECODE: Agar link encrypted hai (http nahi hai), tabhi decode karo
-        const decodedURL = s.url.startsWith("http") ? s.url : atob(s.url); 
+        if (s.url.startsWith("http") || s.url.startsWith("music/")) {
+            decodedURL = s.url; 
+        } else {
+            // Base64 Padding Fix taaki encoded audio crash na ho
+            let base64String = s.url.trim();
+            while (base64String.length % 4 !== 0) { base64String += '='; }
+            decodedURL = atob(base64String); 
+        }
         
         const songURL = new URL(decodedURL, window.location.origin).href;
         const cachedResponse = await cache.match(songURL);
@@ -218,26 +208,32 @@ async function loadSong(index) {
         await audio.play();
         updatePlayIcons(true);
     } catch (e) {
-        // Fallback: Yahan bhi smart decode lagao
-        const fallbackURL = s.url.startsWith("http") ? s.url : atob(s.url);
+        // Fallback for any errors
+        let fallbackURL = (s.url.startsWith("http") || s.url.startsWith("music/")) ? s.url : atob(s.url);
         audio.src = fallbackURL; 
         audio.load();
         audio.play().catch(() => {});
         updatePlayIcons(false);
     }
 
-
-audio.onended = () => {
-    nextSong(); 
-    audio.play().catch(e => {});
-};
-}
+    audio.onended = () => {
+        nextSong(); 
+        audio.play().catch(e => {});
+    };
+} 
 
 function togglePlay() { 
     if(!audio) return;
-    if(audio.paused) { audio.play(); updatePlayIcons(true); } 
-    else { audio.pause(); updatePlayIcons(false); } 
+    if(audio.paused) { 
+        audio.play(); 
+        updatePlayIcons(true); 
+    } else { 
+        audio.pause(); 
+        updatePlayIcons(false); 
+    } 
 }
+
+
 
 function updatePlayIcons(isPlaying) { 
     const iconClass = isPlaying ? 'fa-pause' : 'fa-play'; 
@@ -264,8 +260,13 @@ async function renderPlaylist() {
     const isOffline = !navigator.onLine;
     container.innerHTML = ""; 
 
+    // Loop through the playlist
     for (let index = 0; index < playlist.length; index++) {
         const song = playlist[index];
+        
+        // 🟢 SAFETY CHECK: Agar array mein koi empty entry ya galti se comma reh gaya ho
+        if (!song) continue;
+
         const div = document.createElement('div');
         div.className = "song-item";
         
@@ -273,18 +274,22 @@ async function renderPlaylist() {
         const isPlaying = isCurrent && audio && !audio.paused;
         const isPaused = isCurrent && audio && audio.paused;
 
+        // Offline mode feature
         const isCached = await cache.match(song.url);
         if (isOffline && !isCached) { 
             div.style.opacity = "0.3"; 
             div.style.pointerEvents = "none"; 
         }
 
+        // 🟢 FIX: song.img check taaki undefined crash na ho
+        const songImg = song.img || defaultImg;
+
         div.innerHTML = `
             <div class="song-info-container" onclick="loadSong(${index});">
-                <img src="${song.img || defaultImg}">
+                <img src="${songImg}">
                 <div>
-                    <h4 style="color: ${isCurrent ? '#1DB954' : 'white'}">${song.name}</h4>
-                    <p>${song.artist}</p>
+                    <h4 style="color: ${isCurrent ? '#1DB954' : 'white'}">${song.name || 'Unknown Title'}</h4>
+                    <p>${song.artist || 'Unknown Artist'}</p>
                 </div>
             </div>
             <div style="display: flex; align-items: center; gap: 12px;">
@@ -299,7 +304,13 @@ async function renderPlaylist() {
 
         container.appendChild(div);
     }
+    
+    // Status sync update
+    if (typeof updatePlayingUI === "function") {
+        updatePlayingUI();
+    }
 }
+
 
 
 function updatePlayIcons(isPlaying) {
@@ -464,13 +475,12 @@ function updateTickUI(type, status) {
  * Kisi specific playlist par click karne par uske andar ke gaane dikhana
  */
 
-/* ================= FINAL UPDATED OPEN PLAYLIST DETAIL ================= */
+/* ================= FINAL UPDATED OPEN PLAYLIST DETAIL (FIXED) ================= */
 function openPlaylistDetail(playlistName) {
     const container = document.getElementById('library-content-area');
     const subNavs = document.querySelectorAll('.library-sub-nav');
     
-    // 1. NAVIGATION FIX: Library title aur tabs dono ko hide karo
-    // Isse upar ki khali black jagah khatam ho jayegi
+    // 1. UI Clean-up
     const libHeader = document.querySelector('.library-header');
     if(libHeader) libHeader.style.display = 'none'; 
     
@@ -482,7 +492,7 @@ function openPlaylistDetail(playlistName) {
                   ? userLibrary.playlistThumbs[playlistName] 
                   : 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300';
 
-    // 2. POSITION FIX: Padding ko 10px kar diya hai aur margin-top 0
+    // 2. Header Render
     container.innerHTML = `
         <div class="playlist-detail-header" id="playlist-header-bg" 
              style="display: flex; flex-direction: column; align-items: center; padding: 10px 20px; margin-top: 0; transition: background 0.5s ease;">
@@ -522,6 +532,10 @@ function openPlaylistDetail(playlistName) {
     } else {
         songIndices.forEach(idx => {
             const song = playlist[idx];
+            
+            // 🟢 SAFETY CHECK: Agar gaana undefined hai toh skip karo
+            if (!song) return; 
+
             const div = document.createElement('div');
             div.className = "song-item";
             div.id = `song-item-${idx}`; 
@@ -529,8 +543,8 @@ function openPlaylistDetail(playlistName) {
                 <div class="song-info-container" onclick="loadSong(${idx}); maximizePlayer(); if(audio) audio.play(); updatePlayIcons(true);">
                     <img src="${song.img || defaultImg}" style="border-radius: 4px; width: 45px; height: 45px;">
                     <div>
-                        <h4 class="song-name-text" style="font-size: 14px; margin-bottom: 2px;">${song.name}</h4>
-                        <p style="font-size: 12px;">${song.artist}</p>
+                        <h4 class="song-name-text" style="font-size: 14px; margin-bottom: 2px;">${song.name || 'Unknown'}</h4>
+                        <p style="font-size: 12px;">${song.artist || 'Unknown'}</p>
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
@@ -544,6 +558,7 @@ function openPlaylistDetail(playlistName) {
     }
     updatePlayingUI();
 }
+
 
 /* ================= UI SYNC FUNCTION ================= */
 function updatePlayingUI() {
@@ -1370,8 +1385,7 @@ function uploadPlaylistCover(event, playlistName) {
 }
 
 /**
- * 2. Playlist ka background color uske cover jaisa banane ke liye
- */
+/* ================= ADAPTIVE COLOR FIX ================= */
 function updatePlaylistAdaptiveColor(imgSrc) {
     const img = new Image();
     img.crossOrigin = "Anonymous";
@@ -1381,16 +1395,11 @@ function updatePlaylistAdaptiveColor(imgSrc) {
         const ctx = canvas.getContext('2d');
         canvas.width = 1; canvas.height = 1;
         ctx.drawImage(img, 0, 0, 1, 1);
-        const d = ctx.getImageData(0, 0, 1, 1).data;
-        
-        // Color ko dark rakho taaki Spotify vibe aaye
-        const r = Math.floor(d[0] * 0.6);
-        const g = Math.floor(d[1] * 0.6);
-        const b = Math.floor(d[2] * 0.6);
-        const rgb = `rgb(${r},${g},${b})`;
-        
-        // Pure document par color apply karo (Top se Bottom tak)
+        const d = ctx.getImageData(0,0,1,1).data;
+        const rgb = `rgb(${Math.floor(d[0]*0.6)},${Math.floor(d[1]*0.6)},${Math.floor(d[2]*0.6)})`;
         document.documentElement.style.setProperty('--pl-bg-color', rgb);
     };
-}
+} // 🟢 File ends here with correct bracket balance
+
+
 
