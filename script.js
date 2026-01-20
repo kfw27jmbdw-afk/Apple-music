@@ -846,40 +846,48 @@ document.addEventListener('click', (e) => {
 /* ================= FEATURE: BACKGROUND DOWNLOAD ================= */
 /* ================= FEATURE: BACKGROUND DOWNLOAD ================= */
 /* ================= COMPLETE UPGRADED DOWNLOAD BLOCK ================= */
-/* ================= FULL UPDATED DOWNLOAD HANDLE (FIXED PLAYBACK) ================= */
+/* ================= FULL UPDATED DOWNLOAD /* ================= FEATURE: BACKGROUND DOWNLOAD (FIXED) ================= */
 async function handleDownload() {
-    // 0. Pehle check karo ki koi gaana select hua hai ya nahi
     if (selectedMenuIndex === null || selectedMenuIndex === undefined) {
-        console.warn("No song selected for download");
         showTempMessage("Please select a song first!");
         return;
     }
 
-    // Storage array ko initialize karo agar wo nahi hai
-    if (!userLibrary.downloaded) {
-        userLibrary.downloaded = [];
-    }
+    if (!userLibrary.downloaded) { userLibrary.downloaded = []; }
 
     const song = playlist[selectedMenuIndex];
-    const songURL = new URL(song.url, window.location.origin).href;
+    let finalURL;
 
-    // UI Elements for Progress Bar
+    // 🟢 STEP 1: Pehle Base64 link ko asli URL mein badlo
+    try {
+        if (song.url.startsWith("http") || song.url.startsWith("music/")) {
+            finalURL = song.url; 
+        } else {
+            // Padding fix taaki decoding crash na ho
+            let base64String = song.url.trim();
+            while (base64String.length % 4 !== 0) { base64String += '='; }
+            finalURL = atob(base64String); 
+        }
+    } catch (e) {
+        console.error("URL Decoding Failed", e);
+        showTempMessage("Invalid Song URL!");
+        return;
+    }
+
+    // 🟢 STEP 2: Browser ko batao ye ek valid web address hai
+    const songURL = new URL(finalURL, window.location.origin).href;
+    
     const progressContainer = document.getElementById('download-progress-container');
     const progressBar = document.getElementById('download-progress-bar');
     
-    // Download shuru hone par bar dikhao
     if (progressContainer) progressContainer.style.display = 'block';
-    if (progressBar) progressBar.style.width = "0%";
-    
-    // 1. Downloading message dikhao
     showTempMessage("Downloading " + song.name);
 
     try {
-        // 2. Fetch the song (CORS mode enable)
+        // 🟢 STEP 3: Asli URL se gaana fetch karo
         const response = await fetch(songURL, { mode: 'cors' });
         if (!response.ok) throw new Error("Network error");
 
-        // --- PROGRESS TRACKING LOGIC ---
         const reader = response.body.getReader();
         const contentLength = +response.headers.get('Content-Length'); 
         
@@ -889,55 +897,36 @@ async function handleDownload() {
         while(true) {
             const {done, value} = await reader.read();
             if (done) break;
-
             chunks.push(value);
             receivedLength += value.length;
-
-            // Bar update
             if (contentLength && progressBar) {
-                const step = (receivedLength / contentLength) * 100;
-                progressBar.style.width = step + "%";
+                progressBar.style.width = (receivedLength / contentLength) * 100 + "%";
             }
         }
 
-        // 3. FIX: Chunks ko Audio Blob mein badlo aur correct headers ke sath save karo
         const blob = new Blob(chunks, { type: 'audio/mpeg' }); 
         const cache = await caches.open('apple-music-v2');
         
-        // Correct Response object banakar Cache mein dalo
         const responseToCache = new Response(blob, {
-            headers: {
-                'Content-Type': 'audio/mpeg',
-                'Content-Length': blob.size
-            }
+            headers: { 'Content-Type': 'audio/mpeg', 'Content-Length': blob.size }
         });
+
+        // 🟢 STEP 4: Cache mein asli URL ke naam se save karo
         await cache.put(songURL, responseToCache);
 
-        // 4. Library mein download mark karo
         if (!userLibrary.downloaded.includes(selectedMenuIndex)) {
             userLibrary.downloaded.push(selectedMenuIndex);
             saveLibraryToDisk();
         }
 
-        // 5. Success message
-        showTempMessage("Available offline: " + song.name);
-
-        // 6. UI Refresh
+        showTempMessage("Saved for Offline: " + song.name);
         renderPlaylist();
-        if (document.getElementById('library-screen').style.display === 'block') {
-            renderLibraryContent('down');
-        }
 
     } catch (err) {
         console.error("Download failed:", err);
-        showTempMessage("Download failed: " + song.name);
+        showTempMessage("Download failed: Network/CORS Issue");
     } finally {
-        // 7. Cleanup
-        setTimeout(() => {
-            if (progressContainer) progressContainer.style.display = 'none';
-            if (progressBar) progressBar.style.width = "0%";
-        }, 500);
-
+        setTimeout(() => { if (progressContainer) progressContainer.style.display = 'none'; }, 500);
         const menu = document.getElementById('song-options-menu');
         if (menu) menu.style.display = 'none';
     }
