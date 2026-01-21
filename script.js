@@ -30,6 +30,23 @@ let playlist = savedPlaylist && savedPlaylist.length ? savedPlaylist : [
 { "name": "Lut Le Gaya", "artist": "Shashwat Sachdev", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS9mYXZ2b2Z6NTB6NmdncHpmNDI3ejgvTHV0dC1MZS1HYXlhLURodXJhbmRoYXItMzIwLUticHMubXAzP3Jsa2V5PTh2eXBnaXBoZ3hmam1pcXlzaWtxMHJybWYmc3Q9ZDM4NTUyamQmcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2408.jpeg" },
 { "name": "Hopeless", "artist": "Amanraj Gill,Prem Lata", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS82YXVkaWhobnQ5ZWc5bGoyb3R1NDEvSG9wZWxlc3MtMzIwS2Jwcy1Nci1KYXQuaW4ubXAzP3Jsa2V5PXF3bWdtYW01N3NtaHo2eDJpZDlha205M3gmc3Q9N3JuemxoYTEmcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2406.webp" },
 { "name": "Ez-Ez", "artist": "Diljit Dosanjh,Hanuman Kind", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS96NzlhbHJoczZoYXpzYXNjbjJjcHEvRXotRXotRGh1cmFuZGhhci0zMjAtS2Jwcy5tcDM/cmxrZXk9dXlzN3Z4ZTA5bzMyZ3Fuemp6bTVqNTQ3ciZzdD14MXEyN3E5diZyYXc9MQ==", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2381.jpeg" },
+{ "name": "Cheri Cheri Ladies", "artist": "Modern Talking", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS9iMmR4NmUwOWl5NWNvdWp0cDhheWQvQ2hlcmktQ2hlcmktTGFkeS1TYW1iYWxwdXJpU3Rhci5Jbi5tcDM/cmxrZXk9b2NzOWY2M3ZrbDN3M2RoYzQyNzl2amp6ciZzdD1iem1vNHZxcyZyYXc9MQ==", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2379.webp" },
+{ "name": "College ki ladkiyon", "artist": "Udit Narayan", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS9ocnlxbXNqZmp6bng4ZG85enRrZjUvQ29sbGVnZS1LaS1MYWRraXlhbi1ZZWgtRGlsLUFhc2hpcWFuYS0zMjAtS2Jwcy5tcDM/cmxrZXk9NTlleTg3OHlxcmdjazI2cW9qeXQxZTN6ciZzdD1lY20xYnl3bCZyYXc9MQ==", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2378.jpeg" },
+{ "name": "Aakh Ye Taalibaani", "artist": "Manish Sonipat Aala", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS82aGFheXB0b2RoaTNqNmpzcTVqcWMvQWFraC1ZZS1UYWFsaWJhYW5pLU1hbmlzaC1Tb25pcGF0LUFhbGEtMzIwLUticHMubXAzP3Jsa2V5PTdiNmlrMzJlZnY0b2JoeTl2YnJwNHZ2eTEmc3Q9bXp3NnY4dnMmcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2380.jpeg" },
+{ "name": "Financer", "artist": "Bintu Pabra", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS9zcXY1bXczeG9lZGVlZHoxaTJnMXAvRmluYW5jZXIubXAzP3Jsa2V5PTBsdTE5M3Flc203amg0Z3YwMGpydjY1bmYmc3Q9b3piZnYwcDQmcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2377.webp" },
+{ "name": "Kufar", "artist": "Diljit Dosanjh", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS8zZnZlNmo0cDY2OHhiaGllNzJkc3IvS3VmYXIubXAzP3Jsa2V5PXA5eGc0bWhmeDBoYnNxdjhmODFjeHUwYzImc3Q9amg1c2h6M3QmcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2376.webp" },
+{ "name": "Afghan Jalebi", "artist": "8d Audio", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS96dHV2YjQyMzNlbmZyZ2Nkb2xwbnMvQWZnaGFuLUphbGViaS04RC1BdWRpby1Tb25nLVBoYW50b20tU2FpZi1BbGktS2hhbi1LYXRyaW5hLUthaWYtVC1TZXJpZXMubXAzP3Jsa2V5PWc2YTNhMTVlYTMzaXNyNmoxb282NjU2bnUmc3Q9eDIwMmFhcm4mcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2076.jpeg" },
+{ "name": "APSARA", "artist": "Billa Sonipat Aala", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS92OXg3a25pM2FmODhxN3F1ZGVyenkvQXBzYXJhLm1wMz9ybGtleT01Mjg2MGd3ODYzczRuZHB6dzZqcXZwNjdpJnN0PTV1bDN6YjlvJnJhdz0x", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2065.webp" },
+{ "name": "Shkini", "artist": "Guru Randhawa", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS8wZjFmNnhzYTBqZ3J3amdybDd2MWMvU0hLSU5JLUd1cnUtUmFuZGhhd2EubXAzP3Jsa2V5PXBleWZ2MjJ1YTVueTliZHl2ejNkbjhyMWImc3Q9dXY2eTh1YWgmcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2056.webp" },
+{ "name": "Shararat", "artist": "Shashwat sachdev", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS96YnZ1dDcyYjBxNnlvanR0eHVscG0vU2hhcmFyYXQtRGh1cmFuZGhhci0zMjAtS2Jwcy5tcDM/cmxrZXk9dnlia2o5MHUzaG9zam4xdDhpeXg4YXlkbyZzdD05bnBhZWZ1eSZyYXc9MQ==", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2461.jpeg" },
+{ "name": "Sira", "artist": "Guru Randhawa,Kiran Bajwa", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS9zM2VoYW1tMXh3bmdzcDlpZzc4eW8vU2lycmEtV2l0aG91dC1QcmVqdWRpY2UtMzIwLUticHMubXAzP3Jsa2V5PWRheWcyeWpuZzdhYWJ4aXZva25jeTl6bzMmc3Q9bXgxOGpmdmcmcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2487.jpeg" },
+{ "name": "Qatal", "artist": "Guru Randhawa", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS93Zm1kcHUzejZpaGd3amxuaDg2MHYvUWF0YWwtV2l0aG91dC1QcmVqdWRpY2UtMzIwLUticHMubXAzP3Jsa2V5PTJyY2d2YzVjdXJkM2g3NTFqbzFtbGF3d24mc3Q9bnd2N20ycm0mcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2487.jpeg" },
+{ "name": "Suit suit", "artist": "Guru Randhawa", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS9jcXk5YnlpdHluaXdtaTVpMXlqa28vU3VpdC1TdWl0LUd1cnUtUmFuZGhhd2EubXAzP3Jsa2V5PWJrNDZwbHhzdTZ5bTd5ZDQxajFvNWtuOHomc3Q9cTkwMnljYjcmcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2486.png" },
+{ "name": "Lahore", "artist": "Guru Randhawa", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS80M25jNHpxcnJldjM2aGx3amMxazQvTGFob3JlLm1wMz9ybGtleT03bWswZGZvbGh6MTV5cHo4dGl5aTQ0ZHgyJnN0PXl2emsyNndkJnJhdz0x", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2483.png" },
+{ "name": "Azul", "artist": "Guru Randhawa", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS9tNDdwcDlqejBqMWU3MmlpdzU3a3EvQXp1bC1MYXZpc2gtRGhpbWFuLTMyMC1LYnBzLm1wMz9ybGtleT1vd2lneXJpZTE5Y2U4NGdwd2FzbjRhY3llJnN0PWp2dGlwZ2JzJnJhdz0x", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2475.webp" },
+{ "name": "Brother Louie", "artist": "Modern Talking", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS94a29xZjNlYW9qNnlzaGxlZHNyMmEvQnJvdGhlci1Mb3VpZS1Nb2Rlcm4tVGFsa2luZy5tcDM/cmxrZXk9OWltMDhld2FjMXpvYnA0em1hYzFpc2puOCZzdD14cmxsaTA1cCZyYXc9MQ==", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2474.jpeg" },
+{ "name": "Kaho na kaho", "artist": "Amir jamal,Anu Malik", "url": "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS8yNmJlZnF3b2Rwdzl6eHBnOWtrNGkvS2Foby1OYS1LYWhvLVBlbmR1SmF0dC5Db20uU2UubXAzP3Jsa2V5PTl6cnJyajRzbXFtcjFnN3F4aTl1ejZ5a2kmc3Q9Mmt2cTN2N3kmcmF3PTE=", "img": "https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2473.jpeg" },
+
 ];
 
 function savePlaylistToDisk() { localStorage.setItem('appPlaylist', JSON.stringify(playlist)); }
@@ -151,10 +168,12 @@ function maximizePlayer() {
 
 
 /* ================= CORE PLAYER LOGIC /* ================= CORE PLAYER LOGIC (FIXED & CLEAN) ================= */
+/* ================= CORE PLAYER LOGIC (INSTANT-PLAY & BRANDING) ================= */
 async function loadSong(index) {
+    if (!playlist[index]) return; 
     currentIndex = index;
     const s = playlist[index];
-    if(!s || !audio) return; // Safety check taaki undefined error na aaye
+    if(!audio) return;
 
     // 1. UI Updates
     document.getElementById('player-title').innerText = s.name;
@@ -162,15 +181,15 @@ async function loadSong(index) {
     document.getElementById('mini-title').innerText = s.name;
     document.getElementById('mini-artist').innerText = s.artist;
     
-    // 2. Normal Image Logic (Bina decoding ke seedha GitHub/Direct link support)
     const finalImg = s.img || defaultImg;
     if(mainImg) mainImg.src = finalImg;
     const miniImg = document.getElementById('mini-img');
     if(miniImg) miniImg.src = finalImg;
     
-    // 3. Adaptive Color & UI Sync
     updatePlayerAdaptiveColor(finalImg);
     updatePlayingUI(); 
+    
+    // 2. BRANDING: Lock Screen par logo overlay ke liye call
     updateMediaSession(s);
 
     const mini = document.getElementById('mini-player');
@@ -180,7 +199,7 @@ async function loadSong(index) {
         mini.style.opacity = '1';
     }
 
-    // 4. Playback Logic with Smart Decoding (Sirf Audio ke liye)
+    // 3. PLAYBACK & 5-SEC INSTANT PRELOAD
     try {
         const cache = await caches.open('apple-music-v2');
         let decodedURL;
@@ -188,15 +207,18 @@ async function loadSong(index) {
         if (s.url.startsWith("http") || s.url.startsWith("music/")) {
             decodedURL = s.url; 
         } else {
-            // Base64 Padding Fix taaki encoded audio crash na ho
             let base64String = s.url.trim();
             while (base64String.length % 4 !== 0) { base64String += '='; }
             decodedURL = atob(base64String); 
         }
         
         const songURL = new URL(decodedURL, window.location.origin).href;
+        
+        // Instant Buffer Setup: Metadata priority par lena
+        audio.pause();
+        audio.preload = "metadata"; 
+        
         const cachedResponse = await cache.match(songURL);
-
         if (cachedResponse) {
             const blob = await cachedResponse.blob();
             audio.src = URL.createObjectURL(blob);
@@ -205,10 +227,10 @@ async function loadSong(index) {
         }
         
         audio.load(); 
+        // 5-sec buffer ready hote hi playback shuru
         await audio.play();
         updatePlayIcons(true);
     } catch (e) {
-        // Fallback for any errors
         let fallbackURL = (s.url.startsWith("http") || s.url.startsWith("music/")) ? s.url : atob(s.url);
         audio.src = fallbackURL; 
         audio.load();
@@ -216,12 +238,10 @@ async function loadSong(index) {
         updatePlayIcons(false);
     }
 
-    audio.onended = () => {
-        nextSong(); 
-        audio.play().catch(e => {});
-    };
+    audio.onended = () => { nextSong(); };
 } 
 
+/* ================= TOGGLE PLAY LOGIC ================= */
 function togglePlay() { 
     if(!audio) return;
     if(audio.paused) { 
@@ -232,6 +252,45 @@ function togglePlay() {
         updatePlayIcons(false); 
     } 
 }
+
+/* ================= UPGRADED BRANDING FOR LOCK SCREEN ================= */
+async function updateMediaSession(s) {
+    if (!('mediaSession' in navigator)) return;
+
+    const getBrandedImg = (imgSrc) => {
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.src = imgSrc;
+            img.onload = () => {
+                canvas.width = 800; canvas.height = 800;
+                ctx.drawImage(img, 0, 0, 800, 800);
+                
+                //  Music Text Branding Overlay
+                ctx.fillStyle = "rgba(0,0,0,0.5)";
+                ctx.roundRect(580, 30, 190, 50, 25);
+                ctx.fill();
+                ctx.fillStyle = "white";
+                ctx.font = "bold 30px -apple-system, sans-serif";
+                ctx.fillText(" Music", 610, 65);
+                resolve(canvas.toDataURL("image/jpeg"));
+            };
+            img.onerror = () => resolve(imgSrc);
+        });
+    };
+
+    const brandedArtwork = await getBrandedImg(s.img || defaultImg);
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+        title: s.name,
+        artist: s.artist,
+        album: " Music", // Lock screen branding
+        artwork: [{ src: brandedArtwork, sizes: '512x512', type: 'image/jpeg' }]
+    });
+}
+
 
 
 
@@ -1044,10 +1103,53 @@ function openSongMenu(e, index) {
     menu.style.display = 'block'; menu.style.left = (e.clientX - 150) + "px"; menu.style.top = e.clientY + "px";
 }
 
-function updateMediaSession(s) {
+async function updateMediaSession(s) {
     if (!('mediaSession' in navigator)) return;
-    navigator.mediaSession.metadata = new MediaMetadata({ title: s.name, artist: s.artist, artwork: [{ src: s.img || defaultImg, sizes: '512x512', type: 'image/png' }] });
+
+    // 1. Branding wala Artwork generate karne ka function
+    const getBrandedImg = (imgSrc) => {
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.src = imgSrc;
+
+            img.onload = () => {
+                canvas.width = 1000; // High quality size
+                canvas.height = 1000;
+
+                // Main Cover Image draw karo
+                ctx.drawImage(img, 0, 0, 1000, 1000);
+
+                // 2.  Music Branding Style
+                ctx.fillStyle = "rgba(0,0,0,0.5)"; // Thoda dark overlay corner mein
+                ctx.roundRect(750, 40, 210, 60, 30); // Logo background
+                ctx.fill();
+
+                ctx.fillStyle = "white";
+                ctx.font = "bold 40px -apple-system, sans-serif";
+                ctx.fillText(" Music", 780, 82); // Logo Text
+
+                resolve(canvas.toDataURL("image/jpeg", 0.8));
+            };
+            img.onerror = () => resolve(imgSrc); // Fallback agar image fail ho
+        });
+    };
+
+    // 3. Lock Screen par metadata set karo
+    const brandedCover = await getBrandedImg(s.img || defaultImg);
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+        title: s.name,
+        artist: s.artist,
+        album: " Music", // Album name ki jagah branding
+        artwork: [
+            { src: brandedCover, sizes: '512x512', type: 'image/jpeg' }
+        ]
+    });
 }
+
 /* =================  HOME ENGINE INITIALIZATION ================= */
 
 // 1. History aur Mix ko track karne ke liye variables
