@@ -9,35 +9,6 @@ if ('serviceWorker' in navigator) {
 
 // Variables sirf EK baar declare honge pure code mein
 const audio = document.getElementById('main-audio');
-// STEP 1: Audio engine warm-up (iOS + Chrome safe)
-audio.preload = "auto";
-audio.muted = true;
-
-// First user gesture pe audio unlock
-document.addEventListener('touchstart', () => {
-    audio.muted = false;
-    if (audio.src) {
-        audio.play().catch(()=>{});
-    }
-}, { once: true });
-// STEP 2: iOS PWA lock/unlock audio recovery
-document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && audio) {
-        const wasPaused = audio.paused;
-        const currentTime = audio.currentTime;
-
-        // Force reload audio pipeline
-        audio.pause();
-        audio.src = audio.src;   // 🔥 VERY IMPORTANT LINE
-        audio.load();
-
-        audio.currentTime = currentTime;
-
-        if (!wasPaused) {
-            audio.play().catch(()=>{});
-        }
-    }
-});
 const playerScreen = document.getElementById('player-screen');
 const mainImg = document.getElementById('song-image'); 
 const defaultImg = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300";
@@ -197,120 +168,91 @@ function maximizePlayer() {
 
 
 /* ================= CORE PLAYER LOGIC /* ================= CORE PLAYER LOGIC (FIXED & CLEAN) ================= */
-/* ================= CORE PLAYER LOGIC (INSTANT-PLAY & BRANDING) ================= */
-/* ================= CORE PLAYER LOGIC (INSTANT SWITCH FIX) ================= */
-/* ================= CORE PLAYER LOGIC (ZERO-LATENCY FIX) ================= */
 async function loadSong(index) {
-    if (!playlist[index] || !audio) return; 
-
-    // 1. FORCE KILL: Purane gaane ka connection turant khatam karo
-    audio.pause();
-    audio.removeAttribute('src'); // Hard reset
-    audio.load(); 
-
     currentIndex = index;
     const s = playlist[index];
+    if(!s || !audio) return; // Safety check taaki undefined error na aaye
 
-    // 2. UI RESET: Buffering dikhane ke liye time ko turant 0:00 karo
-    const currentTimeText = document.getElementById('current');
-    const seekBar = document.getElementById('seek-bar');
-    if(currentTimeText) currentTimeText.innerText = "0:00";
-    if(seekBar) seekBar.value = 0;
-    
-    // UI Updates
+    // 1. UI Updates
     document.getElementById('player-title').innerText = s.name;
     document.getElementById('player-artist').innerText = s.artist;
+    document.getElementById('mini-title').innerText = s.name;
+    document.getElementById('mini-artist').innerText = s.artist;
     
+    // 2. Normal Image Logic (Bina decoding ke seedha GitHub/Direct link support)
     const finalImg = s.img || defaultImg;
     if(mainImg) mainImg.src = finalImg;
     const miniImg = document.getElementById('mini-img');
     if(miniImg) miniImg.src = finalImg;
-
-    // Mini Player show karo
-    const mini = document.getElementById('mini-player');
-    if(mini) { mini.style.display = 'flex'; mini.style.opacity = '1'; }
     
+    // 3. Adaptive Color & UI Sync
     updatePlayerAdaptiveColor(finalImg);
     updatePlayingUI(); 
     updateMediaSession(s);
 
-    // 3. DECODING
-    let decodedURL;
-    if (s.url.startsWith("http") || s.url.startsWith("music/")) {
-        decodedURL = s.url; 
-    } else {
-        let base64String = s.url.trim();
-        while (base64String.length % 4 !== 0) { base64String += '='; }
-        decodedURL = atob(base64String); 
+    const mini = document.getElementById('mini-player');
+    if(mini) {
+        mini.classList.remove('hidden');
+        mini.style.display = 'flex';
+        mini.style.opacity = '1';
     }
 
-    // 4. INSTANT PRELOAD & PLAY
-    // Browser ko signal do ki naya data priority par hai
-    audio.src = decodedURL;
-    audio.preload = "auto"; 
-
-    // Jaise hi pehla 'bit' load ho, playback chalu karo
-    audio.onloadedmetadata = function() {
-        audio.currentTime = 0; // Ensure 0 start
-    };
-
+    // 4. Playback Logic with Smart Decoding (Sirf Audio ke liye)
     try {
-        // audio.load() call karna zaroori hai naye connection ke liye
-        audio.load(); 
-        await audio.play();
-        updatePlayIcons(true);
+        const cache = await caches.open('apple-music-v2');
+        let decodedURL;
+        
+        if (s.url.startsWith("http") || s.url.startsWith("music/")) {
+            decodedURL = s.url; 
+        } else {
+            // Base64 Padding Fix taaki encoded audio crash na ho
+            let base64String = s.url.trim();
+            while (base64String.length % 4 !== 0) { base64String += '='; }
+            decodedURL = atob(base64String); 
+        }
+        
+        const songURL = new URL(decodedURL, window.location.origin).href;
+        const cachedResponse = await cache.match(songURL);
+
+        if (cachedResponse) {
+            const blob = await cachedResponse.blob();
+            audio.src = URL.createObjectURL(blob);
+        } else {
+            audio.src = decodedURL; 
+        }
+        
+        audio.load();
+
+setTimeout(() => {
+    audio.play()
+        .then(() => updatePlayIcons(true))
+        .catch(() => updatePlayIcons(false));
+}, 50);
     } catch (e) {
-        console.warn("Autoplay blocked or buffer lag");
-        // Fallback: Click to play handling
+        // Fallback for any errors
+        let fallbackURL = (s.url.startsWith("http") || s.url.startsWith("music/")) ? s.url : atob(s.url);
+        audio.src = fallbackURL; 
+        audio.load();
+        audio.play().catch(() => {});
+        updatePlayIcons(false);
     }
 
-    audio.onended = () => { nextSong(); };
-}
+    audio.onended = () => {
+        nextSong(); 
+        audio.play().catch(e => {});
+    };
+} 
 
-
-/* ================= TOGGLE PLAY ================= */
 function togglePlay() { 
     if(!audio) return;
-    if(audio.paused) { audio.play(); updatePlayIcons(true); } 
-    else { audio.pause(); updatePlayIcons(false); } 
+    if(audio.paused) { 
+        audio.play(); 
+        updatePlayIcons(true); 
+    } else { 
+        audio.pause(); 
+        updatePlayIcons(false); 
+    } 
 }
-
-/* ================= BRANDING ENGINE ================= */
-async function updateMediaSession(s) {
-    if (!('mediaSession' in navigator)) return;
-    const brandedArtwork = await getBrandedImg(s.img || defaultImg);
-    navigator.mediaSession.metadata = new MediaMetadata({
-        title: s.name,
-        artist: s.artist,
-        album: " Music",
-        artwork: [{ src: brandedArtwork, sizes: '512x512', type: 'image/jpeg' }]
-    });
-}
-
-// Helper for Branding Overlay
-function getBrandedImg(imgSrc) {
-    return new Promise((resolve) => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        img.crossOrigin = "Anonymous";
-        img.src = imgSrc;
-        img.onload = () => {
-            canvas.width = 800; canvas.height = 800;
-            ctx.drawImage(img, 0, 0, 800, 800);
-            ctx.fillStyle = "rgba(0,0,0,0.5)";
-            ctx.roundRect(580, 30, 190, 50, 25);
-            ctx.fill();
-            ctx.fillStyle = "white";
-            ctx.font = "bold 30px -apple-system, sans-serif";
-            ctx.fillText(" Music", 610, 65);
-            resolve(canvas.toDataURL("image/jpeg"));
-        };
-        img.onerror = () => resolve(imgSrc);
-    });
-}
-
-
 
 
 
