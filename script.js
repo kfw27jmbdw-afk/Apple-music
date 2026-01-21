@@ -20,6 +20,24 @@ document.addEventListener('touchstart', () => {
         audio.play().catch(()=>{});
     }
 }, { once: true });
+// STEP 2: iOS PWA lock/unlock audio recovery
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && audio) {
+        const wasPaused = audio.paused;
+        const currentTime = audio.currentTime;
+
+        // Force reload audio pipeline
+        audio.pause();
+        audio.src = audio.src;   // 🔥 VERY IMPORTANT LINE
+        audio.load();
+
+        audio.currentTime = currentTime;
+
+        if (!wasPaused) {
+            audio.play().catch(()=>{});
+        }
+    }
+});
 const playerScreen = document.getElementById('player-screen');
 const mainImg = document.getElementById('song-image'); 
 const defaultImg = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300";
