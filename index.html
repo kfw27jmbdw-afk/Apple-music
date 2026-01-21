@@ -1,100 +1,110 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title> Test Player v1</title>
+    <title> Test Player v9</title>
     <style>
         body { background: #000; color: #fff; font-family: -apple-system, sans-serif; text-align: center; padding: 50px; }
         .controls { display: flex; justify-content: center; gap: 20px; margin-top: 20px; }
-        button { background: #1c1c1e; color: white; border: 1px solid #333; padding: 15px 25px; border-radius: 10px; cursor: pointer; font-weight: bold; }
-        #status { color: #34c759; font-size: 14px; margin-top: 15px; font-family: monospace; }
-        .version { position: fixed; bottom: 10px; right: 10px; font-size: 10px; color: #444; }
+        button { background: #1c1c1e; color: white; border: 1px solid #333; padding: 15px 25px; border-radius: 12px; cursor: pointer; font-weight: bold; }
+        #status { color: #ff375f; font-size: 14px; margin-top: 15px; font-family: monospace; }
+        .version { position: fixed; bottom: 10px; right: 10px; font-size: 10px; color: #555; }
     </style>
 </head>
 <body>
 
-    <h2 id="title"> Music Test</h2>
-    <div id="status">Ready (v1)</div>
+    <h2 id="title"> Zero-Gap Bridge</h2>
+    <div id="status">V9: INITIALIZING...</div>
 
     <div class="controls">
-        <button onclick="prev()">Back</button>
+        <button onclick="prev()">BACK</button>
         <button id="playBtn" onclick="togglePlay()">PLAY</button>
-        <button onclick="next()">Next</button>
+        <button onclick="next()">NEXT</button>
     </div>
 
-    <div class="version">Build Version: 1.0.0</div>
+    <div class="version">Build Version: 9.0.0</div>
 
 <script>
-    // 1. Encoded Playlist Data
     const playlist = [
-        { name: "Song 1", url: "aHR0cHM6Ly9kbC5kcm9wYm94dXNlcmNvbnRlbnQuY29tL3NjbC9maS91Z3lkdmk4MDNrcDRndTZpZTQ4Y2UvRmlyc3QtS2lzcy1Zby1Zby1Ib25leS1TaW5naC5tcDM/cmxrZXk9dWpkN3lvMzM2cmZvOWptMTIyYW5peXJheSZzdD1sajVzcG8yaCZyYXc9MQ==" }, 
-        { name: "Song 2", url: "YOUR_ENCODED_LINK_2" }
+        { name: "Song 1", url: "https://dl.dropboxusercontent.com/scl/fi/br3g44trm44skzqkimd03/2-Gulaab.mp3?rlkey=m5rjmhrb9whv8jvwh90nx96zl&st=v2c7itu2&raw=1" }, 
+        { name: "Song 2", url: "https://dl.dropboxusercontent.com/scl/fi/br3g44trm44skzqkimd03/2-Gulaab.mp3?rlkey=m5rjmhrb9whv8jvwh90nx96zl&st=v2c7itu2&raw=1" }
     ];
 
     let currentIndex = 0;
-    let audio = new Audio();
-    audio.preload = "auto";
+    
+    // 🟢 DUAL PLAYER STRATEGY
+    let playerA = new Audio();
+    let playerB = new Audio();
+    let currentPlayer = playerA;
+    let nextPlayer = playerB;
 
-    // 2. Lockscreen Resume Fix: Audio context ko zinda rakhne ke liye
-    function initAudioContext() {
-        if (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined') {
-            const context = new (window.AudioContext || window.webkitAudioContext)();
-            if (context.state === 'suspended') {
-                context.resume();
-            }
+    function resolveURL(input) {
+        if (input.startsWith("http")) return input;
+        try { return atob(input); } catch(e) { return input; }
+    }
+
+    async function switchSong(index) {
+        currentIndex = index;
+        const s = playlist[index];
+        const url = resolveURL(s.url);
+
+        document.getElementById('status').innerText = "CROSSFADING...";
+
+        // 1. Current player ko pause karo
+        currentPlayer.pause();
+        
+        // 2. Swapping: Next player ab main player ban jayega
+        let temp = currentPlayer;
+        currentPlayer = nextPlayer;
+        nextPlayer = temp;
+
+        // 3. New Player Playback (Jo pehle se standby par tha)
+        currentPlayer.src = url; 
+        setupMediaSession(s.name);
+        
+        try {
+            await currentPlayer.play();
+            document.getElementById('title').innerText = s.name;
+            document.getElementById('status').innerText = "PLAYING (v9 ZERO-GAP)";
+            
+            // 4. PRE-LOAD NEXT: Agle gaane ko standby player par load karke rakho
+            prepareNextPlayer();
+        } catch (e) {
+            document.getElementById('status').innerText = "TAP TO START";
         }
     }
 
-    function loadSong(index) {
-        currentIndex = index;
-        const s = playlist[index];
-        document.getElementById('title').innerText = s.name;
-
-        // Hard Reset for Instant Play
-        audio.pause();
-        audio.src = ""; 
-        audio.load(); 
-
-        let decodedURL = atob(s.url);
-        audio.src = decodedURL;
+    function prepareNextPlayer() {
+        let nextIdx = (currentIndex + 1) % playlist.length;
+        let nextURL = resolveURL(playlist[nextIdx].url);
         
-        setupMediaSession(s.name);
-        audio.play().catch(e => console.log("Init required"));
+        // Standby player ko agle gaane ke liye "Warm" karna
+        nextPlayer.src = nextURL;
+        nextPlayer.preload = "auto";
+        nextPlayer.load(); 
+        console.log(" Bridge: Standby player ready for next track.");
     }
 
     function setupMediaSession(songName) {
         if ('mediaSession' in navigator) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-                title: songName,
-                artist: " Music v1",
-                album: "Lockscreen Fix Test"
-            });
-
-            // System handlers: Ye lockscreen play/pause ko control karte hain
-            navigator.mediaSession.setActionHandler('play', () => { 
-                initAudioContext();
-                audio.play(); 
-            });
-            navigator.mediaSession.setActionHandler('pause', () => { 
-                audio.pause(); 
-            });
-            navigator.mediaSession.setActionHandler('previoustrack', () => { prev(); });
-            navigator.mediaSession.setActionHandler('nexttrack', () => { next(); });
+            navigator.mediaSession.metadata = new MediaMetadata({ title: songName, artist: " Music v9" });
+            navigator.mediaSession.setActionHandler('play', () => currentPlayer.play());
+            navigator.mediaSession.setActionHandler('pause', () => currentPlayer.pause());
+            navigator.mediaSession.setActionHandler('nexttrack', () => next());
+            navigator.mediaSession.setActionHandler('previoustrack', () => prev());
         }
     }
 
-    function togglePlay() {
-        initAudioContext(); // User interaction par context resume
-        if (audio.paused) { audio.play(); } 
-        else { audio.pause(); }
-    }
+    function togglePlay() { currentPlayer.paused ? currentPlayer.play() : currentPlayer.pause(); }
+    function next() { switchSong((currentIndex + 1) % playlist.length); }
+    function prev() { switchSong((currentIndex - 1 + playlist.length) % playlist.length); }
 
-    function next() { loadSong((currentIndex + 1) % playlist.length); }
-    function prev() { loadSong((currentIndex - 1 + playlist.length) % playlist.length); }
+    // UI Sync for Active Player
+    setInterval(() => {
+        document.getElementById('playBtn').innerText = currentPlayer.paused ? "PLAY" : "PAUSE";
+    }, 200);
 
-    audio.onplay = () => { document.getElementById('playBtn').innerText = "PAUSE"; };
-    audio.onpause = () => { document.getElementById('playBtn').innerText = "PLAY"; };
-
-    loadSong(0);
+    // Initial Load
+    window.onload = () => { switchSong(0); };
 </script>
 </body>
 </html>
