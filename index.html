@@ -1,142 +1,100 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title> RAM Progress v13</title>
+    <title> Private Player v24</title>
     <style>
-        body { background: #000; color: #fff; font-family: -apple-system, sans-serif; padding: 30px; text-align: center; }
-        .controls { display: flex; justify-content: center; gap: 15px; margin: 20px 0; }
-        button { background: #1c1c1e; color: white; border: 1px solid #333; padding: 12px 20px; border-radius: 10px; cursor: pointer; font-weight: bold; }
-        #status { color: #ff9500; font-size: 14px; margin-top: 10px; font-family: monospace; }
+        body { background: #000; color: #fff; font-family: -apple-system, sans-serif; text-align: center; padding: 20px; }
+        .player-card { background: #1c1c1e; border-radius: 25px; padding: 30px; max-width: 350px; margin: 40px auto; border: 1px solid #333; }
+        #status { color: #0a84ff; font-size: 11px; margin-bottom: 20px; font-family: monospace; }
         
-        .queue-container { margin-top: 30px; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto; background: #111; padding: 15px; border-radius: 15px; border: 1px solid #222; }
-        .song-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 13px; }
-        .progress-bg { width: 100px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; margin-left: 10px; }
-        .progress-fill { height: 100%; background: #32d74b; width: 0%; transition: width 0.2s; }
-        .status-tag { font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        /* File Input Styling */
+        .file-input-label { background: #2c2c2e; color: #fff; padding: 10px 20px; border-radius: 10px; cursor: pointer; display: inline-block; margin-bottom: 20px; font-size: 13px; border: 1px solid #444; }
+        input[type="file"] { display: none; }
+        
+        .controls { display: flex; justify-content: center; align-items: center; gap: 30px; margin-top: 20px; }
+        .play-btn { background: #fff; color: #000; width: 60px; height: 60px; border-radius: 50%; border: none; font-size: 24px; cursor: pointer; }
+        
+        .song-info { margin-bottom: 20px; }
+        .song-info h2 { margin: 0; font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         
         .version { position: fixed; bottom: 10px; right: 10px; font-size: 10px; color: #444; }
     </style>
 </head>
 <body>
 
-    <h2 id="title"> RAM Engine v13</h2>
-    <div id="status">BYPASSING CORS...</div>
+    <div class="player-card">
+        <div id="status">PRIVATE MODE ACTIVE</div>
 
-    <div class="controls">
-        <button onclick="prev()">BACK</button>
-        <button id="playBtn" onclick="togglePlay()">PLAY</button>
-        <button onclick="next()">NEXT</button>
+        <label class="file-input-label">
+            📁 CHOOSE LOCAL SONG
+            <input type="file" id="localFile" accept="audio/*" onchange="handleLocalFile(this)">
+        </label>
+
+        <div class="song-info">
+            <h2 id="title">No Song Loaded</h2>
+            <p id="source" style="color:#8e8e93; font-size:12px;">Waiting for Drive link or File...</p>
+        </div>
+
+        <div class="controls">
+            <button class="play-btn" id="playBtn" onclick="togglePlay()">▶</button>
+        </div>
+        
+        <p style="font-size: 10px; color: #555; margin-top: 20px;">*Paste Drive Link in code for persistent play</p>
     </div>
 
-    <div class="queue-container" id="queue-list"></div>
-
-    <div class="version">Build Version: 13.0.0</div>
+    <div class="version">Build Version: 24.0.0</div>
 
 <script>
-    const playlist = [
-        { name: "Song 1", url: "https://dl.dropboxusercontent.com/scl/fi/br3g44trm44skzqkimd03/2-Gulaab.mp3?rlkey=m5rjmhrb9whv8jvwh90nx96zl&st=v2c7itu2&raw=1" }, 
-        { name: "Song 2", url: "https://dl.dropboxusercontent.com/scl/fi/br3g44trm44skzqkimd03/2-Gulaab.mp3?rlkey=m5rjmhrb9whv8jvwh90nx96zl&st=v2c7itu2&raw=1" }
-    ];
-
-    let currentIndex = 0;
     let audio = new Audio();
-    const preWarmedBlobs = {}; 
+    
+    // 🟢 GOOGLE DRIVE PERSISTENT LINK (Stream Format)
+    const driveSongId = "1v0aWtuUcQJZDfrOYLjo5tdSOB-TCXZdW"; 
+    const driveURL = `https://docs.google.com/uc?id=${driveSongId}&export=download`;
 
-    function buildQueueUI() {
-        const list = document.getElementById('queue-list');
-        list.innerHTML = "";
-        playlist.forEach((s, i) => {
-            list.innerHTML += `
-                <div class="song-item">
-                    <span>${i+1}. ${s.name}</span>
-                    <div style="display: flex; align-items: center;">
-                        <span id="percent-${i}" class="status-tag" style="color: #888;">0%</span>
-                        <div class="progress-bg"><div class="progress-fill" id="fill-${i}"></div></div>
-                    </div>
-                </div>`;
-        });
-    }
-
-    // 🟢 CORS BYPASS LOGIC
-    function getProxyURL(url) {
-        // Hum "cors-anywhere" ya similar proxy use kar sakte hain, 
-        // par Dropbox ke liye 'raw=1' wale links ko process karna zaroori hai.
-        return "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
-    }
-
-    async function warmSong(index) {
-        const s = playlist[index];
-        // Proxy use karke fetch bypass karna
-        const proxyUrl = getProxyURL(s.url);
-        
-        try {
-            const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error();
-
-            const reader = response.body.getReader();
-            const contentLength = +response.headers.get('Content-Length') || 5000000; // Fallback 5MB
-            
-            let receivedLength = 0;
-            let chunks = []; 
-
-            while(true) {
-                const {done, value} = await reader.read();
-                if (done) break;
-                chunks.push(value);
-                receivedLength += value.length;
-                
-                let pct = Math.floor((receivedLength / contentLength) * 100);
-                if(pct > 100) pct = 100;
-                
-                document.getElementById(`fill-${index}`).style.width = pct + "%";
-                document.getElementById(`percent-${index}`).innerText = pct + "%";
-            }
-
-            const blob = new Blob(chunks, { type: 'audio/mpeg' });
-            preWarmedBlobs[s.url] = URL.createObjectURL(blob);
-            document.getElementById(`percent-${index}`).innerText = "READY";
-            document.getElementById(`percent-${index}`).style.color = "#32d74b";
-        } catch (e) {
-            document.getElementById(`percent-${index}`).innerText = "ERROR";
-            document.getElementById(`percent-${index}`).style.color = "#ff3b30";
+    // 1. Handle Local Files
+    function handleLocalFile(input) {
+        const file = input.files[0];
+        if (file) {
+            const fileURL = URL.createObjectURL(file);
+            audio.src = fileURL;
+            document.getElementById('title').innerText = file.name;
+            document.getElementById('source').innerText = "SOURCE: LOCAL DISK";
+            document.getElementById('status').innerText = "PLAYING LOCAL FILE";
+            audio.play();
         }
     }
 
-    async function warmEntirePlaylist() {
-        for (let i = 0; i < playlist.length; i++) {
-            await warmSong(i);
+    // 2. Playback Control
+    function togglePlay() {
+        if (!audio.src) {
+            // Auto-load Drive song if nothing is loaded
+            audio.src = driveURL;
+            document.getElementById('title').innerText = "Legend";
+            document.getElementById('source').innerText = "SOURCE: GOOGLE DRIVE";
         }
-    }
-
-    async function loadAndPlay(index) {
-        currentIndex = index;
-        const s = playlist[index];
-        audio.pause();
         
-        if (preWarmedBlobs[s.url]) {
-            audio.src = preWarmedBlobs[s.url];
-            document.getElementById('status').innerText = "MODE: RAM-PLAY (0ms)";
+        if (audio.paused) {
+            audio.play();
+            document.getElementById('playBtn').innerText = "⏸";
         } else {
-            audio.src = s.url;
-            document.getElementById('status').innerText = "MODE: NETWORK-STREAM";
+            audio.pause();
+            document.getElementById('playBtn').innerText = "▶";
         }
-
-        audio.play().then(() => {
-            document.getElementById('title').innerText = s.name;
-        }).catch(() => {
-            document.getElementById('status').innerText = "TAP PLAY TO START";
-        });
     }
 
-    function next() { loadAndPlay((currentIndex + 1) % playlist.length); }
-    function prev() { loadAndPlay((currentIndex - 1 + playlist.length) % playlist.length); }
-    function togglePlay() { audio.paused ? audio.play() : audio.pause(); }
-
-    window.onload = () => {
-        buildQueueUI();
-        loadAndPlay(0);
-        warmEntirePlaylist();
+    // Media Session for Lockscreen
+    audio.onplay = () => {
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: document.getElementById('title').innerText,
+                artist: "Private Player"
+            });
+        }
+        document.getElementById('playBtn').innerText = "⏸";
     };
+
+    audio.onpause = () => { document.getElementById('playBtn').innerText = "▶"; };
+
 </script>
 </body>
 </html>
