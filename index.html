@@ -1,77 +1,69 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title> Private Player v24</title>
+    <title> Private Player v24.1</title>
     <style>
         body { background: #000; color: #fff; font-family: -apple-system, sans-serif; text-align: center; padding: 20px; }
         .player-card { background: #1c1c1e; border-radius: 25px; padding: 30px; max-width: 350px; margin: 40px auto; border: 1px solid #333; }
-        #status { color: #0a84ff; font-size: 11px; margin-bottom: 20px; font-family: monospace; }
         
-        /* File Input Styling */
-        .file-input-label { background: #2c2c2e; color: #fff; padding: 10px 20px; border-radius: 10px; cursor: pointer; display: inline-block; margin-bottom: 20px; font-size: 13px; border: 1px solid #444; }
+        /* Fixed File Label */
+        .file-input-label { 
+            background: #007aff; 
+            color: #fff; 
+            padding: 15px 25px; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            display: inline-block; 
+            margin-bottom: 25px; 
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,122,255,0.3);
+        }
+        
+        /* Hidden input but with broad accept */
         input[type="file"] { display: none; }
         
-        .controls { display: flex; justify-content: center; align-items: center; gap: 30px; margin-top: 20px; }
-        .play-btn { background: #fff; color: #000; width: 60px; height: 60px; border-radius: 50%; border: none; font-size: 24px; cursor: pointer; }
-        
-        .song-info { margin-bottom: 20px; }
-        .song-info h2 { margin: 0; font-size: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        
-        .version { position: fixed; bottom: 10px; right: 10px; font-size: 10px; color: #444; }
+        .song-info h2 { margin: 0; font-size: 22px; color: #fff; }
+        .play-btn { background: #fff; color: #000; width: 65px; height: 65px; border-radius: 50%; border: none; font-size: 26px; cursor: pointer; margin-top: 20px; }
     </style>
 </head>
 <body>
 
     <div class="player-card">
-        <div id="status">PRIVATE MODE ACTIVE</div>
+        <div id="status" style="font-size:10px; color:#32d74b; margin-bottom:10px;">V24.1 FIXED ENGINE</div>
 
         <label class="file-input-label">
-            📁 CHOOSE LOCAL SONG
-            <input type="file" id="localFile" accept="audio/*" onchange="handleLocalFile(this)">
+            + SELECT MUSIC FILE
+            <input type="file" id="localFile" accept="audio/mpeg, audio/mp3, audio/wav, audio/x-m4a, audio/*" onchange="handleLocalFile(this)">
         </label>
 
         <div class="song-info">
-            <h2 id="title">No Song Loaded</h2>
-            <p id="source" style="color:#8e8e93; font-size:12px;">Waiting for Drive link or File...</p>
+            <h2 id="title">No Song</h2>
+            <p id="source" style="color:#8e8e93; font-size:12px;">Tap blue button to load</p>
         </div>
 
-        <div class="controls">
-            <button class="play-btn" id="playBtn" onclick="togglePlay()">▶</button>
-        </div>
-        
-        <p style="font-size: 10px; color: #555; margin-top: 20px;">*Paste Drive Link in code for persistent play</p>
+        <button class="play-btn" id="playBtn" onclick="togglePlay()">▶</button>
     </div>
-
-    <div class="version">Build Version: 24.0.0</div>
 
 <script>
     let audio = new Audio();
-    
-    // 🟢 GOOGLE DRIVE PERSISTENT LINK (Stream Format)
-    const driveSongId = "1v0aWtuUcQJZDfrOYLjo5tdSOB-TCXZdW"; 
-    const driveURL = `https://docs.google.com/uc?id=${driveSongId}&export=download`;
 
-    // 1. Handle Local Files
     function handleLocalFile(input) {
         const file = input.files[0];
         if (file) {
+            // Memory URL creation
             const fileURL = URL.createObjectURL(file);
             audio.src = fileURL;
+            
             document.getElementById('title').innerText = file.name;
-            document.getElementById('source').innerText = "SOURCE: LOCAL DISK";
-            document.getElementById('status').innerText = "PLAYING LOCAL FILE";
+            document.getElementById('source').innerText = "LOCAL STORAGE";
+            
             audio.play();
+            document.getElementById('playBtn').innerText = "⏸";
         }
     }
 
-    // 2. Playback Control
     function togglePlay() {
-        if (!audio.src) {
-            // Auto-load Drive song if nothing is loaded
-            audio.src = driveURL;
-            document.getElementById('title').innerText = "Legend";
-            document.getElementById('source').innerText = "SOURCE: GOOGLE DRIVE";
-        }
+        if (!audio.src) return alert("Pehle file select karo bhai!");
         
         if (audio.paused) {
             audio.play();
@@ -82,19 +74,9 @@
         }
     }
 
-    // Media Session for Lockscreen
-    audio.onplay = () => {
-        if ('mediaSession' in navigator) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-                title: document.getElementById('title').innerText,
-                artist: "Private Player"
-            });
-        }
-        document.getElementById('playBtn').innerText = "⏸";
-    };
-
+    // Lockscreen sync
+    audio.onplay = () => { document.getElementById('playBtn').innerText = "⏸"; };
     audio.onpause = () => { document.getElementById('playBtn').innerText = "▶"; };
-
 </script>
 </body>
 </html>
