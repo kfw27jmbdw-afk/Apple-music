@@ -1,0 +1,1201 @@
+:root { 
+    --spotify-green: #1DB954; 
+    --bg-color: #1e1e1e; 
+}
+
+body { 
+    margin: 0; 
+    background: #000; 
+    font-family: 'Segoe UI', sans-serif; 
+    color: white; 
+    overflow: hidden; 
+    /* App Look ke liye fixes */
+    user-select: none; 
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* --- LIBRARY SCREEN --- */
+#playlist-screen { 
+    height: 100vh; 
+    padding: 20px; 
+    background: #121212; 
+    overflow-y: auto; 
+    box-sizing: border-box; 
+    scrollbar-width: none;
+}
+#playlist-screen::-webkit-scrollbar { display: none; }
+
+.playlist-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+.header-icons i { margin-left: 20px; font-size: 20px; cursor: pointer; }
+
+/* --- BILKUL SPOTIFY JAISA ALIGNMENT FIX --- */
+
+.song-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Dots ko ekdum kone mein bhejne ke liye */
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 2px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.song-item:active { 
+    background: #282828; 
+}
+
+/* Ye container image aur naam ko saath rakhega */
+.song-info-container {
+    display: flex;
+    align-items: center;
+    gap: 12px; /* Image aur Naam ke beech ka gap */
+    flex: 1; /* Baki saari jagah ye lega taaki dots end mein rahein */
+    overflow: hidden;
+}
+
+.song-item img {
+    width: 48px;
+    height: 48px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+/* Naam aur Artist ko ek ke niche ek karne ke liye */
+.song-info-container div {
+    display: flex;
+    flex-direction: column;
+}
+
+.song-item h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.song-item p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: #b3b3b3;
+}
+
+/* 3-Dots Menu Button styling */
+.song-menu-btn {
+    padding: 10px;
+    color: #b3b3b3;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+
+
+#player-screen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(to bottom, var(--bg-color) 0%, #121212 100%);
+    z-index: 1000;
+    display: flex; flex-direction: column;
+    transition: transform 0.5s cubic-bezier(0.3, 1, 0.4, 1), opacity 0.4s ease;
+    transform-origin: bottom center;
+}
+
+#player-screen.minimized { 
+    transform: translateY(100%) scale(0.5); 
+    opacity: 0; 
+    pointer-events: none; /* Piche touch kaam karega */
+}
+
+#mini-player {
+    position: fixed; bottom: 0; left: 0; width: 100%; height: 75px;
+    background: #282828; display: flex; align-items: center;
+    z-index: 500; /* Player screen ke niche */
+    border-top: 1px solid #333;
+}
+#mini-player {
+    position: fixed; 
+    bottom: 85px; 
+    left: 12px;
+    right: 12px;
+    width: auto; 
+    height: 68px;
+    
+    /* 1. ULTRA TRANSPARENCY: Sirf 15% safed rang, baaki sab transparent */
+    background: rgba(255, 255, 255, 0.08) !important; 
+    
+    /* 2. LENS BLUR: 30px blur se ekdam premium frosted feel aayega */
+    backdrop-filter: blur(35px) saturate(180%) !important; 
+    -webkit-backdrop-filter: blur(35px) saturate(180%); 
+    
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    padding: 0 15px; 
+    box-sizing: border-box; 
+    z-index: 5000;
+    
+    /* 3. SHARP EDGES: Apple jaisi patli chamakti border */
+    border-radius: 18px; 
+    border: 1px solid rgba(255, 255, 255, 0.15); 
+    
+    /* 4. SOFT SHADOW: Glass ko lift karne ke liye */
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); 
+    
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+
+.drag-handle { width: 100%; height: 40px; display: flex; justify-content: center; align-items: center; cursor: grab; }
+.handle-bar { width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
+
+.top-bar { display: flex; justify-content: space-between; padding: 10px 25px; position: relative; }
+.hidden-menu { 
+    display:none; position: absolute; right: 25px; top: 50px; 
+    background: #282828; padding: 15px; border-radius: 8px; 
+    z-index: 110; border: 1px solid #444; width: 150px; 
+}
+
+.player-content { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 0 35px; }
+.banner-container { 
+    width: 100%; aspect-ratio: 1/1; max-width: 320px; 
+    margin: 15px 0; overflow: hidden; border-radius: 12px; 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.banner-container img { width: 100%; height: 100%; object-fit: cover; }
+
+.song-info-area { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+.meta h2 { margin: 0; font-size: 24px; font-weight: 700; }
+.plus-btn { font-size: 28px; cursor: pointer; }
+
+.controls-wrapper { width: 100%; padding-bottom: 60px; }
+#seek-bar { width: 100%; accent-color: #fff; margin-bottom: 10px; cursor: pointer; }
+.time-stamps { display: flex; justify-content: space-between; font-size: 12px; color: #b3b3b3; }
+
+.main-controls { display: flex; justify-content: space-around; align-items: center; margin-top: 30px; }
+.main-controls i { font-size: 24px; cursor: pointer; }
+.play-trigger { 
+    background: #fff; color: #000; width: 65px; height: 65px; 
+    border-radius: 50%; display: flex; justify-content: center; align-items: center; 
+}
+
+
+
+#mini-player.hidden { 
+    transform: translateY(100%); 
+    opacity: 0; 
+}
+
+.mini-left { display: flex; align-items: center; }
+#mini-img { width: 45px; height: 45px; border-radius: 4px; margin-right: 12px; object-fit: cover; }
+.mini-meta h4 { margin: 0; font-size: 14px; }
+.mini-meta p { margin: 0; font-size: 12px; color: #b3b3b3; }
+
+/* --- FORM OVERLAY --- */
+.overlay { 
+    display:none; position:fixed; top:0; left:0; width:100%; 
+    height:100%; background:rgba(0,0,0,0.95); z-index:200; 
+    padding:25px; box-sizing: border-box; 
+}
+.overlay input { 
+    width: 100%; padding: 14px; margin: 10px 0; 
+    background: #222; border: none; color: #fff; 
+    border-radius: 8px; box-sizing: border-box; 
+}
+.btn-green { 
+    width: 100%; padding: 16px; background: var(--spotify-green); 
+    border: none; border-radius: 30px; color: #fff; 
+    font-weight: bold; cursor: pointer; 
+}
+.btn-outline { 
+    width: 100%; padding: 12px; background: transparent; 
+    border: 1px solid #fff; border-radius: 30px; color: #fff; 
+    margin-top: 10px; cursor: pointer; 
+}
+#final-code { 
+    width: 100%; height: 120px; background: #111; 
+    color: #0f0; margin-top: 10px; font-family: monospace; 
+    padding: 10px; box-sizing: border-box; font-size: 10px; 
+}
+/* --- OVERLAP POPUP MENU (The Missing Piece) --- */
+.song-context-menu {
+    display: none; /* JS se handle hoga */
+    position: fixed; /* Poori window ke relative overlap karega */
+    background: #282828 !important; /* Spotify grey */
+    min-width: 190px;
+    border-radius: 8px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+    z-index: 10000 !important; /* Sabse important: Player se bhi upar dikhne ke liye */
+    overflow: hidden;
+    border: 0.5px solid #444;
+}
+
+/* Popup ke andar ke Items */
+.menu-item {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: #eee;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.menu-item:active {
+    background: #3e3e3e; /* Touch feedback */
+}
+
+.menu-item i {
+    width: 20px;
+    text-align: center;
+    color: #b3b3b3;
+}
+/* 1. Pulse Animation: Jo background ko hila-dula ke 'loading' feel degi */
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* 2. Skeleton Base: Dark grey background with a moving gradient */
+.skeleton {
+    background: #1c1c1e; /* Apple Music dark grey */
+    background: linear-gradient(90deg, #1c1c1e 25%, #2c2c2e 50%, #1c1c1e 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite linear;
+    border-radius: 8px;
+}
+
+/* 3. Skeleton Item: Ek gaane ke row ka dhancha */
+.skeleton-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    gap: 12px;
+}
+
+/* 4. Nakli Photo (Square) */
+.skeleton-img { 
+    width: 50px; 
+    height: 50px; 
+    border-radius: 6px; 
+    flex-shrink: 0;
+}
+
+/* 5. Nakli Text Lines */
+.skeleton-info {
+    flex: 1;
+}
+
+.skeleton-text { 
+    width: 60%; 
+    height: 14px; 
+    margin-bottom: 8px;
+    border-radius: 4px; 
+}
+
+.skeleton-artist { 
+    width: 40%; 
+    height: 10px; 
+    border-radius: 4px; 
+}
+
+/* ============================================================
+   --- FINAL BULLETPROOF NAVIGATION & SEARCH CSS ---
+   ============================================================ */
+
+#bottom-navigation-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 75px; 
+    background: #000;
+    z-index: 9999 !important;
+    pointer-events: auto !important;
+    overflow: visible !important; /* YE CHANGE KARO */
+}
+
+
+/* Dono stacks ko ek hi jagah (absolute) par rakho */
+.nav-stack {
+    position: absolute; 
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: #000;
+    transition: opacity 0.2s ease-in-out;
+    pointer-events: auto !important;
+    overflow: visible !important; /* YE LINE ADD KARO */
+}
+
+
+/* Jab stack hide ho toh display none ka use karein taaki clicks block na hon */
+#search-stack {
+    display: none; /* JS isey 'flex' karega */
+    z-index: 10001; 
+    padding: 0 15px;
+    gap: 12px;
+}
+
+#tab-stack {
+    display: flex;
+    z-index: 10000;
+}
+
+/* --- SEARCH UI ALIGNMENT --- */
+.search-active-tab {
+    width: 45px;
+    height: 45px;
+    background: rgba(255, 59, 48, 0.15);
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #ff3b30;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.search-input-wrapper {
+    flex: 1;
+    background: #1c1c1e; /* Spotify/Apple grey input */
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    pointer-events: auto !important;
+}
+
+.search-input-wrapper input {
+    background: none;
+    border: none;
+    color: white;
+    width: 100%;
+    font-size: 16px;
+    outline: none;
+    margin-left: 10px;
+    pointer-events: auto !important; /* Keyboard trigger fix */
+}
+
+/* --- TABS FEEDBACK --- */
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #8e8e93;
+    font-size: 10px;
+    cursor: pointer;
+    min-width: 60px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.nav-item.active { color: #ff3b30; }
+.nav-item i { font-size: 22px; margin-bottom: 4px; }
+
+.search-trigger-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #8e8e93;
+    font-size: 10px;
+    cursor: pointer;
+    min-width: 60px;
+}
+#search-backdrop {
+    position: fixed;
+    inset: 0;
+    background: transparent;
+    display: none;
+    z-index: 9998;
+}
+/* --- PLAYER & NAVIGATION SYNC FIX --- */
+
+/* 1. Full Player: Isko sabse upar rakho taaki tabs ko cover kar sake */
+#player-screen {
+    z-index: 20000 !important; 
+    background: #000;
+    /* Ensure full screen covers everything */
+    height: 100vh;
+    width: 100vw;
+}
+
+#mini-player {
+    position: fixed; 
+    bottom: 85px; 
+    left: 12px;
+    right: 12px;
+    width: auto; 
+    height: 68px;
+    
+    /* 1. 100% TRANSPARENT: Background bilkul saaf hai */
+    background: rgba(255, 255, 255, 0.01) !important; 
+    
+    /* 2. ZERO BLUR & DISTORTION: Blur 0 hai, saturation 200% lens feel ke liye */
+    backdrop-filter: blur(2px) saturate(200%) brightness(110%) !important;
+    -webkit-backdrop-filter: blur(0px) saturate(200%) brightness(110%);
+
+    /* 3. THE TEDHE-MEDHE EFFECT (Lens Distortion) */
+    /* Hum ek halki displacement image use karenge jo piche ke items ko mod degi */
+    filter: url(#lens-distortion); 
+
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    padding: 0 15px; 
+    z-index: 5000;
+    
+    border-radius: 18px; 
+    border: 1px solid rgba(255, 255, 255, 0.2); /* Lens ki edge chamakne ke liye */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); 
+}
+
+
+
+
+/* 3. Bottom Tabs: Inki height fix rakho */
+#bottom-navigation-container {
+    height: 75px;
+    z-index: 6000;
+    background: #000;
+    border-top: 0.5px solid #333;
+}
+
+
+/* 4. Content Area: Taaki aakhri gaana mini player ke peeche na chhup jaye */
+#playlist-screen, #home-screen, #library-screen {
+    padding-bottom: 160px; /* Mini Player + Tabs + Extra space */
+}
+
+/* --- STEP 2: LIBRARY NAVIGATION ARRANGEMENT --- */
+
+.library-sub-nav {
+    display: flex;
+    gap: 12px;                /* Buttons ke beech ka gap */
+    padding: 15px 5px;
+    margin-bottom: 20px;
+    overflow-x: auto;         /* Mobile par swipe ke liye */
+    white-space: nowrap;      /* Buttons line na todein */
+    scrollbar-width: none;    /* Firefox ke liye scrollbar hide */
+    justify-content: flex-start; /* Buttons ko left se shuru karo */
+}
+
+/* Chrome/Safari ke liye scrollbar hide karein */
+.library-sub-nav::-webkit-scrollbar { 
+    display: none; 
+}
+
+.sub-nav-btn {
+    flex-shrink: 0;           /* Button ko pichakne se bachaye */
+    background: #282828;      /* Dark grey background */
+    color: white;
+    border: none;
+    padding: 10px 22px;
+    border-radius: 20px;      /* Pill shape look */
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase; /* Professional look */
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sub-nav-btn.active {
+    background: #ff3b30;      /* Active state: Apple Red */
+}
+
+
+/* --- ACTION MODAL & TICK LOGIC --- */
+.modal-content {
+    background: #1c1c1e;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 400px;
+    margin: 10vh auto;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+}
+
+.modal-header { margin-bottom: 20px; }
+.modal-header h3 { margin: 0; font-size: 18px; }
+.modal-header p { margin: 5px 0 0; color: #8e8e93; font-size: 14px; }
+
+.modal-options-list { max-height: 350px; overflow-y: auto; }
+
+.modal-option {
+    display: flex;
+    align-items: center;
+    padding: 14px 10px;
+    gap: 15px;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+
+.modal-option:active { background: #2c2c2e; }
+.modal-option i:first-child { font-size: 20px; color: #ff3b30; width: 24px; text-align: center; }
+
+/* Tick Icon Styling */
+.tick-icon {
+    margin-left: auto;
+    font-size: 20px;
+    color: #333; /* Default (Unticked) */
+    transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Jab tick mark active (checked) ho */
+.tick-icon.active {
+    color: #ff3b30 !important; /* Red Tick (Ticked) */
+    transform: scale(1.1);
+}
+
+.modal-divider { border: 0.1px solid #333; margin: 10px 0; }
+
+.modal-footer { margin-top: 20px; }
+.btn-done {
+    width: 100%;
+    padding: 15px;
+    background: #ff3b30;
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.modal-content.small { margin-top: 30vh; }
+
+/* --- PLAYLIST ROW STYLING --- */
+
+/* Playlist ka Red Icon Box */
+.playlist-icon-box {
+    width: 50px;
+    height: 50px;
+    background: #282828; /* Dark grey background */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px; /* Rounded corners */
+    color: #ff3b30; /* Apple Red Icon */
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+/* Playlist Detail Header (Jab playlist khulegi) */
+.playlist-detail-header h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 5px;
+    color: #fff;
+}
+
+.playlist-detail-header p {
+    color: #8e8e93;
+    margin-bottom: 20px;
+}
+
+/* Minus button styling (Playlist se gaana hatane ke liye) */
+.song-menu-btn i.fa-minus-circle {
+    font-size: 20px;
+    transition: transform 0.2s;
+}
+
+.song-menu-btn i.fa-minus-circle:active {
+    transform: scale(0.8); /* Click feedback */
+}
+
+/* --- GRID VIEW FORCING LOGIC --- */
+
+/* Jab PLAYLIST tab active ho, tabhi grid dikhe */
+#library-content-area.grid-view {
+    display: grid !important; /* Flex ko override karne ke liye */
+    grid-template-columns: 1fr 1fr !important; /* 2 Columns fix */
+    gap: 15px !important;
+    padding: 10px !important;
+}
+
+.playlist-card {
+    width: 100%;
+    display: block; /* Flexbox behavior hatane ke liye */
+    cursor: pointer;
+}
+
+.playlist-thumb-container {
+    width: 100%;
+    aspect-ratio: 1/1;
+    background: #282828;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.playlist-thumb-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.playlist-card h4 {
+    margin-top: 8px;
+    font-size: 14px;
+    text-align: center;
+    color: white;
+    font-weight: 500;
+}
+
+/* Camera button icon fix */
+.edit-thumb-btn {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0,0,0,0.7);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+/* 3-Dots ko clickable banane ke liye */
+.song-menu-btn {
+    position: relative;
+    z-index: 10;
+    cursor: pointer;
+    padding: 15px; /* Touch area bada karne ke liye */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-results-area .song-item {
+    display: flex !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.search-results-area .song-info-container img {
+    width: 50px !important;
+    height: 50px !important;
+    border-radius: 6px !important;
+}
+/* Search results ko forcefully dikhane ke liye */
+#global-search-results {
+    padding-bottom: 20px;
+}
+
+#global-search-results {
+    position: fixed !important;
+    bottom: 85px !important; /* Bottom tabs (75px) + 10px gap */
+    left: 10px !important;
+    right: 10px !important;
+    width: calc(100% - 20px) !important;
+    background: rgba(28, 28, 30, 0.98) !important; /* Apple Dark Grey */
+    backdrop-filter: blur(20px); /* Premium look */
+    z-index: 20000 !important;
+    max-height: 60vh;
+    overflow-y: auto;
+    border-radius: 20px !important; /* Charo taraf se rounded */
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 -15px 40px rgba(0,0,0,0.6) !important;
+}
+
+#global-search-results {
+    position: fixed !important; 
+    bottom: 85px !important; /* Navigation bar ke theek upar */
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important; /* Left/Right se space lene do */
+    background: rgba(28, 28, 30, 0.98) !important;
+    backdrop-filter: blur(20px) !important;
+    z-index: 2147483647 !important; /* Maximum possible z-index */
+    border-radius: 20px !important;
+    display: none; /* JS isey handle karega */
+}
+
+/* 1. Modal ko Player Screen ke upar laane ke liye */
+.overlay { 
+    display: none; 
+    position: fixed; 
+    top: 0; left: 0; 
+    width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.95); 
+    /* Player 20000 par hai, toh ise 30000 kar rahe hain taaki ye hamesha upar rahe */
+    z-index: 30000 !important; 
+    padding: 25px; 
+    box-sizing: border-box; 
+}
+
+/* 2. Playlist Name Prompt ko bhi upar rakho */
+#playlist-name-modal {
+    z-index: 30005 !important;
+}
+
+/* 3. Global Search Tray Fix (Floating Above Player) */
+#global-search-results {
+    position: fixed !important; 
+    bottom: 85px !important; 
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important; 
+    background: rgba(28, 28, 30, 0.98) !important;
+    backdrop-filter: blur(20px) !important;
+    /* Isse sabse upar tairne ke liye highest z-index diya gaya hai */
+    z-index: 40000 !important; 
+    border-radius: 20px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 -15px 35px rgba(0,0,0,0.8) !important;
+    display: none;
+}
+/* Spotify Style Equalizer Animation */
+.playing-animation {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    width: 15px;
+    height: 15px;
+}
+
+.playing-animation span {
+    width: 3px;
+    background-color: #1DB954; /* Spotify Green */
+    animation: bounce 0.5s ease-in-out infinite alternate;
+}
+
+/* Har bar ki height alag rakhenge dynamic look ke liye */
+.playing-animation span:nth-child(2) { animation-delay: 0.2s; }
+.playing-animation span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+    0% { height: 3px; }
+    100% { height: 100%; }
+}
+/* Jab gaana pause ho toh bars ko dots banane ke liye */
+.playing-animation.paused span {
+    animation-play-state: paused; /* Animation ruk jayega */
+    height: 3px !important;       /* Saari lines ek barabar choti ho jayengi */
+    border-radius: 50%;          /* Dots wala look dene ke liye */
+}
+
+/* Spotify Style Playlist Header */
+/* Playlist header ko ekdam upar le jaane ke liye */
+.playlist-detail-header {
+    margin-top: -10px !important; /* Agar gap hai toh use kheench lega */
+    padding-top: 10px !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Library title area jab hide ho toh jagah na ghere */
+.library-header {
+    margin-bottom: 0 !important;
+}
+
+/* Ensure karo container top se shuru ho */
+#library-content-area {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+}
+
+
+.pl-hero-content {
+    display: flex;
+    align-items: flex-end; /* Text image ke niche se align hoga */
+    gap: 20px;
+    width: 100%;
+    margin-top: 20px;
+}
+
+#pl-detail-img {
+    width: 160px !important; /* Thoda bada cover */
+    height: 160px !important;
+    border-radius: 4px !important; /* Spotify minor rounding use karta hai */
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.pl-info-text h1 {
+    font-size: 24px;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -1px;
+}
+
+.pl-info-text p {
+    font-size: 14px;
+    color: #b3b3b3;
+    margin-top: 8px;
+}
+/* Poora container adaptive color lega */
+#library-content-area {
+    background-color: var(--pl-bg-color, #121212);
+    transition: background 0.8s ease;
+    min-height: 100vh;
+}
+
+/* Header mein gradient dalo taaki color niche smoothly black mein merge ho */
+.playlist-detail-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 60px 20px 30px 20px;
+    /* Top par main color, niche aate-aate dark gradient */
+    background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(18,18,18,0.6) 100%) !important;
+}
+
+/* Gaano ki list ka area thoda dark rakho taaki text saaf dikhe */
+#playlist-internal-songs {
+    background: linear-gradient(to bottom, rgba(18,18,18,0.6) 0%, #121212 100%) !important;
+    padding: 10px 0 100px 0;
+}
+#library-content-area {
+    background-color: var(--pl-bg-color, #121212);
+    transition: background 0.8s ease;
+    min-height: 100vh;
+}
+
+.playlist-detail-header {
+    background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(18,18,18,0.4) 100%) !important;
+}
+
+#playlist-internal-songs {
+    /* Isse gaano ka background poori screen ke color se match karega */
+    background: linear-gradient(to bottom, rgba(18,18,18,0.4) 0%, #121212 100%) !important;
+}
+
+/* Poora page ab is variable se color lega */
+body, #app-container, #library-screen {
+    background-color: var(--pl-bg-color, #121212) !important;
+    transition: background 0.8s ease;
+}
+
+/* Library ka title area transparent rakho taaki niche ka color dikhe */
+.library-header {
+    background: transparent !important;
+    padding: 20px;
+}
+
+/* Playlist detail header ka gradient smoothly merge hoga */
+.playlist-detail-header {
+    background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(18,18,18,0.4) 100%) !important;
+}
+#library-screen {
+    height: 100vh;
+    overflow-y: auto !important; /* Touch scroll enable karo */
+    -webkit-overflow-scrolling: touch;
+}
+
+#playlist-internal-songs {
+    min-height: 50vh;
+    padding-bottom: 160px !important; /* Taaki aakhri gaana mini-player ke piche na chhup jaye */
+}
+
+/* ================= DOWNLOAD PROGRESS BAR ================= */
+#download-progress-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px; /* Ek dam patli line */
+    background: rgba(255, 255, 255, 0.1);
+    z-index: 99999; /* Taaki ye player aur header sabke upar dikhe */
+    display: none; /* By default hidden rahega */
+}
+
+#download-progress-bar {
+    width: 0%;
+    height: 100%;
+    background: #1DB954; /* Spotify Green */
+    box-shadow: 0 0 10px rgba(29, 185, 84, 0.5); /* Halki si chamak */
+    transition: width 0.3s ease; /* Smoothly aage badhne ke liye */
+}
+/* ---  INTRO ANIMATIONS --- */
+@keyframes appleAppear { 
+    to { opacity: 1; transform: scale(1); } 
+}
+
+@keyframes appleMoveLeft { 
+    to { transform: translateX(0); } 
+}
+
+@keyframes musicReveal { 
+    to { opacity: 1; width: 160px; margin-left: 10px; } 
+}
+
+/* App Loading State */
+#main-app { 
+    opacity: 0; 
+    transition: opacity 1s ease; 
+}
+.home-section { 
+    margin-bottom: 35px; 
+    padding-left: 20px; 
+}
+
+.section-header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding-right: 20px; 
+    margin-bottom: 15px; 
+}
+
+.section-header h2 { 
+    font-size: 22px; 
+    font-weight: 700; 
+    letter-spacing: -0.5px; 
+}
+
+.section-header span { 
+    color: #ff3b30; 
+    font-size: 14px; 
+    font-weight: 500; 
+}
+
+.scroll-row { 
+    display: flex; 
+    overflow-x: auto; 
+    gap: 16px; 
+    padding-bottom: 10px; 
+    scrollbar-width: none; 
+}
+
+.scroll-row::-webkit-scrollbar { display: none; }
+
+.home-card { 
+    min-width: 140px; 
+    max-width: 140px; 
+    cursor: pointer;
+}
+
+.home-card img { 
+    width: 140px; 
+    height: 140px; 
+    border-radius: 10px; 
+    object-fit: cover; 
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4); 
+    background: #1c1c1e;
+}
+
+.home-card p { 
+    margin: 8px 0 2px; 
+    font-size: 13px; 
+    font-weight: 600; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+}
+
+.home-card span { 
+    color: #8e8e93; 
+    font-size: 11px; 
+}
+/* Sabhi screens ke liye vertical scroll enable karo */
+.tab-content {
+    height: 100vh;
+    overflow-y: auto !important; /* Forcefully vertical scroll allow karega */
+    -webkit-overflow-scrolling: touch; /* iOS par smooth scrolling ke liye */
+    padding-bottom: 180px; /* Mini player aur tabs ke liye neeche jagah */
+    box-sizing: border-box;
+}
+
+/* 1. Main Home Screen Container Fix */
+#home-screen {
+    height: 100vh;
+    overflow-y: scroll !important; /* 'auto' ki jagah 'scroll' force karo */
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; /* iOS smooth inertia scroll */
+    padding-bottom: 180px; 
+    box-sizing: border-box;
+    /* Isse touch response fast hota hai */
+    touch-action: pan-y; 
+}
+
+/* 2. Horizontal Rows ka Touch Fix */
+.scroll-row {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 16px;
+    padding: 5px 20px 15px 0;
+    scrollbar-width: none;
+    /* Important: Row ke andar sirf horizontal touch allow karo */
+    touch-action: pan-x; 
+    /* Page ko upar-niche jane se nahi rokega */
+    overscroll-behavior-x: contain; 
+}
+
+.scroll-row::-webkit-scrollbar {
+    display: none;
+}
+
+/* 3. Item Card Click Feedback */
+.home-card {
+    min-width: 145px;
+    max-width: 145px;
+    /* Click response fast karne ke liye */
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+/* 1. Pure Home Screen par vertical touch ko priority do */
+#home-screen {
+    height: 100vh;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    /* Isse browser ko pata chalta hai ki up-down scroll main hai */
+    touch-action: pan-y; 
+    padding-bottom: 180px;
+}
+
+/* 2. Horizontal Rows ka Magic Fix */
+.scroll-row {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden; /* Vertical content bahar nahi jayega */
+    gap: 16px;
+    padding: 10px 20px 20px 0;
+    scrollbar-width: none;
+
+    /* 🔥 SABSE IMPORTANT LINE 🔥 */
+    /* 'pan-x pan-y' ka matlab hai ki horizontal scroll bhi karo, 
+       lekin agar finger upar-niche jaye toh page scroll hone do */
+    touch-action: pan-x pan-y !important; 
+
+    /* Isse row ke andar ka scroll page ko lock nahi karega */
+    overscroll-behavior-x: contain; 
+}
+
+.scroll-row::-webkit-scrollbar {
+    display: none;
+}
+
+/* 3. Cards par extra safety */
+.home-card {
+    min-width: 145px;
+    /* Click delay khatam karne ke liye */
+    touch-action: manipulation; 
+    -webkit-user-drag: none;
+}
+/* Home Screen Root */
+#home-screen {
+    height: 100vh;
+    overflow: hidden;
+    background: #000;
+}
+
+/* Fixed Header */
+.home-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: #000;
+    padding: 20px 20px 10px;
+}
+
+/* Scrollable Content */
+.home-content {
+    height: calc(100vh - 120px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 180px;
+}
+
+/* Horizontal rows remain same */
+.scroll-row {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 16px;
+    scrollbar-width: none;
+    touch-action: pan-x pan-y;
+}
+.home-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 5000;
+    background: #000;
+    padding: 20px 20px 10px;
+}
+#home-screen {
+    height: 100vh;
+    overflow: hidden; /* 🔒 Screen lock */
+    background: #000;
+}
+.home-content {
+    position: absolute;
+    top: 100px; /* 👈 HEADER HEIGHT */
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 180px; /* mini-player + tabs */
+}
+/* 1. Poore App ka Ground ek jaisa karo */
+body, 
+.tab-content, 
+#home-screen, 
+#library-screen, 
+#playlist-screen {
+    background-color: #000000 !important; /* Pure Black */
+}
+
+/* 2. Header Area ko Ground se match karo */
+.playlist-header, 
+.library-header,
+#home-screen .playlist-header,
+#playlist-screen .playlist-header {
+    background-color: #000000 !important; /* Same as ground */
+    /* Agar koi halki line ya shadow dikh rahi hai toh use hatao */
+    border-bottom: none !important;
+    box-shadow: none !important;
+}
+
+/* 3. Navigation Bar ko bhi sync kar lo */
+.bottom-nav {
+    background-color: #000000 !important;
+    border-top: 0.5px solid rgba(255, 255, 255, 0.1); /* Halka sa border premium look ke liye */
+}
+/* 1. Library Content area ka division hatane ke liye */
+#library-screen, 
+#library-content-area {
+    background-color: #000000 !important; /* Pure Black Ground */
+    border: none !important;
+    outline: none !important;
+}
+
+/* 2. Library Navigation patti (Downloaded, Playlist, Fav) ka background */
+.library-sub-nav {
+    background-color: #000000 !important; /* Divider line hatane ke liye same color */
+    border-bottom: none !important; /* Agar koi patti niche dikh rahi ho */
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+/* 3. Sub-nav buttons ka appearance (Optional: subtle contrast) */
+.sub-nav-btn {
+    background: #1c1c1e; /* Halka greyish black buttons ke liye */
+    border: none;
+    color: #8e8e93;
+}
+
+.sub-nav-btn.active {
+    background: #ff3b30; /* Active button color */
+    color: #fff;
+}
+
