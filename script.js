@@ -1537,7 +1537,7 @@ async function importLocalSong(input) {
         const store = transaction.objectStore("localSongs");
         store.put({ id: songId, data: file, name: songName });
 
-        transaction.oncomplete = () => {
+                transaction.oncomplete = async () => {
             const blobURL = URL.createObjectURL(file);
             const localEntry = {
                 "name": songName,
@@ -1548,24 +1548,35 @@ async function importLocalSong(input) {
                 "localId": songId 
             };
 
-            // 3. Playlist update aur turant play
+            // 1. Playlist mein sabse upar dalo (Index 0)
             playlist.unshift(localEntry);
+            
+            // 2. Data save karo
             savePlaylistToDisk();
             
-            // Player Load & Sync
-            audio.src = blobURL; 
-            loadSong(0); 
-            renderPlaylist();
+            // 3.  GHOST FIX: Pehle UI ko update hone do, phir gaana bajao
+            // currentIndex ko 0 par force karo taaki sync na bigde
+            currentIndex = 0; 
             
+            // Render playlist ka wait karo taaki naya dabba (row) aa jaye
+            await renderPlaylist(); 
+
+            // Ab naye gaane ko load karo (Index 0)
+            loadSong(0); 
+            
+            // 4. Cleanup
             const actionModal = document.getElementById('action-modal');
             if(actionModal) actionModal.style.display = 'none';
             
-            if(typeof showTempMessage === "function") showTempMessage("Song & Cover Ready! ");
+            if(typeof showTempMessage === "function") {
+                showTempMessage(" Ghost Fixed! Song Added at Top.");
+            }
         };
     };
     reader.readAsArrayBuffer(file);
 }
 
-// 🟢 KILL LINK SYSTEM
+// 🟢 KILL LINK SYSTEM (Unchanged)
 function openForm() { console.log("Link system is disabled."); }
 function addNewSong() { console.log("Use Files instead."); }
+
