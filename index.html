@@ -2,83 +2,145 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Cloud Debugger</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Music Player Test</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f4f4f7; }
-        .box { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: inline-block; }
-        #status-log { color: red; font-size: 12px; margin-top: 20px; white-space: pre-wrap; text-align: left; }
-        .btn { background: #007aff; color: white; border: none; padding: 15px 30px; border-radius: 10px; cursor: pointer; }
-        .btn:disabled { background: #ccc; }
+        :root { --apple-blue: #007aff; --bg: #f5f5f7; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
+        .player-card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; }
+        .btn-drive { background: var(--apple-blue); color: white; border: none; padding: 15px 25px; border-radius: 15px; font-size: 16px; font-weight: 600; width: 100%; cursor: pointer; transition: transform 0.2s; margin-bottom: 20px; }
+        .btn-drive:active { transform: scale(0.98); }
+        .btn-drive:disabled { background: #d1d1d6; }
+        #playlist { text-align: left; margin-top: 10px; border-top: 1px solid #eee; padding-top: 15px; }
+        .song-row { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #fafafa; border-radius: 12px; margin-bottom: 8px; border: 1px solid #efeff4; }
+        .song-info { font-size: 14px; color: #1d1d1f; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+        .play-btn { background: #34c759; color: white; border: none; padding: 6px 15px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+        audio { width: 100%; margin-top: 15px; border-radius: 10px; }
     </style>
 </head>
 <body>
 
-<div class="box">
-    <h2>Cloud Lab Debugger </h2>
-    <button id="auth_btn" class="btn" onclick="handleAuthClick()" disabled>Connecting to Google...</button>
-    <div id="status-log">Log: Initializing...</div>
+<div class="player-card">
+    <h2 style="margin-bottom: 10px;">Music Cloud </h2>
+    <p style="font-size: 12px; color: #86868b; margin-bottom: 20px;">Storage Limit: 250,000+ Songs</p>
+    
+    <button id="auth_btn" class="btn-drive" onclick="handleAuthClick()" disabled>Initializing APIs...</button>
+    
+    <div id="playlist">
+        <div id="list-container"></div>
+    </div>
+
+    <div id="mini-player" style="display:none; margin-top: 20px;">
+        <p id="now-playing" style="font-size: 13px; font-weight: bold; color: var(--apple-blue);"></p>
+        <audio id="audio-engine" controls></audio>
+    </div>
 </div>
 
-<script>
-    const log = (msg) => { document.getElementById('status-log').innerText += "\n" + msg; };
+<script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 
-    // 1. Manually loading scripts to catch errors
-    function loadScript(src) {
-        return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = src;
-            script.onload = resolve;
-            script.onerror = () => reject("Failed to load: " + src);
-            document.head.appendChild(script);
+<script>
+    const CLIENT_ID = '493639014923-7gqsn4g853icgtctj6hhugkcqhm6178e.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyAtjXuMkQe9UZzWb-cNsztYy0II9StI08U';
+    
+    let tokenClient;
+    let accessToken = null;
+    let gapiInited = false;
+    let gisInited = false;
+
+    // LocalStorage se list uthao
+    let cloudPlaylist = JSON.parse(localStorage.getItem('my_cloud_songs') || '[]');
+
+    function checkReady() {
+        if (gapiInited && gisinited) {
+            const btn = document.getElementById('auth_btn');
+            btn.disabled = false;
+            btn.innerText = "Add from Google Drive";
+        }
+    }
+
+    function gisLoaded() {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: 'https://www.googleapis.com/auth/drive.readonly',
+            callback: (resp) => {
+                if (resp.error) return;
+                accessToken = resp.access_token;
+                // Popup blocker bypass: login ke turant baad picker call
+                openPicker();
+            },
+        });
+        gisinited = true;
+        checkReady();
+    }
+
+    function gapiLoaded() {
+        gapi.load('client:picker', async () => {
+            await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
+            gapiInited = true;
+            checkReady();
         });
     }
 
-    async function init() {
-        try {
-            log("Loading Identity Services...");
-            await loadScript("https://accounts.google.com/gsi/client");
-            log("Identity Services Loaded.");
-
-            log("Loading API Client...");
-            await loadScript("https://apis.google.com/js/api.js");
-            log("API Client Loaded.");
-
-            setupGoogle();
-        } catch (err) {
-            log("ERROR: " + err);
-            log("TIP: Are you running this via 'http' or 'https'? Google APIs don't work on local files (file://).");
-        }
-    }
-
-    function setupGoogle() {
-        try {
-            gapi.load('client:picker', async () => {
-                await gapi.client.init({
-                    apiKey: 'AIzaSyAtjXuMkQe9UZzWb-cNsztYy0II9StI08U',
-                    discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"]
-                });
-                log("GAPI Client Initialized.");
-                
-                window.tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: '493639014923-7gqsn4g853icgtctj6hhugkcqhm6178e.apps.googleusercontent.com',
-                    scope: 'https://www.googleapis.com/auth/drive.readonly',
-                    callback: (resp) => { window.accessToken = resp.access_token; openPicker(); }
-                });
-                
-                log("Auth Client Ready.");
-                document.getElementById('auth_btn').disabled = false;
-                document.getElementById('auth_btn').innerText = "Login & Add Music";
-            });
-        } catch (e) {
-            log("Setup Error: " + e);
-        }
-    }
-
     function handleAuthClick() {
-        window.tokenClient.requestAccessToken({prompt: 'consent'});
+        if (accessToken === null) {
+            tokenClient.requestAccessToken({prompt: 'consent'});
+        } else {
+            openPicker();
+        }
     }
 
-    init();
+    function openPicker() {
+        // Small delay taaki browser window control le sake
+        setTimeout(() => {
+            const view = new google.picker.View(google.picker.ViewId.DOCS);
+            view.setMimeTypes("audio/mpeg,audio/mp3,audio/wav");
+            const picker = new google.picker.PickerBuilder()
+                .addView(view)
+                .setOAuthToken(accessToken)
+                .setDeveloperKey(API_KEY)
+                .setCallback(pickerCallback)
+                .build();
+            picker.setVisible(true);
+        }, 500);
+    }
+
+    function pickerCallback(data) {
+        if (data.action === google.picker.Action.PICKED) {
+            const file = data.docs[0];
+            // Sirf Metadata save kar rahe hain (Small Size = No Ghosting)
+            cloudPlaylist.push({ name: file.name, id: file.id });
+            localStorage.setItem('my_cloud_songs', JSON.stringify(cloudPlaylist));
+            render();
+        }
+    }
+
+    function render() {
+        const container = document.getElementById('list-container');
+        if (cloudPlaylist.length === 0) {
+            container.innerHTML = `<p style="text-align:center; color:#999; font-size:13px;">No songs added yet.</p>`;
+            return;
+        }
+        container.innerHTML = cloudPlaylist.map((song, i) => `
+            <div class="song-row">
+                <div class="song-info">${i + 1}. ${song.name}</div>
+                <button class="play-btn" onclick="playCloudSong('${song.id}', '${song.name}')">Play</button>
+            </div>
+        `).join('');
+    }
+
+    function playCloudSong(id, name) {
+        const audio = document.getElementById('audio-engine');
+        const url = `https://www.googleapis.com/drive/v3/files/${id}?alt=media&key=${API_KEY}`;
+        document.getElementById('now-playing').innerText = "Playing: " + name;
+        document.getElementById('mini-player').style.display = 'block';
+        audio.src = url;
+        audio.play().catch(e => alert("Error: Make sure file is shared or login is active."));
+    }
+
+    // Initial Render
+    render();
 </script>
+
 </body>
 </html>
