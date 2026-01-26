@@ -3,28 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloud Music Player Test</title>
+    <title>Cloud Music Player </title>
     <style>
         :root { --apple-blue: #007aff; --bg: #f5f5f7; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
         .player-card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; }
-        .btn-drive { background: var(--apple-blue); color: white; border: none; padding: 15px 25px; border-radius: 15px; font-size: 16px; font-weight: 600; width: 100%; cursor: pointer; transition: transform 0.2s; margin-bottom: 20px; }
-        .btn-drive:active { transform: scale(0.98); }
-        .btn-drive:disabled { background: #d1d1d6; }
+        .btn-drive { background: var(--apple-blue); color: white; border: none; padding: 15px 25px; border-radius: 15px; font-size: 16px; font-weight: 600; width: 100%; cursor: pointer; margin-bottom: 20px; }
+        .btn-drive:disabled { background: #d1d1d6; opacity: 0.7; }
         #playlist { text-align: left; margin-top: 10px; border-top: 1px solid #eee; padding-top: 15px; }
         .song-row { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #fafafa; border-radius: 12px; margin-bottom: 8px; border: 1px solid #efeff4; }
         .song-info { font-size: 14px; color: #1d1d1f; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
-        .play-btn { background: #34c759; color: white; border: none; padding: 6px 15px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+        .play-btn { background: #34c759; color: white; border: none; padding: 6px 15px; border-radius: 8px; font-size: 13px; }
         audio { width: 100%; margin-top: 15px; border-radius: 10px; }
     </style>
+
+    <script>
+        // Sare functions pehle define karenge taaki ReferenceError na aaye
+        const CLIENT_ID = '493639014923-7gqsn4g853icgtctj6hhugkcqhm6178e.apps.googleusercontent.com';
+        const API_KEY = 'AIzaSyAtjXuMkQe9UZzWb-cNsztYy0II9StI08U';
+        
+        let tokenClient;
+        let accessToken = null;
+        let gapiInited = false;
+        let gisInited = false;
+        let cloudPlaylist = JSON.parse(localStorage.getItem('my_cloud_songs') || '[]');
+
+        function checkReady() {
+            if (gapiInited && gisInited) {
+                const btn = document.getElementById('auth_btn');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = "Add from Google Drive";
+                }
+            }
+        }
+
+        // 1. Google Identity Services Loaded
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: 'https://www.googleapis.com/auth/drive.readonly',
+                callback: (resp) => {
+                    if (resp.error) return;
+                    accessToken = resp.access_token;
+                    openPicker();
+                },
+            });
+            gisInited = true;
+            checkReady();
+        }
+
+        // 2. Google API Client Loaded
+        function gapiLoaded() {
+            gapi.load('client:picker', async () => {
+                await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
+                gapiInited = true;
+                checkReady();
+            });
+        }
+
+        function handleAuthClick() {
+            if (!accessToken) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                openPicker();
+            }
+        }
+
+        function openPicker() {
+            const view = new google.picker.View(google.picker.ViewId.DOCS);
+            view.setMimeTypes("audio/mpeg,audio/mp3,audio/wav");
+            const picker = new google.picker.PickerBuilder()
+                .addView(view)
+                .setOAuthToken(accessToken)
+                .setDeveloperKey(API_KEY)
+                .setCallback(pickerCallback)
+                .build();
+            picker.setVisible(true);
+        }
+
+        function pickerCallback(data) {
+            if (data.action === google.picker.Action.PICKED) {
+                const file = data.docs[0];
+                cloudPlaylist.push({ name: file.name, id: file.id });
+                localStorage.setItem('my_cloud_songs', JSON.stringify(cloudPlaylist));
+                render();
+            }
+        }
+
+        function render() {
+            const container = document.getElementById('list-container');
+            if (!container) return;
+            if (cloudPlaylist.length === 0) {
+                container.innerHTML = `<p style="text-align:center; color:#999; font-size:13px;">No songs added yet.</p>`;
+                return;
+            }
+            container.innerHTML = cloudPlaylist.map((song, i) => `
+                <div class="song-row">
+                    <div class="song-info">${i + 1}. ${song.name}</div>
+                    <button class="play-btn" onclick="playCloudSong('${song.id}', '${song.name}')">Play</button>
+                </div>
+            `).join('');
+        }
+
+        function playCloudSong(id, name) {
+            const audio = document.getElementById('audio-engine');
+            const url = `https://www.googleapis.com/drive/v3/files/${id}?alt=media&key=${API_KEY}`;
+            document.getElementById('now-playing').innerText = "Playing: " + name;
+            document.getElementById('mini-player').style.display = 'block';
+            audio.src = url;
+            audio.play();
+        }
+    </script>
 </head>
-<body>
+<body onload="render()">
 
 <div class="player-card">
-    <h2 style="margin-bottom: 10px;">Music Cloud </h2>
-    <p style="font-size: 12px; color: #86868b; margin-bottom: 20px;">Storage Limit: 250,000+ Songs</p>
+    <h2>Music Cloud </h2>
+    <p style="font-size: 12px; color: #86868b; margin-bottom: 20px;">Dhai Lakh Song Storage Active</p>
     
-    <button id="auth_btn" class="btn-drive" onclick="handleAuthClick()" disabled>Initializing APIs...</button>
+    <button id="auth_btn" class="btn-drive" onclick="handleAuthClick()" disabled>Connecting Google...</button>
     
     <div id="playlist">
         <div id="list-container"></div>
@@ -36,111 +134,8 @@
     </div>
 </div>
 
-<script src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
-
-<script>
-    const CLIENT_ID = '493639014923-7gqsn4g853icgtctj6hhugkcqhm6178e.apps.googleusercontent.com';
-    const API_KEY = 'AIzaSyAtjXuMkQe9UZzWb-cNsztYy0II9StI08U';
-    
-    let tokenClient;
-    let accessToken = null;
-    let gapiInited = false;
-    let gisInited = false;
-
-    // LocalStorage se list uthao
-    let cloudPlaylist = JSON.parse(localStorage.getItem('my_cloud_songs') || '[]');
-
-    function checkReady() {
-        if (gapiInited && gisinited) {
-            const btn = document.getElementById('auth_btn');
-            btn.disabled = false;
-            btn.innerText = "Add from Google Drive";
-        }
-    }
-
-    function gisLoaded() {
-        tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: CLIENT_ID,
-            scope: 'https://www.googleapis.com/auth/drive.readonly',
-            callback: (resp) => {
-                if (resp.error) return;
-                accessToken = resp.access_token;
-                // Popup blocker bypass: login ke turant baad picker call
-                openPicker();
-            },
-        });
-        gisinited = true;
-        checkReady();
-    }
-
-    function gapiLoaded() {
-        gapi.load('client:picker', async () => {
-            await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
-            gapiInited = true;
-            checkReady();
-        });
-    }
-
-    function handleAuthClick() {
-        if (accessToken === null) {
-            tokenClient.requestAccessToken({prompt: 'consent'});
-        } else {
-            openPicker();
-        }
-    }
-
-    function openPicker() {
-        // Small delay taaki browser window control le sake
-        setTimeout(() => {
-            const view = new google.picker.View(google.picker.ViewId.DOCS);
-            view.setMimeTypes("audio/mpeg,audio/mp3,audio/wav");
-            const picker = new google.picker.PickerBuilder()
-                .addView(view)
-                .setOAuthToken(accessToken)
-                .setDeveloperKey(API_KEY)
-                .setCallback(pickerCallback)
-                .build();
-            picker.setVisible(true);
-        }, 500);
-    }
-
-    function pickerCallback(data) {
-        if (data.action === google.picker.Action.PICKED) {
-            const file = data.docs[0];
-            // Sirf Metadata save kar rahe hain (Small Size = No Ghosting)
-            cloudPlaylist.push({ name: file.name, id: file.id });
-            localStorage.setItem('my_cloud_songs', JSON.stringify(cloudPlaylist));
-            render();
-        }
-    }
-
-    function render() {
-        const container = document.getElementById('list-container');
-        if (cloudPlaylist.length === 0) {
-            container.innerHTML = `<p style="text-align:center; color:#999; font-size:13px;">No songs added yet.</p>`;
-            return;
-        }
-        container.innerHTML = cloudPlaylist.map((song, i) => `
-            <div class="song-row">
-                <div class="song-info">${i + 1}. ${song.name}</div>
-                <button class="play-btn" onclick="playCloudSong('${song.id}', '${song.name}')">Play</button>
-            </div>
-        `).join('');
-    }
-
-    function playCloudSong(id, name) {
-        const audio = document.getElementById('audio-engine');
-        const url = `https://www.googleapis.com/drive/v3/files/${id}?alt=media&key=${API_KEY}`;
-        document.getElementById('now-playing').innerText = "Playing: " + name;
-        document.getElementById('mini-player').style.display = 'block';
-        audio.src = url;
-        audio.play().catch(e => alert("Error: Make sure file is shared or login is active."));
-    }
-
-    // Initial Render
-    render();
-</script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 
 </body>
 </html>
