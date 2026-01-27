@@ -9,30 +9,31 @@
         body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
         .player-card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; }
         .btn-drive { background: var(--apple-blue); color: white; border: none; padding: 15px 25px; border-radius: 15px; font-size: 16px; font-weight: 600; width: 100%; cursor: pointer; margin-bottom: 20px; }
-        .song-row { display: flex; align-items: center; padding: 12px; background: #fafafa; border-radius: 15px; margin-bottom: 10px; border: 1px solid #efeff4; text-align: left; }
-        .song-art { width: 50px; height: 50px; border-radius: 8px; margin-right: 15px; object-fit: cover; background: #eee; }
+        .song-row { display: flex; align-items: center; padding: 12px; background: #fafafa; border-radius: 15px; margin-bottom: 10px; border: 1px solid #efeff4; text-align: left; cursor: pointer; }
+        .song-art { width: 50px; height: 50px; border-radius: 8px; margin-right: 15px; object-fit: cover; background: #ddd; }
         .song-details { flex-grow: 1; overflow: hidden; }
-        .song-details h4 { margin: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .song-details p { margin: 2px 0 0; font-size: 12px; color: #888; }
-        .play-btn { background: var(--apple-blue); color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+        .song-details h4 { margin: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #1d1d1f; }
+        .song-details p { margin: 2px 0 0; font-size: 12px; color: #8e8e93; }
         audio { width: 100%; margin-top: 15px; }
-        #status-msg { font-size: 11px; color: var(--apple-blue); margin-bottom: 10px; font-weight: bold; }
+        #status-msg { font-size: 11px; color: var(--apple-blue); margin-bottom: 10px; font-weight: bold; min-height: 1.2em; }
+        .now-playing-box { margin-top: 20px; padding: 15px; border-top: 1px solid #eee; display: none; }
+        #current-art { width: 120px; height: 120px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); margin-bottom: 10px; }
     </style>
 </head>
 <body onload="render()">
 
 <div class="player-card">
-    <h2>My Cloud Library </h2>
-    <p id="status-msg">Ready to stream</p>
+    <h2>Cloud Library </h2>
+    <p id="status-msg">Ready to Sync</p>
     
-    <button id="auth_btn" class="btn-drive" onclick="handleAuthClick()">Add Music from Drive</button>
+    <button id="auth_btn" class="btn-drive" onclick="handleAuthClick()">Add from Google Drive</button>
     
     <div id="list-container"></div>
 
-    <div id="mini-player" style="display:none; margin-top: 20px;">
-        <img id="current-art" src="" style="width:100px; height:100px; border-radius:15px; margin-bottom:10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
-        <p id="now-playing" style="font-size: 14px; font-weight: bold; margin: 5px 0;"></p>
-        <p id="now-artist" style="font-size: 12px; color: #888; margin-bottom: 10px;"></p>
+    <div id="mini-player" class="now-playing-box">
+        <img id="current-art" src="">
+        <h4 id="now-playing-title" style="margin: 5px 0;"></h4>
+        <p id="now-playing-artist" style="margin: 0 0 10px; color: #888; font-size: 13px;"></p>
         <audio id="audio-engine" controls crossorigin="anonymous"></audio>
     </div>
 </div>
@@ -46,8 +47,8 @@
     let cloudPlaylist = JSON.parse(localStorage.getItem('my_cloud_songs') || '[]');
 
     function gapiLoaded() {
-        gapi.load('client:picker', async () => {
-            await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
+        gapi.load('client:picker', () => {
+            gapi.client.init({ apiKey: API_KEY, discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
         });
     }
 
@@ -72,7 +73,7 @@
 
     function openPicker() {
         const view = new google.picker.View(google.picker.ViewId.DOCS);
-        view.setMimeTypes("audio/mpeg,audio/mp3,audio/wav");
+        view.setMimeTypes("audio/mpeg,audio/mp3,audio/wav,audio/x-m4a");
         const picker = new google.picker.PickerBuilder()
             .addView(view)
             .setOAuthToken(accessToken)
@@ -82,42 +83,43 @@
         picker.setVisible(true);
     }
 
-    // --- ASLI MAGIC YAHAN HAI: Drive File + iTunes Search ---
     async function pickerCallback(data) {
         if (data.action === google.picker.Action.PICKED) {
             const file = data.docs[0];
-            const driveName = file.name.replace(/\.[^/.]+$/, ""); // Extension hatao (.mp3)
-            
-            document.getElementById('status-msg').innerText = "Fetching Artwork for " + driveName + "...";
+            let rawName = file.name.replace(/\.[^/.]+$/, ""); 
+
+            // --- CLEANING LOGIC ---
+            let cleanName = rawName
+                .replace(/320|kbps|www|com|mr-jatt|mp3|download|official|video|audio/gi, "")
+                .replace(/[_-]/g, " ")
+                .trim();
+
+            document.getElementById('status-msg').innerText = "Searching iTunes for: " + cleanName;
 
             try {
-                // iTunes se asli metadata search karo
-                const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(driveName)}&entity=song&limit=1`);
-                const itunesData = await itunesRes.json();
+                const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanName)}&entity=song&limit=1`);
+                const itunes = await res.json();
 
-                let songEntry = {
+                let song = {
                     id: file.id,
-                    title: driveName,
+                    title: cleanName,
                     artist: "Unknown Artist",
-                    art: "https://via.placeholder.com/100?text=No+Art"
+                    art: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/08/11/d2/0811d273-9ed4-3394-0488-7334d1abcc7f/source/512x512bb.jpg"
                 };
 
-                if (itunesData.results.length > 0) {
-                    const match = itunesData.results[0];
-                    songEntry.title = match.trackName;
-                    songEntry.artist = match.artistName;
-                    // High quality art (1000x1000)
-                    songEntry.art = match.artworkUrl100.replace('100x100bb.jpg', '1000x1000bb.jpg');
+                if (itunes.results && itunes.results.length > 0) {
+                    const m = itunes.results[0];
+                    song.title = m.trackName;
+                    song.artist = m.artistName;
+                    song.art = m.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
                 }
 
-                cloudPlaylist.push(songEntry);
+                cloudPlaylist.push(song);
                 localStorage.setItem('my_cloud_songs', JSON.stringify(cloudPlaylist));
-                document.getElementById('status-msg').innerText = "Song Added!";
+                document.getElementById('status-msg').innerText = "Added: " + song.title;
                 render();
-
             } catch (err) {
-                console.log("iTunes Error, adding default.");
-                cloudPlaylist.push({ id: file.id, title: driveName, artist: "Drive Audio", art: "" });
+                console.error(err);
                 render();
             }
         }
@@ -127,13 +129,12 @@
         const container = document.getElementById('list-container');
         if (!container) return;
         container.innerHTML = cloudPlaylist.map((song, i) => `
-            <div class="song-row">
+            <div class="song-row" onclick="playCloudSong('${song.id}', '${song.title.replace(/'/g, "\\'")}', '${song.artist.replace(/'/g, "\\'")}', '${song.art}')">
                 <img class="song-art" src="${song.art}">
                 <div class="song-details">
                     <h4>${song.title}</h4>
                     <p>${song.artist}</p>
                 </div>
-                <button class="play-btn" onclick="playCloudSong('${song.id}', '${song.title}', '${song.artist}', '${song.art}')">Play</button>
             </div>
         `).join('');
     }
@@ -142,20 +143,20 @@
         const audio = document.getElementById('audio-engine');
         const streamUrl = `https://www.googleapis.com/drive/v3/files/${id}?alt=media&key=${API_KEY}`;
         
-        document.getElementById('current-art').src = art;
-        document.getElementById('now-playing').innerText = title;
-        document.getElementById('now-artist').innerText = artist;
         document.getElementById('mini-player').style.display = 'block';
+        document.getElementById('current-art').src = art;
+        document.getElementById('now-playing-title').innerText = title;
+        document.getElementById('now-playing-artist').innerText = artist;
 
         audio.src = streamUrl;
         audio.load();
         audio.play();
 
         // Background Caching
-        const musicCache = await caches.open('apple-music-cache-v1');
-        const cached = await musicCache.match(streamUrl);
-        if (!cached) {
-            fetch(streamUrl).then(res => { if(res.ok) musicCache.put(streamUrl, res); });
+        const cache = await caches.open('apple-music-cache-v1');
+        const match = await cache.match(streamUrl);
+        if (!match) {
+            fetch(streamUrl).then(r => { if(r.ok) cache.put(streamUrl, r); });
         }
     }
 </script>
