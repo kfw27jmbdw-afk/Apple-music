@@ -9,21 +9,22 @@
         body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
         .player-card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; }
         .btn-drive { background: var(--apple-blue); color: white; border: none; padding: 15px 25px; border-radius: 15px; font-size: 16px; font-weight: 600; width: 100%; cursor: pointer; margin-bottom: 20px; }
-        .song-row { display: flex; align-items: center; padding: 12px; background: #fafafa; border-radius: 15px; margin-bottom: 10px; border: 1px solid #efeff4; text-align: left; cursor: pointer; }
-        .song-art { width: 50px; height: 50px; border-radius: 8px; margin-right: 15px; object-fit: cover; background: #ddd; }
+        .song-row { display: flex; align-items: center; padding: 12px; background: #fafafa; border-radius: 15px; margin-bottom: 10px; border: 1px solid #efeff4; text-align: left; cursor: pointer; transition: 0.2s; }
+        .song-row:active { transform: scale(0.98); background: #f0f0f5; }
+        .song-art { width: 55px; height: 55px; border-radius: 10px; margin-right: 15px; object-fit: cover; background: #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .song-details { flex-grow: 1; overflow: hidden; }
         .song-details h4 { margin: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #1d1d1f; }
         .song-details p { margin: 2px 0 0; font-size: 12px; color: #8e8e93; }
-        audio { width: 100%; margin-top: 15px; }
         #status-msg { font-size: 11px; color: var(--apple-blue); margin-bottom: 10px; font-weight: bold; min-height: 1.2em; }
-        .now-playing-box { margin-top: 20px; padding: 15px; border-top: 1px solid #eee; display: none; }
-        #current-art { width: 120px; height: 120px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); margin-bottom: 10px; }
+        .now-playing-box { margin-top: 20px; padding: 20px; border-top: 1px solid #eee; display: none; background: #fff; border-radius: 20px; }
+        #current-art { width: 180px; height: 180px; border-radius: 15px; box-shadow: 0 12px 25px rgba(0,0,0,0.2); margin-bottom: 15px; }
+        audio { width: 100%; margin-top: 15px; }
     </style>
 </head>
 <body onload="render()">
 
 <div class="player-card">
-    <h2>Cloud Library </h2>
+    <h2 style="letter-spacing: -1px;">Cloud Library </h2>
     <p id="status-msg">Ready to Sync</p>
     
     <button id="auth_btn" class="btn-drive" onclick="handleAuthClick()">Add from Google Drive</button>
@@ -32,8 +33,8 @@
 
     <div id="mini-player" class="now-playing-box">
         <img id="current-art" src="">
-        <h4 id="now-playing-title" style="margin: 5px 0;"></h4>
-        <p id="now-playing-artist" style="margin: 0 0 10px; color: #888; font-size: 13px;"></p>
+        <h3 id="now-playing-title" style="margin: 5px 0; font-size: 18px;"></h3>
+        <p id="now-playing-artist" style="margin: 0 0 15px; color: #888; font-size: 14px;"></p>
         <audio id="audio-engine" controls crossorigin="anonymous"></audio>
     </div>
 </div>
@@ -83,18 +84,23 @@
         picker.setVisible(true);
     }
 
+    // --- SMART LOGIC: 2-WORD CLEANING ---
     async function pickerCallback(data) {
         if (data.action === google.picker.Action.PICKED) {
             const file = data.docs[0];
             let rawName = file.name.replace(/\.[^/.]+$/, ""); 
 
-            // --- CLEANING LOGIC ---
-            let cleanName = rawName
-                .replace(/320|kbps|www|com|mr-jatt|mp3|download|official|video|audio/gi, "")
+            // Clean noise (320kbps etc)
+            let tempName = rawName
+                .replace(/320|kbps|www|com|mr-jatt|mp3|download|official|video|audio|lyrics/gi, "")
                 .replace(/[_-]/g, " ")
                 .trim();
 
-            document.getElementById('status-msg').innerText = "Searching iTunes for: " + cleanName;
+            // Logic: Take only first 2 words
+            let words = tempName.split(/\s+/);
+            let cleanName = words.slice(0, 2).join(" ");
+
+            document.getElementById('status-msg').innerText = "Searching: " + cleanName + "...";
 
             try {
                 const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanName)}&entity=song&limit=1`);
@@ -104,7 +110,7 @@
                     id: file.id,
                     title: cleanName,
                     artist: "Unknown Artist",
-                    art: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/08/11/d2/0811d273-9ed4-3394-0488-7334d1abcc7f/source/512x512bb.jpg"
+                    art: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/08/11/d2/0811d273-9ed4-3394-0488-7334d1abcc7f/source/600x600bb.jpg"
                 };
 
                 if (itunes.results && itunes.results.length > 0) {
@@ -116,7 +122,7 @@
 
                 cloudPlaylist.push(song);
                 localStorage.setItem('my_cloud_songs', JSON.stringify(cloudPlaylist));
-                document.getElementById('status-msg').innerText = "Added: " + song.title;
+                document.getElementById('status-msg').innerText = "Added ✅";
                 render();
             } catch (err) {
                 console.error(err);
@@ -152,7 +158,7 @@
         audio.load();
         audio.play();
 
-        // Background Caching
+        // Background Caching for zero-delay next time
         const cache = await caches.open('apple-music-cache-v1');
         const match = await cache.match(streamUrl);
         if (!match) {
