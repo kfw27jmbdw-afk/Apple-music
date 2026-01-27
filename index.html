@@ -3,32 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fast Cloud Player Pro </title>
+    <title>Cloud Music Pro </title>
     <style>
         :root { --apple-blue: #007aff; --bg: #f5f5f7; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
         .player-card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; }
-        .btn-drive { background: var(--apple-blue); color: white; border: none; padding: 15px 25px; border-radius: 15px; font-size: 16px; font-weight: 600; width: 100%; cursor: pointer; margin-bottom: 20px; transition: 0.3s; }
-        .btn-drive:disabled { background: #d1d1d6; opacity: 0.7; }
-        .song-row { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #fafafa; border-radius: 12px; margin-bottom: 8px; border: 1px solid #efeff4; }
-        .song-info { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
-        .play-btn { background: #34c759; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-drive { background: var(--apple-blue); color: white; border: none; padding: 15px 25px; border-radius: 15px; font-size: 16px; font-weight: 600; width: 100%; cursor: pointer; margin-bottom: 20px; }
+        .song-row { display: flex; align-items: center; padding: 12px; background: #fafafa; border-radius: 15px; margin-bottom: 10px; border: 1px solid #efeff4; text-align: left; }
+        .song-art { width: 50px; height: 50px; border-radius: 8px; margin-right: 15px; object-fit: cover; background: #eee; }
+        .song-details { flex-grow: 1; overflow: hidden; }
+        .song-details h4 { margin: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .song-details p { margin: 2px 0 0; font-size: 12px; color: #888; }
+        .play-btn { background: var(--apple-blue); color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; }
         audio { width: 100%; margin-top: 15px; }
-        #status-msg { font-size: 11px; color: var(--apple-blue); margin-bottom: 10px; font-weight: bold; min-height: 15px; }
+        #status-msg { font-size: 11px; color: var(--apple-blue); margin-bottom: 10px; font-weight: bold; }
     </style>
 </head>
-<body>
+<body onload="render()">
 
 <div class="player-card">
-    <h2>Music Cloud </h2>
-    <p id="status-msg">Initializing...</p>
+    <h2>My Cloud Library </h2>
+    <p id="status-msg">Ready to stream</p>
     
-    <button id="auth_btn" class="btn-drive" onclick="handleAuthClick()" disabled>Connecting...</button>
+    <button id="auth_btn" class="btn-drive" onclick="handleAuthClick()">Add Music from Drive</button>
     
     <div id="list-container"></div>
 
     <div id="mini-player" style="display:none; margin-top: 20px;">
-        <p id="now-playing" style="font-size: 13px; font-weight: bold; color: var(--apple-blue);"></p>
+        <img id="current-art" src="" style="width:100px; height:100px; border-radius:15px; margin-bottom:10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
+        <p id="now-playing" style="font-size: 14px; font-weight: bold; margin: 5px 0;"></p>
+        <p id="now-artist" style="font-size: 12px; color: #888; margin-bottom: 10px;"></p>
         <audio id="audio-engine" controls crossorigin="anonymous"></audio>
     </div>
 </div>
@@ -38,45 +42,8 @@
     const API_KEY = 'AIzaSyAtjXuMkQe9UZzWb-cNsztYy0II9StI08U';
     
     let tokenClient;
-    let accessToken = localStorage.getItem('gdrive_token'); // Persistent Storage
+    let accessToken = localStorage.getItem('gdrive_token');
     let cloudPlaylist = JSON.parse(localStorage.getItem('my_cloud_songs') || '[]');
-
-    // --- 1. TOKEN CAPTURE (Anti-Loop Logic) ---
-    function checkUrlForToken() {
-        const hash = window.location.hash.substring(1);
-        const params = new URLSearchParams(hash);
-        const token = params.get('access_token');
-
-        if (token) {
-            console.log("Token Captured!");
-            accessToken = token;
-            localStorage.setItem('gdrive_token', token);
-            // Clean URL hash without refreshing
-            window.history.replaceState({}, document.title, window.location.pathname);
-            return true;
-        }
-        return false;
-    }
-
-    // --- 2. GOOGLE SDK INIT ---
-    function gisLoaded() {
-        tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: CLIENT_ID,
-            scope: 'https://www.googleapis.com/auth/drive.readonly',
-            ux_mode: 'redirect',
-            redirect_uri: window.location.href,
-        });
-
-        const hasJustLoggedIn = checkUrlForToken();
-        
-        document.getElementById('auth_btn').disabled = false;
-        document.getElementById('auth_btn').innerText = "Add from Drive";
-        document.getElementById('status-msg').innerText = accessToken ? "Logged In " : "Sign-in required";
-
-        if (hasJustLoggedIn) {
-            setTimeout(() => { if (gapi.client) openPicker(); }, 1000);
-        }
-    }
 
     function gapiLoaded() {
         gapi.load('client:picker', async () => {
@@ -84,13 +51,23 @@
         });
     }
 
+    function gisLoaded() {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: 'https://www.googleapis.com/auth/drive.readonly',
+            ux_mode: 'popup',
+            callback: (resp) => {
+                if (resp.access_token) {
+                    accessToken = resp.access_token;
+                    localStorage.setItem('gdrive_token', accessToken);
+                    openPicker();
+                }
+            },
+        });
+    }
+
     function handleAuthClick() {
-        // Agar token purana ho gaya ho ya na ho, toh login maango
-        if (!accessToken) {
-            tokenClient.requestAccessToken();
-        } else {
-            openPicker();
-        }
+        accessToken ? openPicker() : tokenClient.requestAccessToken({prompt: ''});
     }
 
     function openPicker() {
@@ -105,65 +82,81 @@
         picker.setVisible(true);
     }
 
-    function pickerCallback(data) {
+    // --- ASLI MAGIC YAHAN HAI: Drive File + iTunes Search ---
+    async function pickerCallback(data) {
         if (data.action === google.picker.Action.PICKED) {
             const file = data.docs[0];
-            cloudPlaylist.push({ name: file.name, id: file.id });
-            localStorage.setItem('my_cloud_songs', JSON.stringify(cloudPlaylist));
-            render();
+            const driveName = file.name.replace(/\.[^/.]+$/, ""); // Extension hatao (.mp3)
+            
+            document.getElementById('status-msg').innerText = "Fetching Artwork for " + driveName + "...";
+
+            try {
+                // iTunes se asli metadata search karo
+                const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(driveName)}&entity=song&limit=1`);
+                const itunesData = await itunesRes.json();
+
+                let songEntry = {
+                    id: file.id,
+                    title: driveName,
+                    artist: "Unknown Artist",
+                    art: "https://via.placeholder.com/100?text=No+Art"
+                };
+
+                if (itunesData.results.length > 0) {
+                    const match = itunesData.results[0];
+                    songEntry.title = match.trackName;
+                    songEntry.artist = match.artistName;
+                    // High quality art (1000x1000)
+                    songEntry.art = match.artworkUrl100.replace('100x100bb.jpg', '1000x1000bb.jpg');
+                }
+
+                cloudPlaylist.push(songEntry);
+                localStorage.setItem('my_cloud_songs', JSON.stringify(cloudPlaylist));
+                document.getElementById('status-msg').innerText = "Song Added!";
+                render();
+
+            } catch (err) {
+                console.log("iTunes Error, adding default.");
+                cloudPlaylist.push({ id: file.id, title: driveName, artist: "Drive Audio", art: "" });
+                render();
+            }
         }
     }
 
     function render() {
         const container = document.getElementById('list-container');
         if (!container) return;
-        if (cloudPlaylist.length === 0) {
-            container.innerHTML = `<p style="color:#999; font-size:12px;">No songs added.</p>`;
-            return;
-        }
         container.innerHTML = cloudPlaylist.map((song, i) => `
             <div class="song-row">
-                <div class="song-info">${song.name}</div>
-                <button class="play-btn" onclick="playCloudSong('${song.id}', '${song.name}')">Play</button>
+                <img class="song-art" src="${song.art}">
+                <div class="song-details">
+                    <h4>${song.title}</h4>
+                    <p>${song.artist}</p>
+                </div>
+                <button class="play-btn" onclick="playCloudSong('${song.id}', '${song.title}', '${song.artist}', '${song.art}')">Play</button>
             </div>
         `).join('');
     }
 
-    // --- 3. FAST STREAM + CACHE LOGIC ---
-    async function playCloudSong(id, name) {
+    async function playCloudSong(id, title, artist, art) {
         const audio = document.getElementById('audio-engine');
-        const status = document.getElementById('status-msg');
         const streamUrl = `https://www.googleapis.com/drive/v3/files/${id}?alt=media&key=${API_KEY}`;
         
-        document.getElementById('now-playing').innerText = name;
+        document.getElementById('current-art').src = art;
+        document.getElementById('now-playing').innerText = title;
+        document.getElementById('now-artist').innerText = artist;
         document.getElementById('mini-player').style.display = 'block';
 
-        // Direct Stream Start
         audio.src = streamUrl;
         audio.load();
-        
-        status.innerText = "⚡ Streaming...";
-        
-        audio.play().catch(() => {
-            status.innerText = "⚠️ Error: Make sure file is shared!";
-        });
+        audio.play();
 
-        // Background Cache
-        try {
-            const musicCache = await caches.open('apple-music-cache-v1');
-            const cachedResponse = await musicCache.match(streamUrl);
-
-            if (!cachedResponse) {
-                fetch(streamUrl).then(response => {
-                    if (response.ok) {
-                        musicCache.put(streamUrl, response);
-                        status.innerText = "✅ Saved Offline";
-                    }
-                });
-            } else {
-                status.innerText = "🚀 Playing from Local Cache";
-            }
-        } catch (err) { console.log(err); }
+        // Background Caching
+        const musicCache = await caches.open('apple-music-cache-v1');
+        const cached = await musicCache.match(streamUrl);
+        if (!cached) {
+            fetch(streamUrl).then(res => { if(res.ok) musicCache.put(streamUrl, res); });
+        }
     }
 </script>
 
