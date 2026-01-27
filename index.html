@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fast Cloud Player</title>
+    <style>
+        :root { --apple-blue: #007aff; --bg: #f5f5f7; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
+        .player-card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; }
+        .btn-drive { background: var(--apple-blue); color: white; border: none; padding: 15px 25px; border-radius: 15px; font-size: 16px; font-weight: 600; width: 100%; cursor: pointer; margin-bottom: 20px; }
+        .btn-drive:disabled { background: #d1d1d6; }
+        .song-row { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #fafafa; border-radius: 12px; margin-bottom: 8px; border: 1px solid #efeff4; }
+        .song-info { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+        .play-btn { background: #34c759; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer;}
+        audio { width: 100%; margin-top: 15px; }
+        #status-msg { font-size: 11px; color: var(--apple-blue); margin-bottom: 10px; font-weight: bold; }
+    </style>
+</head>
+<body onload="render()">
+
+<div class="player-card">
+    <h2>Fast Cloud </h2>
+    <p id="status-msg">Ready to stream</p>
+    
+    <button id="auth_btn" class="btn-drive" onclick="handleAuthClick()" disabled>Connecting Google...</button>
+    
+    <div id="list-container"></div>
+
+    <div id="mini-player" style="display:none; margin-top: 20px;">
+        <p id="now-playing" style="font-size: 13px; font-weight: bold; color: var(--apple-blue);"></p>
+        <audio id="audio-engine" controls crossorigin="anonymous"></audio>
+    </div>
+</div>
+
+<script>
+    const CLIENT_ID = '493639014923-7gqsn4g853icgtctj6hhugkcqhm6178e.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyAtjXuMkQe9UZzWb-cNsztYy0II9StI08U';
+    
+    let tokenClient;
+    let accessToken = sessionStorage.getItem('gdrive_token');
+    let cloudPlaylist = JSON.parse(localStorage.getItem('my_cloud_songs') || '[]');
+
+    // 1. Load Google Scripts
+    function gisLoaded() {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: 'https://www.googleapis.com/auth/drive.readonly',
+            ux_mode: 'redirect',
+            redirect_uri: window.location.href,
+        });
+        document.getElementById('auth_btn').disabled = false;
+        document.getElementById('auth_btn').innerText = "Add Music from Drive";
+        
+        // Handle Redirect Token
+        if (window.location.hash) {
+            const params = new URLSearchParams(window.location.hash.substring(1));
+            if (params.get('access_token')) {
+                accessToken = params.get('access_token');
+                sessionStorage.setItem('gdrive_token', accessToken);
+                openPicker();
+            }
+        }
+    }
+
+    function gapiLoaded() {
+        gapi.load('client:picker', async () => {
+            await gapi.client.init({ apiKey: API_KEY, discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
+        });
+    }
+
+    function handleAuthClick() {
+        if (!accessToken) {
+            tokenClient.requestAccessToken();
+        } else {
+            openPicker();
+        }
+    }
+
+    function openPicker() {
+        const view = new google.picker.View(google.picker.ViewId.DOCS);
+        view.setMimeTypes("audio/mpeg,audio/mp3,audio/wav");
+        const picker = new google.picker.PickerBuilder()
+            .addView(view)
+            .setOAuthToken(accessToken)
+            .setDeveloperKey(API_KEY)
+            .setCallback(pickerCallback)
+            .build();
+        picker.setVisible(true);
+    }
+
+    function pickerCallback(data) {
+        if (data.action === google.picker.Action.PICKED) {
+            const file = data.docs[0];
+            cloudPlaylist.push({ name: file.name, id: file.id });
+            localStorage.setItem('my_cloud_songs', JSON.stringify(cloudPlaylist));
+            render();
+        }
+    }
+
+    function render() {
+        const container = document.getElementById('list-container');
+        if (!container) return;
+        container.innerHTML = cloudPlaylist.map((song, i) => `
+            <div class="song-row">
+                <div class="song-info">${song.name}</div>
+                <button class="play-btn" onclick="playCloudSong('${song.id}', '${song.name}')">Play</button>
+            </div>
+        `).join('');
+    }
+
+    // --- YE HAI ASLI FAST LOGIC ---
+    async function playCloudSong(id, name) {
+        const audio = document.getElementById('audio-engine');
+        const status = document.getElementById('status-msg');
+        const streamUrl = `https://www.googleapis.com/drive/v3/files/${id}?alt=media&key=${API_KEY}`;
+        
+        document.getElementById('now-playing').innerText = "Playing: " + name;
+        document.getElementById('mini-player').style.display = 'block';
+
+        // 1. FAST STREAMING: Audio source set karke turant play karo
+        // Isse browser chunks mein download karke 1-2 sec mein bajana shuru kar dega
+        audio.src = streamUrl;
+        audio.load();
+        
+        status.innerText = "⚡ Streaming starts instantly...";
+        
+        audio.play().catch(e => {
+            console.log("Waiting for user interaction or buffer...");
+        });
+
+        // 2. BACKGROUND CACHING: Jab gaana baj raha hai, use save karlo
+        try {
+            const musicCache = await caches.open('music-cache-v1');
+            const cachedResponse = await musicCache.match(streamUrl);
+
+            if (!cachedResponse) {
+                status.innerText = "⬇️ Saving to cache in background...";
+                // Background fetch - gaana rukega nahi
+                fetch(streamUrl).then(response => {
+                    if (response.ok) {
+                        musicCache.put(streamUrl, response);
+                        status.innerText = "✅ Saved Offline!";
+                    }
+                });
+            } else {
+                status.innerText = "🚀 Playing from Local Cache!";
+            }
+        } catch (err) {
+            console.log("Cache error, but streaming works.");
+        }
+    }
+</script>
+
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+
+</body>
+</html>
