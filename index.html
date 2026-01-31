@@ -2,173 +2,293 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloud Music Pro </title>
-    <style>
-        :root { --apple-blue: #007aff; --bg: #f5f5f7; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
-        .player-card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); text-align: center; }
-        .btn-drive { background: var(--apple-blue); color: white; border: none; padding: 15px 25px; border-radius: 15px; font-size: 16px; font-weight: 600; width: 100%; cursor: pointer; margin-bottom: 20px; }
-        .song-row { display: flex; align-items: center; padding: 12px; background: #fafafa; border-radius: 15px; margin-bottom: 10px; border: 1px solid #efeff4; text-align: left; cursor: pointer; transition: 0.2s; }
-        .song-row:active { transform: scale(0.98); background: #f0f0f5; }
-        .song-art { width: 55px; height: 55px; border-radius: 10px; margin-right: 15px; object-fit: cover; background: #ddd; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .song-details { flex-grow: 1; overflow: hidden; }
-        .song-details h4 { margin: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #1d1d1f; }
-        .song-details p { margin: 2px 0 0; font-size: 12px; color: #8e8e93; }
-        #status-msg { font-size: 11px; color: var(--apple-blue); margin-bottom: 10px; font-weight: bold; min-height: 1.2em; }
-        .now-playing-box { margin-top: 20px; padding: 20px; border-top: 1px solid #eee; display: none; background: #fff; border-radius: 20px; }
-        #current-art { width: 180px; height: 180px; border-radius: 15px; box-shadow: 0 12px 25px rgba(0,0,0,0.2); margin-bottom: 15px; }
-        audio { width: 100%; margin-top: 15px; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Apple Music</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1DB954">
+    <meta name="mobile-web-app-capable" content="yes">
+     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 </head>
-<body onload="render()">
+<body>
+<div id="download-progress-container">
+    <div id="download-progress-bar"></div>
+</div>
 
-<div class="player-card">
-    <h2 style="letter-spacing: -1px;">Cloud Library </h2>
-    <p id="status-msg">Ready to Sync</p>
-    
-    <button id="auth_btn" class="btn-drive" onclick="handleAuthClick()">Add from Google Drive</button>
-    
-    <div id="list-container"></div>
-
-    <div id="mini-player" class="now-playing-box">
-        <img id="current-art" src="">
-        <h3 id="now-playing-title" style="margin: 5px 0; font-size: 18px;"></h3>
-        <p id="now-playing-artist" style="margin: 0 0 15px; color: #888; font-size: 14px;"></p>
-        <audio id="audio-engine" controls crossorigin="anonymous"></audio>
+<div id="intro-screen" style="position: fixed; inset: 0; background: #000; display: flex; justify-content: center; align-items: center; z-index: 999999; transition: opacity 0.8s ease;">
+    <div style="display: flex; align-items: center;">
+        <svg class="apple-logo-svg" viewBox="0 0 384 512" style="width: 60px; height: 60px; fill: white; opacity: 0; transform: scale(0.5); animation: appleAppear 0.8s ease forwards, appleMoveLeft 0.6s cubic-bezier(0.25, 1, 0.5, 1) 1.5s forwards;">
+            <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
+        </svg>
+        <div class="music-text" style="font-size: 50px; font-weight: 700; color: white; letter-spacing: -1.5px; width: 0; opacity: 0; overflow: hidden; white-space: nowrap; animation: musicReveal 0.6s cubic-bezier(0.25, 1, 0.5, 1) 1.5s forwards; font-family: -apple-system, sans-serif;">Music</div>
     </div>
 </div>
 
-<script>
-    const CLIENT_ID = '493639014923-7gqsn4g853icgtctj6hhugkcqhm6178e.apps.googleusercontent.com';
-    const API_KEY = 'AIzaSyAtjXuMkQe9UZzWb-cNsztYy0II9StI08U';
-    
-    let tokenClient;
-    let accessToken = localStorage.getItem('gdrive_token');
-    let cloudPlaylist = JSON.parse(localStorage.getItem('my_cloud_songs') || '[]');
+<div id="main-app">
+    <div id="home-screen" class="tab-content" style="display:none;">
+        <div class="playlist-header">
+            <h2>Home</h2>
+        </div>
+        <div id="recent-played-container"></div>
+    </div>
 
-    function gapiLoaded() {
-        gapi.load('client:picker', () => {
-            gapi.client.init({ apiKey: API_KEY, discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"] });
-        });
-    }
+    <div id="library-screen" class="tab-content" style="display:none;">
+        <div class="playlist-header">
+            <h2>Library</h2>
+        </div>
+        <div class="library-sub-nav">
+            <button class="sub-nav-btn active" onclick="switchLibraryView('down')">DOWNLOADED</button>
+            <button class="sub-nav-btn" onclick="switchLibraryView('playlists')">PLAYLIST</button>
+            <button class="sub-nav-btn" onclick="switchLibraryView('fav')">FAVORITE</button>
+            <button class="sub-nav-btn" onclick="switchLibraryView('all')">ALBUM</button>
+        </div>
+        <div id="library-content-area">
+            <div id="downloaded-list-container"></div>
+        </div>
+    </div>
 
-    function gisLoaded() {
-        tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: CLIENT_ID,
-            scope: 'https://www.googleapis.com/auth/drive.readonly',
-            ux_mode: 'popup',
-            callback: (resp) => {
-                if (resp.access_token) {
-                    accessToken = resp.access_token;
-                    localStorage.setItem('gdrive_token', accessToken);
-                    openPicker();
-                }
-            },
-        });
-    }
+   <div id="playlist-screen" class="tab-content">
+    <div class="playlist-header">
+        <h2>Your Library</h2>
+               <div class="header-icons">
+            <i class="fas fa-plus" onclick="showImportMenu()" style="cursor: pointer; font-size: 22px;"></i>
+        </div>
+    </div>
+    <div id="song-list-container"></div>
+</div>
 
-    function handleAuthClick() {
-        accessToken ? openPicker() : tokenClient.requestAccessToken({prompt: ''});
-    }
-
-    function openPicker() {
-        const view = new google.picker.View(google.picker.ViewId.DOCS);
-        view.setMimeTypes("audio/mpeg,audio/mp3,audio/wav,audio/x-m4a");
-        const picker = new google.picker.PickerBuilder()
-            .addView(view)
-            .setOAuthToken(accessToken)
-            .setDeveloperKey(API_KEY)
-            .setCallback(pickerCallback)
-            .build();
-        picker.setVisible(true);
-    }
-
-    // --- SMART LOGIC: 2-WORD CLEANING ---
-    async function pickerCallback(data) {
-        if (data.action === google.picker.Action.PICKED) {
-            const file = data.docs[0];
-            let rawName = file.name.replace(/\.[^/.]+$/, ""); 
-
-            // Clean noise (320kbps etc)
-            let tempName = rawName
-                .replace(/320|kbps|www|com|mr-jatt|mp3|download|official|video|audio|lyrics/gi, "")
-                .replace(/[_-]/g, " ")
-                .trim();
-
-            // Logic: Take only first 2 words
-            let words = tempName.split(/\s+/);
-            let cleanName = words.slice(0, 2).join(" ");
-
-            document.getElementById('status-msg').innerText = "Searching: " + cleanName + "...";
-
-            try {
-                const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanName)}&entity=song&limit=1`);
-                const itunes = await res.json();
-
-                let song = {
-                    id: file.id,
-                    title: cleanName,
-                    artist: "Unknown Artist",
-                    art: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/08/11/d2/0811d273-9ed4-3394-0488-7334d1abcc7f/source/600x600bb.jpg"
-                };
-
-                if (itunes.results && itunes.results.length > 0) {
-                    const m = itunes.results[0];
-                    song.title = m.trackName;
-                    song.artist = m.artistName;
-                    song.art = m.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
-                }
-
-                cloudPlaylist.push(song);
-                localStorage.setItem('my_cloud_songs', JSON.stringify(cloudPlaylist));
-                document.getElementById('status-msg').innerText = "Added ✅";
-                render();
-            } catch (err) {
-                console.error(err);
-                render();
-            }
-        }
-    }
-
-    function render() {
-        const container = document.getElementById('list-container');
-        if (!container) return;
-        container.innerHTML = cloudPlaylist.map((song, i) => `
-            <div class="song-row" onclick="playCloudSong('${song.id}', '${song.title.replace(/'/g, "\\'")}', '${song.artist.replace(/'/g, "\\'")}', '${song.art}')">
-                <img class="song-art" src="${song.art}">
-                <div class="song-details">
-                    <h4>${song.title}</h4>
-                    <p>${song.artist}</p>
+    <div id="player-screen">
+        <div class="drag-handle" id="drag-area">
+            <div class="handle-bar"></div>
+        </div>
+        
+        <div class="top-bar">
+            <i class="fas fa-chevron-down" onclick="minimizePlayer()"></i>
+            <span id="nav-playlist-name">Now Playing</span>
+            <i class="fas fa-ellipsis-h" onclick="toggleMenu()"></i>
+            
+            <div id="side-menu" class="hidden-menu">
+                <label for="cover-upload" style="cursor:pointer; display:block; padding: 5px 0;">
+                    <i class="fas fa-image"></i> Change Album
+                </label>
+                <input type="file" id="cover-upload" accept="image/*" style="display:none">
+                <hr style="border:0.1px solid #555; margin:5px 0;">
+                <div onclick="openForm()" style="cursor:pointer; padding: 5px 0;">
+                    <i class="fas fa-link"></i> Add Song Link
                 </div>
             </div>
-        `).join('');
-    }
+        </div>
 
-    async function playCloudSong(id, title, artist, art) {
-        const audio = document.getElementById('audio-engine');
-        const streamUrl = `https://www.googleapis.com/drive/v3/files/${id}?alt=media&key=${API_KEY}`;
+        <div class="player-content">
+            <div class="banner-container">
+                <img src="" id="song-image" crossorigin="anonymous">
+            </div>
+
+         <div class="song-info-area">
+    <div class="meta">
+        <h2 id="player-title"> Music</h2>
+        <p id="player-artist">Ready to play</p>
+    </div>
+    
+    <div class="plus-action-wrapper" style="position: relative; z-index: 10000;">
+        <i class="fas fa-plus-circle plus-btn" 
+           id="like-btn" 
+           style="cursor: pointer; font-size: 28px;" 
+           onclick="document.getElementById('direct-local-import').click()">
+        </i>
         
-        document.getElementById('mini-player').style.display = 'block';
-        document.getElementById('current-art').src = art;
-        document.getElementById('now-playing-title').innerText = title;
-        document.getElementById('now-playing-artist').innerText = artist;
+        <input type="file" id="direct-local-import" 
+       accept=".mp3,audio/mpeg,audio/mp3,audio/wav,audio/x-m4a,audio/*,.m4a,.wav" 
+       style="display:none" 
+       onchange="importLocalSong(this)">
 
-        audio.src = streamUrl;
-        audio.load();
-        audio.play();
+    </div>
+</div>
 
-        // Background Caching for zero-delay next time
-        const cache = await caches.open('apple-music-cache-v1');
-        const match = await cache.match(streamUrl);
-        if (!match) {
-            fetch(streamUrl).then(r => { if(r.ok) cache.put(streamUrl, r); });
-        }
-    }
-</script>
+            <div class="controls-wrapper">
+                <input type="range" id="seek-bar" value="0" step="0.1" oninput="seekSong()">
+                <div class="time-stamps">
+                    <span id="current">0:00</span>
+                    <span id="duration">0:00</span>
+                </div>
+                <div class="main-controls">
+                    <i class="fas fa-random"></i>
+                    <i class="fas fa-step-backward" onclick="prevSong()"></i>
+                    <div class="play-trigger" onclick="togglePlay()">
+                        <i class="fas fa-play" id="play-btn"></i>
+                    </div>
+                    <i class="fas fa-step-forward" onclick="nextSong()"></i>
+                    <i class="fas fa-redo-alt"></i>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
-<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <div id="mini-player" onclick="maximizePlayer()">
+        <div class="mini-left">
+            <img src="" id="mini-img">
+            <div class="mini-meta">
+                <h4 id="mini-title">Title</h4>
+                <p id="mini-artist">Artist</p>
+            </div>
+        </div>
+        <div class="mini-right">
+            <i class="fas fa-play" id="mini-play-btn" onclick="event.stopPropagation(); togglePlay();"></i>
+        </div>
+    </div>
 
+    <div id="bottom-navigation-container">
+        <div id="tab-stack" class="nav-stack">
+            <div class="nav-item active" id="tab-home" onclick="switchTab('home')">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </div>
+            <div class="nav-item" id="tab-browse" onclick="switchTab('all-songs')">
+                <i class="fas fa-th-large"></i>
+                <span>Browse</span>
+            </div>
+            <div class="nav-item" id="tab-library" onclick="switchTab('library')">
+                <i class="fas fa-play-circle"></i>
+                <span>Library</span>
+            </div>
+            <div class="nav-item" onclick="openSearchStack()">
+                <i class="fas fa-search"></i>
+                <span>Search</span>
+            </div>
+        </div>
+
+        <div id="search-stack" class="nav-stack" style="display: none; position: relative;">
+            <div class="search-active-tab" id="current-active-indicator">
+                <i class="fas fa-home"></i>
+            </div>
+            <div class="search-input-wrapper" style="position: relative;">
+                <i class="fas fa-search search-inside-icon"></i>
+                <input type="text" id="app-search-input" placeholder="Search Songs..." oninput="filterSongs()" autocomplete="off">
+            </div>
+        </div>
+        
+        <div id="global-search-results" style="display: none; position: fixed; bottom: 85px; left: 12px; right: 12px; background: #1c1c1e; z-index: 999999; max-height: 60vh; overflow-y: auto; border-radius: 20px; border: 1px solid #333; box-shadow: 0 -15px 35px rgba(0,0,0,0.8);"></div>
+
+        <div id="search-backdrop"></div>
+    </div>
+
+    <audio id="main-audio" preload="metadata"></audio>
+</div>
+
+<div id="action-modal" class="overlay" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-song-name">Song Name</h3>
+            <p id="modal-song-artist">Artist Name</p>
+        </div>
+        <div class="modal-options-list">
+            <div class="modal-option" onclick="toggleTick('library')">
+                <i class="fas fa-plus-square"></i>
+                <span>Add to Library</span>
+                <i class="fas fa-check-circle tick-icon" id="tick-library"></i>
+            </div>
+            <div class="modal-option" onclick="toggleTick('favourite')">
+                <i class="fas fa-heart"></i>
+                <span>Add to Favourite</span>
+                <i class="fas fa-check-circle tick-icon" id="tick-favourite"></i>
+            </div>
+            <hr class="modal-divider">
+            <div id="modal-playlists-list"></div>
+            <div class="modal-option create-new" onclick="showNewPlaylistPrompt()">
+                <i class="fas fa-plus-circle"></i>
+                <span>New Playlist...</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-done" onclick="saveAndCloseModal()">DONE</button>
+        </div>
+    </div>
+</div>
+
+<div id="playlist-name-modal" class="overlay" style="display:none; z-index: 20005;">
+    <div class="modal-content small">
+        <h3>New Playlist</h3>
+        <input type="text" id="new-playlist-input" placeholder="Playlist Name...">
+        <div class="modal-footer">
+            <button class="btn-outline" onclick="closePlaylistPrompt()">Cancel</button>
+            <button class="btn-green" onclick="confirmCreatePlaylist()">DONE</button>
+        </div>
+    </div>
+</div>
+
+<div id="song-options-menu" class="song-context-menu">
+    <div class="menu-item" onclick="handleMenuAddPlaylist()">
+        <i class="fas fa-plus"></i> Add to Playlist
+    </div>
+    <div id="download-toggle-btn" class="menu-item" onclick="handleDownload()">
+        <i class="fas fa-arrow-down"></i> Download
+    </div>
+    <div class="menu-item" onclick="handleMenuChangeCover()">
+        <i class="fas fa-image"></i> Change Cover
+    </div>
+</div>
+<div id="import-menu-overlay" class="import-overlay" onclick="hideImportMenu()">
+    <div class="apple-action-sheet" onclick="event.stopPropagation()">
+        
+        <div class="action-group">
+            <div class="action-item" onclick="document.getElementById('direct-local-import').click(); hideImportMenu();">
+                <i class="fas fa-file-audio"></i> <span>Choose Files</span>
+            </div>
+            
+            <div class="action-item" onclick="handleAuthClick(); hideImportMenu();" style="color: #4285F4;">
+                <i class="fab fa-google-drive"></i> <span>Google Drive</span>
+            </div>
+            
+            <div class="action-item">
+                <i class="fas fa-images"></i> <span>Photo Library</span>
+            </div>
+        </div>
+
+        <div class="action-group cancel-group">
+            <div class="action-item" onclick="hideImportMenu()" style="color: #ff3b30; font-weight: 600;">
+                <span>Cancel</span>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+    <script src="script.js"></script>
+    <script>
+        // 1. SMART INTRO CONTROL
+        window.addEventListener('load', () => {
+            const intro = document.getElementById('intro-screen');
+            const mainApp = document.getElementById('main-app');
+
+            // Kam se kam 3 second ka wait ( Music animation poora hone ke liye)
+            setTimeout(() => {
+                if(intro) {
+                    intro.style.opacity = '0'; // Parda fade hoga
+                    
+                    setTimeout(() => {
+                        intro.style.display = 'none'; // Intro ko hatao
+                        if(mainApp) {
+                            mainApp.style.opacity = '1';  // Player reveal
+                            mainApp.style.pointerEvents = 'auto'; // Touch enable
+                        }
+                    }, 800); // 0.8s transition time
+                }
+            }, 3000); 
+
+            // 2. SERVICE WORKER REGISTRATION
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js')
+                .then(() => console.log(" Service Worker Registered"))
+                .catch(err => console.log("SW Error:", err));
+            }
+        });
+    </script>
 </body>
 </html>
+
