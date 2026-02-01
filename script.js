@@ -108,48 +108,64 @@ async function fetchMusicMeta(id, query) {
 async function loadAndPlayDriveSong(id, info) {
     const audio = document.getElementById('main-audio');
     
-    // UI ko pehle update kar dete hain taaki user ko lage kaam ho raha hai
+    // 1. UI Update (Player Screen)
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('player-artist').innerText = info.artist;
     document.getElementById('song-image').src = info.artwork;
     
+    // Mini Player update
     document.getElementById('mini-title').innerText = info.title;
     document.getElementById('mini-artist').innerText = info.artist;
     document.getElementById('mini-img').src = info.artwork;
 
     try {
-        // Step 1: Gaane ko fetch karo as a 'Blob'
+        // 2. Fetching the Song as Blob (For smooth playback)
         const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`
-            }
+            headers: { 'Authorization': `Bearer ${accessToken}` }
         });
 
-        if (!response.ok) throw new Error("Drive se gaana nahi mil raha!");
+        if (!response.ok) throw new Error("Drive access denied");
 
         const blob = await response.blob();
-        
-        // Step 2: Blob ko ek temporary local URL mein badlo
         const blobUrl = URL.createObjectURL(blob);
         
-        // Step 3: Player mein load karo
         audio.src = blobUrl;
         audio.load();
-        
-        audio.play().catch(e => {
-            console.error("Autoplay blocked or failed:", e);
-            alert("Please press play button manually.");
-        });
+        audio.play();
+
+        // 3. PERMANENT SAVE: LocalStorage mein save karna
+        saveToPermanentLibrary(id, info);
 
         if(typeof maximizePlayer === "function") maximizePlayer();
 
     } catch (error) {
         console.error("Playback Error:", error);
-        alert("Bhai, gaana load nahi ho paya. Check karo ki file MP3 hai ya nahi.");
+        alert("Bhai, gaana load nahi ho paya. Permissions check karo.");
     }
 }
 
-
+// Ye function gaane ko browser ki memory mein hamesha ke liye yaad rakhega
+function saveToPermanentLibrary(id, info) {
+    let myLibrary = JSON.parse(localStorage.getItem('my_drive_songs')) || [];
+    
+    // Check if already exists
+    const exists = myLibrary.some(s => s.id === id);
+    
+    if (!exists) {
+        myLibrary.push({
+            id: id,
+            title: info.title,
+            artist: info.artist,
+            image: info.artwork
+        });
+        
+        localStorage.setItem('my_drive_songs', JSON.stringify(myLibrary));
+        console.log("Saved to LocalStorage!");
+        
+        // Agar tumhare paas list dikhane wala function hai, toh use yahan call karo
+        // Example: updateUIList(); 
+    }
+}
 
 
 /* ============================================================
