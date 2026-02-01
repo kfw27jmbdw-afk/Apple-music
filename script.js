@@ -105,39 +105,48 @@ async function fetchMusicMeta(id, query) {
     }
 }
 
-function loadAndPlayDriveSong(id, info) {
+async function loadAndPlayDriveSong(id, info) {
     const audio = document.getElementById('main-audio');
     
-    // Google Drive ka direct streaming link with Bearer Token
-    // Hum API_KEY ki jagah Access Token use karenge taaki Google mana na kare
-    const downloadUrl = `https://www.googleapis.com/drive/v3/files/${id}?alt=media`;
-    
-    // Audio source set karne se pehle use pause karo
-    audio.pause();
-    
-    // Trick: Google Drive files ke liye humein fetch ka use karna pad sakta hai 
-    // par filhaal hum access token ko URL mein bhej kar try karenge
-    audio.src = `${downloadUrl}&access_token=${accessToken}`;
-    
-    // UI Update
+    // UI ko pehle update kar dete hain taaki user ko lage kaam ho raha hai
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('player-artist').innerText = info.artist;
     document.getElementById('song-image').src = info.artwork;
     
-    // Mini Player
     document.getElementById('mini-title').innerText = info.title;
     document.getElementById('mini-artist').innerText = info.artist;
     document.getElementById('mini-img').src = info.artwork;
 
-    // Gaana load hone ka intezar karo phir play karo
-    audio.load();
-    
-    audio.oncanplaythrough = function() {
-        audio.play().catch(e => console.error("Playback failed:", e));
-    };
+    try {
+        // Step 1: Gaane ko fetch karo as a 'Blob'
+        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
 
-    // Agar player screen minimize hai toh maximize karo
-    if(typeof maximizePlayer === "function") maximizePlayer();
+        if (!response.ok) throw new Error("Drive se gaana nahi mil raha!");
+
+        const blob = await response.blob();
+        
+        // Step 2: Blob ko ek temporary local URL mein badlo
+        const blobUrl = URL.createObjectURL(blob);
+        
+        // Step 3: Player mein load karo
+        audio.src = blobUrl;
+        audio.load();
+        
+        audio.play().catch(e => {
+            console.error("Autoplay blocked or failed:", e);
+            alert("Please press play button manually.");
+        });
+
+        if(typeof maximizePlayer === "function") maximizePlayer();
+
+    } catch (error) {
+        console.error("Playback Error:", error);
+        alert("Bhai, gaana load nahi ho paya. Check karo ki file MP3 hai ya nahi.");
+    }
 }
 
 
