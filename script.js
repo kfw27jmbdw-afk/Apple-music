@@ -1,4 +1,4 @@
-l// ==========================================
+// ==========================================
 // 1. GOOGLE DRIVE & ITUNES CONFIGURATION
 // ==========================================
 const CLIENT_ID = '493639014923-7gqsn4g853icgtctj6hhugkcqhm6178e.apps.googleusercontent.com';
