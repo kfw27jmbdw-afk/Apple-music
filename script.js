@@ -105,10 +105,14 @@ async function fetchMusicMeta(id, query) {
     }
 }
 
+// ==========================================
+// FULL LOAD & PLAY DRIVE BLOCK
+// ==========================================
+
 async function loadAndPlayDriveSong(id, info) {
     const audio = document.getElementById('main-audio');
     
-    // 1. UI Update (Immediate feedback)
+    // 1. UI Update (Immediate Visual Feedback)
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('player-artist').innerText = info.artist;
     document.getElementById('song-image').src = info.artwork;
@@ -118,54 +122,64 @@ async function loadAndPlayDriveSong(id, info) {
     document.getElementById('mini-img').src = info.artwork;
 
     try {
-        // 2. Drive se gaana fetch karna
+        // 2. Fetching the Song as Blob (Header Based Auth - No 403 Error)
         const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-            headers: { 'Authorization': `Bearer ${accessToken}` }
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
         });
 
-        if (!response.ok) throw new Error("Drive access denied");
+        if (!response.ok) throw new Error("Drive access denied or file not found");
 
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
         
+        // 3. Audio Player Engine
         audio.src = blobUrl;
         audio.load();
-        audio.play();
+        audio.play().catch(e => console.log("Autoplay blocked, user needs to click play."));
 
-        // 3. Library Integration: userLibrary array aur UI update
+        // 4. LIBRARY INTEGRATION
         const songData = {
             id: id,
             title: info.title,
             artist: info.artist,
             image: info.artwork,
-            src: blobUrl, // Session ke liye blob URL
+            src: blobUrl, // Temporary session link
             isDrive: true
         };
 
-        // Library array mein add karo agar naya hai
-        if (!userLibrary.songs.some(s => s.id === id)) {
-            userLibrary.songs.unshift(songData); // Naya gaana sabse upar
-            
-            // Permanent memory (LocalStorage)
-            saveToPermanentLibrary(id, info);
-            
-            // UI refresh karo taaki list mein dikhne lage
-            if (typeof renderLibraryContent === 'function') {
-                renderLibraryContent('all');
+        // userLibrary.songs array mein push karein agar naya hai
+        if (typeof userLibrary !== 'undefined' && userLibrary.songs) {
+            const existsInArray = userLibrary.songs.some(s => s.id === id);
+            if (!existsInArray) {
+                userLibrary.songs.unshift(songData); // Sabse upar add hoga list mein
+                
+                // Browser ki permanent memory mein save karein
+                saveToPermanentLibrary(id, info);
+                
+                // UI ki list ko refresh karein (Library Content)
+                if (typeof renderLibraryContent === 'function') {
+                    renderLibraryContent('all');
+                }
             }
         }
 
+        // 5. Player screen ko upar le aao
         if(typeof maximizePlayer === "function") maximizePlayer();
 
     } catch (error) {
         console.error("Playback Error:", error);
+        alert("Bhai, gaana load nahi ho paya. Refresh karke try karo.");
     }
 }
 
-// Memory save function
+// Function to handle LocalStorage
 function saveToPermanentLibrary(id, info) {
     let savedSongs = JSON.parse(localStorage.getItem('my_drive_songs')) || [];
-    if (!savedSongs.some(s => s.id === id)) {
+    const alreadySaved = savedSongs.some(s => s.id === id);
+    
+    if (!alreadySaved) {
         savedSongs.push({
             id: id,
             title: info.title,
@@ -174,8 +188,10 @@ function saveToPermanentLibrary(id, info) {
             isDrive: true
         });
         localStorage.setItem('my_drive_songs', JSON.stringify(savedSongs));
+        console.log("Gaana LocalStorage mein save ho gaya.");
     }
 }
+
 
 
 /* ============================================================
