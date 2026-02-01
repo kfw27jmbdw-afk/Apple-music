@@ -1,4 +1,4 @@
-// ==========================================
+l// ==========================================
 // 1. GOOGLE DRIVE & ITUNES CONFIGURATION
 // ==========================================
 const CLIENT_ID = '493639014923-7gqsn4g853icgtctj6hhugkcqhm6178e.apps.googleusercontent.com';
@@ -108,18 +108,17 @@ async function fetchMusicMeta(id, query) {
 async function loadAndPlayDriveSong(id, info) {
     const audio = document.getElementById('main-audio');
     
-    // 1. UI Update (Player Screen)
+    // 1. UI Update (Immediate feedback)
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('player-artist').innerText = info.artist;
     document.getElementById('song-image').src = info.artwork;
     
-    // Mini Player update
     document.getElementById('mini-title').innerText = info.title;
     document.getElementById('mini-artist').innerText = info.artist;
     document.getElementById('mini-img').src = info.artwork;
 
     try {
-        // 2. Fetching the Song as Blob (For smooth playback)
+        // 2. Drive se gaana fetch karna
         const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
@@ -133,37 +132,48 @@ async function loadAndPlayDriveSong(id, info) {
         audio.load();
         audio.play();
 
-        // 3. PERMANENT SAVE: LocalStorage mein save karna
-        saveToPermanentLibrary(id, info);
+        // 3. Library Integration: userLibrary array aur UI update
+        const songData = {
+            id: id,
+            title: info.title,
+            artist: info.artist,
+            image: info.artwork,
+            src: blobUrl, // Session ke liye blob URL
+            isDrive: true
+        };
+
+        // Library array mein add karo agar naya hai
+        if (!userLibrary.songs.some(s => s.id === id)) {
+            userLibrary.songs.unshift(songData); // Naya gaana sabse upar
+            
+            // Permanent memory (LocalStorage)
+            saveToPermanentLibrary(id, info);
+            
+            // UI refresh karo taaki list mein dikhne lage
+            if (typeof renderLibraryContent === 'function') {
+                renderLibraryContent('all');
+            }
+        }
 
         if(typeof maximizePlayer === "function") maximizePlayer();
 
     } catch (error) {
         console.error("Playback Error:", error);
-        alert("Bhai, gaana load nahi ho paya. Permissions check karo.");
     }
 }
 
-// Ye function gaane ko browser ki memory mein hamesha ke liye yaad rakhega
+// Memory save function
 function saveToPermanentLibrary(id, info) {
-    let myLibrary = JSON.parse(localStorage.getItem('my_drive_songs')) || [];
-    
-    // Check if already exists
-    const exists = myLibrary.some(s => s.id === id);
-    
-    if (!exists) {
-        myLibrary.push({
+    let savedSongs = JSON.parse(localStorage.getItem('my_drive_songs')) || [];
+    if (!savedSongs.some(s => s.id === id)) {
+        savedSongs.push({
             id: id,
             title: info.title,
             artist: info.artist,
-            image: info.artwork
+            image: info.artwork,
+            isDrive: true
         });
-        
-        localStorage.setItem('my_drive_songs', JSON.stringify(myLibrary));
-        console.log("Saved to LocalStorage!");
-        
-        // Agar tumhare paas list dikhane wala function hai, toh use yahan call karo
-        // Example: updateUIList(); 
+        localStorage.setItem('my_drive_songs', JSON.stringify(savedSongs));
     }
 }
 
@@ -1736,3 +1746,8 @@ window.onclick = function(event) {
         hideImportMenu();
     }
 }
+// Page load hote hi saved gaane wapas library array mein daalo
+const saved = JSON.parse(localStorage.getItem('my_drive_songs')) || [];
+saved.forEach(s => { if(!userLibrary.songs.some(ex => ex.id === s.id)) userLibrary.songs.push(s); });
+// UI render karo
+if (typeof renderLibraryContent === 'function') renderLibraryContent('all');
