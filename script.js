@@ -105,14 +105,10 @@ async function fetchMusicMeta(id, query) {
     }
 }
 
-// ==========================================
-// FULL LOAD & PLAY DRIVE BLOCK
-// ==========================================
-
 async function loadAndPlayDriveSong(id, info) {
     const audio = document.getElementById('main-audio');
     
-    // 1. UI Update (Immediate Visual Feedback)
+    // 1. UI Update (Player Screen)
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('player-artist').innerText = info.artist;
     document.getElementById('song-image').src = info.artwork;
@@ -122,64 +118,69 @@ async function loadAndPlayDriveSong(id, info) {
     document.getElementById('mini-img').src = info.artwork;
 
     try {
-        // 2. Fetching the Song as Blob (Header Based Auth - No 403 Error)
+        // 2. Drive se gaana fetch karna
         const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`
-            }
+            headers: { 'Authorization': `Bearer ${accessToken}` }
         });
 
-        if (!response.ok) throw new Error("Drive access denied or file not found");
+        if (!response.ok) throw new Error("Drive access denied");
 
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
         
-        // 3. Audio Player Engine
         audio.src = blobUrl;
         audio.load();
-        audio.play().catch(e => console.log("Autoplay blocked, user needs to click play."));
+        audio.play();
 
-        // 4. LIBRARY INTEGRATION
-        const songData = {
-            id: id,
-            title: info.title,
-            artist: info.artist,
-            image: info.artwork,
-            src: blobUrl, // Temporary session link
-            isDrive: true
+        // 3.  SMART INJECTOR: Gaane ko main playlist mein daalna zaroori hai
+        const driveSongEntry = {
+            "name": info.title,
+            "artist": info.artist,
+            "url": blobUrl, // Current session link
+            "img": info.artwork,
+            "isDrive": true,
+            "driveId": id
         };
 
-        // userLibrary.songs array mein push karein agar naya hai
-        if (typeof userLibrary !== 'undefined' && userLibrary.songs) {
-            const existsInArray = userLibrary.songs.some(s => s.id === id);
-            if (!existsInArray) {
-                userLibrary.songs.unshift(songData); // Sabse upar add hoga list mein
-                
-                // Browser ki permanent memory mein save karein
-                saveToPermanentLibrary(id, info);
-                
-                // UI ki list ko refresh karein (Library Content)
-                if (typeof renderLibraryContent === 'function') {
-                    renderLibraryContent('all');
-                }
+        // Check if already in playlist array
+        let existingIndex = playlist.findIndex(s => s.driveId === id);
+        
+        if (existingIndex === -1) {
+            // Naya gaana playlist ki shuruat mein add karo
+            playlist.unshift(driveSongEntry);
+            existingIndex = 0; // Ab ye 0 index par hai
+            
+            // userLibrary.songs mein iska index (0) save karo
+            if (!userLibrary.songs.includes(existingIndex)) {
+                userLibrary.songs.unshift(existingIndex);
+                saveLibraryToDisk();
             }
+            
+            // LocalStorage mein metadata save karo (Refresh ke liye)
+            saveToPermanentLibrary(id, info);
         }
 
-        // 5. Player screen ko upar le aao
+        // 4. UI Refresh
+        // Sabse pehle main playlist refresh karo
+        if (typeof renderPlaylist === 'function') renderPlaylist();
+        
+        // Phir library content refresh karo
+        if (typeof renderLibraryContent === 'function') {
+            renderLibraryContent('all');
+        }
+
         if(typeof maximizePlayer === "function") maximizePlayer();
 
     } catch (error) {
         console.error("Playback Error:", error);
-        alert("Bhai, gaana load nahi ho paya. Refresh karke try karo.");
     }
 }
 
-// Function to handle LocalStorage
+
+// Memory save function
 function saveToPermanentLibrary(id, info) {
     let savedSongs = JSON.parse(localStorage.getItem('my_drive_songs')) || [];
-    const alreadySaved = savedSongs.some(s => s.id === id);
-    
-    if (!alreadySaved) {
+    if (!savedSongs.some(s => s.id === id)) {
         savedSongs.push({
             id: id,
             title: info.title,
@@ -188,10 +189,8 @@ function saveToPermanentLibrary(id, info) {
             isDrive: true
         });
         localStorage.setItem('my_drive_songs', JSON.stringify(savedSongs));
-        console.log("Gaana LocalStorage mein save ho gaya.");
     }
 }
-
 
 
 /* ============================================================
@@ -1763,7 +1762,17 @@ window.onclick = function(event) {
     }
 }
 // Page load hote hi saved gaane wapas library array mein daalo
-const saved = JSON.parse(localStorage.getItem('my_drive_songs')) || [];
-saved.forEach(s => { if(!userLibrary.songs.some(ex => ex.id === s.id)) userLibrary.songs.push(s); });
-// UI render karo
-if (typeof renderLibraryContent === 'function') renderLibraryContent('all');
+// Initialization logic
+window.addEventListener('load', () => {
+    const savedDrive = JSON.parse(localStorage.getItem('my_drive_songs')) || [];
+    savedDrive.forEach(s => {
+        const driveEntry = { "name": s.title, "artist": s.artist, "url": "", "img": s.image, "isDrive": true, "driveId": s.id };
+        if(!playlist.some(p => p.driveId === s.id)) {
+            playlist.push(driveEntry);
+            const newIdx = playlist.length - 1;
+            if(!userLibrary.songs.includes(newIdx)) userLibrary.songs.push(newIdx);
+        }
+    });
+    renderLibraryContent('all');
+});
+
