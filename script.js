@@ -27,10 +27,21 @@ function gisLoaded() {
         callback: (resp) => {
             if (resp.error !== undefined) throw (resp);
             accessToken = resp.access_token;
-            openPicker();
+            // Token ko save karlo taaki reload par kaam aaye
+            localStorage.setItem('drive_token', accessToken);
+            
+            // Agar koi gaana ruka hua tha re-auth ki wajah se, toh use bajao
+            if(currentIndex !== null) loadSong(currentIndex);
         },
     });
+
+    // Reload par purana token uthao
+    const savedToken = localStorage.getItem('drive_token');
+    if (savedToken) {
+        accessToken = savedToken;
+    }
 }
+
 
 function handleAuthClick() {
     // Check karo ki kya Google ki library load ho chuki hai
@@ -367,18 +378,18 @@ function maximizePlayer() {
 
 
 
-        /* =================  CORE PLAYER LOGIC (FINAL PERSISTENT FIX) ================= */
+/* =================  CORE PLAYER LOGIC (RELOAD & LAG FIX) ================= */
 async function loadSong(index) {
     currentIndex = index;
     const s = playlist[index];
     if(!s || !audio) return;
 
-    // --- FAST SWITCH: Purana audio turant band karo ---
+    // --- FAST SWITCH: Purana bhoot (audio) turant bhagao ---
     audio.pause();
-    audio.src = ""; // Clear current source to stop the lag
+    audio.src = ""; 
     updatePlayIcons(false);
 
-    // 1. UI Updates (Instant UI response)
+    // 1. UI Updates (Instant response)
     document.getElementById('player-title').innerText = s.name;
     document.getElementById('player-artist').innerText = s.artist;
     document.getElementById('mini-title').innerText = s.name;
@@ -402,14 +413,28 @@ async function loadSong(index) {
 
     // 2. Audio Loading Logic
     try {
-        // Drive Song Logic
+        // --- GOOGLE DRIVE LOGIC (With Re-auth Fix) ---
         if (s.isDrive && s.driveId) {
+            console.log(" Fetching Drive song...");
+            
             const response = await fetch(`https://www.googleapis.com/drive/v3/files/${s.driveId}?alt=media`, {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
             });
-            if (!response.ok) throw new Error("Drive Token Expired");
+
+            // 🟢 RELOAD/EXPIRE FIX: Agar token purana hai (401 error)
+            if (response.status === 401) {
+                console.warn("Token expired, calling handleAuthClick...");
+                accessToken = null;
+                localStorage.removeItem('drive_token');
+                handleAuthClick(); // Ye login popup khol dega
+                return;
+            }
+
+            if (!response.ok) throw new Error("Drive access denied");
+
             const blob = await response.blob();
             const newBlobUrl = URL.createObjectURL(blob);
+            
             audio.src = newBlobUrl;
             audio.load();
             audio.play().then(() => updatePlayIcons(true));
@@ -417,7 +442,7 @@ async function loadSong(index) {
             return; 
         }
 
-        // Local Song Logic
+        // --- LOCAL STORAGE LOGIC (IndexedDB) ---
         if (s.isLocal && s.localId) {
             const transaction = musicDB.transaction(["localSongs"], "readonly");
             const store = transaction.objectStore("localSongs");
@@ -436,7 +461,7 @@ async function loadSong(index) {
             return;
         }
 
-        // Normal Cloud Songs
+        // --- NORMAL WEB SONGS (Dropbox/Base64) ---
         let decodedURL;
         if (s.url.startsWith("http") || s.url.startsWith("music/")) {
             decodedURL = s.url;
