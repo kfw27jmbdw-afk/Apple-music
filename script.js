@@ -1785,4 +1785,3 @@ window.addEventListener('load', () => {
     });
     renderLibraryContent('all');
 });
-
