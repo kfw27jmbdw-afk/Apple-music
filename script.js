@@ -369,7 +369,7 @@ async function loadSong(index) {
     const s = playlist[index];
     if(!s || !audio) return;
 
-    // 1. UI Updates
+    // 1. UI Updates (Naam, Artist, Photo sab update hoga)
     document.getElementById('player-title').innerText = s.name;
     document.getElementById('player-artist').innerText = s.artist;
     document.getElementById('mini-title').innerText = s.name;
@@ -393,9 +393,33 @@ async function loadSong(index) {
 
     // 2. Audio Loading Logic
     try {
-        let decodedURL;
+        // 🔴 GHOST FIX: Agar gaana Google Drive ka hai
+        if (s.isDrive && s.driveId) {
+            console.log(" Drive Song Detected: Re-fetching fresh blob...");
+            
+            const response = await fetch(`https://www.googleapis.com/drive/v3/files/${s.driveId}?alt=media`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
 
-        // 🟢 TIJORI CHECK: Local gaana refresh ke baad database se uthao
+            if (!response.ok) throw new Error("Drive Token Expired");
+
+            const blob = await response.blob();
+            const newBlobUrl = URL.createObjectURL(blob);
+            
+            // Purana link hatao memory se
+            if (audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
+            
+            audio.src = newBlobUrl;
+            audio.load();
+            audio.play()
+                .then(() => updatePlayIcons(true))
+                .catch(e => console.log("User interaction needed"));
+            
+            audio.onended = () => nextSong();
+            return; // Drive handle ho gaya, aage mat jao
+        }
+
+        // 🟢 TIJORI CHECK: Local gaana (IndexedDB)
         if (s.isLocal && s.localId) {
             const transaction = musicDB.transaction(["localSongs"], "readonly");
             const store = transaction.objectStore("localSongs");
@@ -403,26 +427,20 @@ async function loadSong(index) {
 
             request.onsuccess = () => {
                 if (request.result) {
-                    // Purana temporary URL clear karo memory ke liye
                     if (audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
-                    
                     const fileBlob = request.result.data;
-                    decodedURL = URL.createObjectURL(fileBlob);
+                    const decodedURL = URL.createObjectURL(fileBlob);
                     audio.src = decodedURL;
                     audio.load();
-                    audio.play()
-                        .then(() => updatePlayIcons(true))
-                        .catch(e => console.log("Auto-play blocked, user interaction needed"));
-                } else {
-                    console.error("Local file missing in IndexedDB for ID:", s.localId);
-                    showTempMessage("File missing in Database!");
+                    audio.play().then(() => updatePlayIcons(true));
                 }
             };
             audio.onended = () => nextSong();
-            return; //  Local gaana handle ho gaya, aage mat jao
+            return;
         }
 
-        // 🔵 NORMAL WEB/BASE64 LOGIC (Cloud songs)
+        // 🔵 NORMAL CLOUD SONGS (Dropbox/Base64)
+        let decodedURL;
         if (s.url.startsWith("http") || s.url.startsWith("music/")) {
             decodedURL = s.url;
         } else {
@@ -431,17 +449,7 @@ async function loadSong(index) {
             decodedURL = atob(base64String);
         }
 
-        const cache = await caches.open('apple-music-v2');
-        const songURL = new URL(decodedURL, window.location.origin).href;
-        const cachedResponse = await cache.match(songURL);
-
-        if (cachedResponse) {
-            const blob = await cachedResponse.blob();
-            audio.src = URL.createObjectURL(blob);
-        } else {
-            audio.src = decodedURL;
-        }
-
+        audio.src = decodedURL;
         audio.load();
         setTimeout(() => {
             audio.play()
@@ -451,11 +459,13 @@ async function loadSong(index) {
 
     } catch (e) {
         console.error("Playback Error:", e);
+        // Agar Drive error hai toh login popup dikhao
+        if (s.isDrive) handleAuthClick(); 
         updatePlayIcons(false);
     }
 
     audio.onended = () => nextSong();
-} // 🟢 Function perfect bracket par khatam.
+}
 
 function togglePlay() { 
     if(!audio) return;
