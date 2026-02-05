@@ -66,21 +66,24 @@ function handleAuthClick() {
 // ==========================================
 // 3. GOOGLE PICKER & CALLBACK
 // ==========================================
+// Function rename to match HTML: createPicker
 function createPicker(mode = 'file') {
+    if (!accessToken) {
+        handleAuthClick(); // Agar token nahi hai toh login karwao
+        return;
+    }
+
     let view;
     if (mode === 'folder') {
-        // Folder selection mode
         view = new google.picker.DocsView(google.picker.ViewId.FOLDERS);
         view.setSelectFolderEnabled(true);
     } else {
-        // Single file mode
         view = new google.picker.View(google.picker.ViewId.DOCS);
         view.setMimeTypes("audio/mpeg,audio/mp3,audio/wav,audio/x-m4a");
     }
 
     const picker = new google.picker.PickerBuilder()
         .enableFeature(google.picker.Feature.NAV_HIDDEN)
-        .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
         .setDeveloperKey(API_KEY)
         .setOAuthToken(accessToken)
         .addView(view)
@@ -89,21 +92,19 @@ function createPicker(mode = 'file') {
     picker.setVisible(true);
 }
 
-
 async function pickerCallback(data) {
     if (data.action === google.picker.Action.PICKED) {
         const doc = data.docs[0];
-        
-        // Agar folder pick kiya hai
+        // Agar folder hai toh scanner chalao, warna single file logic
         if (doc.mimeType === "application/vnd.google-apps.folder") {
             scanDriveFolder(doc.id, doc.name);
         } else {
-            // Purana single file logic
             let cleanName = doc.name.replace(/\.[^/.]+$/, "");
             fetchMusicMeta(doc.id, cleanName);
         }
     }
 }
+
 async function scanDriveFolder(folderId, folderName) {
     showTempMessage(` Scanning Folder: ${folderName}`);
     
