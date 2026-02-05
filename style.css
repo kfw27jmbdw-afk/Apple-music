@@ -220,89 +220,78 @@ body {
     color: #0f0; margin-top: 10px; font-family: monospace; 
     padding: 10px; box-sizing: border-box; font-size: 10px; 
 }
-/* --- OVERLAP POPUP MENU (The Missing Piece) --- */
+/* --- START: ULTRA-GLASS COMPACT CONTEXT MENU --- */
 .song-context-menu {
-    display: none; /* JS se handle hoga */
-    position: fixed; /* Poori window ke relative overlap karega */
-    background: #282828 !important; /* Spotify grey */
-    min-width: 190px;
-    border-radius: 8px;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.7);
-    z-index: 10000 !important; /* Sabse important: Player se bhi upar dikhne ke liye */
+    display: none;
+    position: fixed;
+    /* 1. COMPACT SIZE: Width kam kar di */
+    min-width: 170px !important; 
+    height: auto !important;
+    
+    /* 2. HIGH TRANSPARENCY: Sirf 4% white base (Pehle 8% tha) */
+    background: rgba(255, 255, 255, 0.005) !important; 
+    
+    /* 3. CRYSTAL BLUR: Blur thoda aur crisp kiya */
+    backdrop-filter: blur(6px) saturate(180%) !important; 
+    -webkit-backdrop-filter: blur(5px) saturate(210%);
+    
+    /* 4. SHARP GLASS EDGES: Ekdam patli chamakti border */
+    border-radius: 14px !important;
+    border: 0.5px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+    
+    z-index: 1000000 !important;
+    padding: 4px 0 !important; /* Padding kam ki chhota dikhne ke liye */
     overflow: hidden;
-    border: 0.5px solid #444;
 }
 
-/* Popup ke andar ke Items */
+/* Menu Items: Compact & Crystal Clear */
 .menu-item {
-    padding: 14px 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 14px;
-    color: #eee;
+    padding: 10px 14px !important; /* Item ki height kam ki */
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    font-size: 13.5px !important; /* Font halka sa chhota */
+    color: rgba(255, 255, 255, 0.95) !important;
+    font-weight: 500 !important;
     cursor: pointer;
     transition: background 0.2s;
 }
 
 .menu-item:active {
-    background: #3e3e3e; /* Touch feedback */
+    background: rgba(255, 255, 255, 0.1) !important;
 }
 
 .menu-item i {
-    width: 20px;
+    width: 18px;
     text-align: center;
-    color: #b3b3b3;
-}
-/* 1. Pulse Animation: Jo background ko hila-dula ke 'loading' feel degi */
-@keyframes skeleton-loading {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
 }
 
-/* 2. Skeleton Base: Dark grey background with a moving gradient */
+/* DELETE BUTTON: Red par bhi transparency touch */
+.menu-item[onclick*="handleDeleteSong"] {
+    color: #ff453a !important; 
+    border-top: 0.5px solid rgba(255, 255, 255, 0.08) !important;
+    margin-top: 4px !important;
+    padding-top: 12px !important;
+}
+
+/* Skeleton Loading (Glass Version) stays same for visual consistency */
 .skeleton {
-    background: #1c1c1e; /* Apple Music dark grey */
-    background: linear-gradient(90deg, #1c1c1e 25%, #2c2c2e 50%, #1c1c1e 75%);
+    background: rgba(255, 255, 255, 0.03);
+    background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%);
     background-size: 200% 100%;
     animation: skeleton-loading 1.5s infinite linear;
-    border-radius: 8px;
+    border-radius: 10px;
 }
+.skeleton-item { display: flex; align-items: center; padding: 10px 14px; margin-bottom: 6px; gap: 10px; }
+.skeleton-img { width: 42px; height: 42px; border-radius: 5px; flex-shrink: 0; }
+.skeleton-info { flex: 1; }
+.skeleton-text { width: 60%; height: 12px; margin-bottom: 6px; border-radius: 3px; }
+.skeleton-artist { width: 40%; height: 8px; border-radius: 3px; }
+/* --- END: ULTRA-GLASS COMPACT CONTEXT MENU --- */
 
-/* 3. Skeleton Item: Ek gaane ke row ka dhancha */
-.skeleton-item {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    margin-bottom: 8px;
-    gap: 12px;
-}
-
-/* 4. Nakli Photo (Square) */
-.skeleton-img { 
-    width: 50px; 
-    height: 50px; 
-    border-radius: 6px; 
-    flex-shrink: 0;
-}
-
-/* 5. Nakli Text Lines */
-.skeleton-info {
-    flex: 1;
-}
-
-.skeleton-text { 
-    width: 60%; 
-    height: 14px; 
-    margin-bottom: 8px;
-    border-radius: 4px; 
-}
-
-.skeleton-artist { 
-    width: 40%; 
-    height: 10px; 
-    border-radius: 4px; 
-}
 
 /* ============================================================
    --- FINAL BULLETPROOF NAVIGATION & SEARCH CSS ---
@@ -1265,3 +1254,48 @@ body,
     from { transform: scale(0.8); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
 }
+
+#song-options-menu {
+    display: none;
+    height: auto !important; 
+    min-height: 100px !important; /* Force height */
+    max-height: 500px !important;
+    overflow: visible !important; /* Chhupe hue items dikhane ke liye */
+}
+
+.menu-item {
+    display: flex !important; /* Kabhi kabhi div hidden reh jata hai */
+    visibility: visible !important;
+}
+
+.delete-btn {
+    color: #ff3b30 !important;
+    display: flex !important;
+    border-top: 1px solid #444 !important;
+    margin-top: 5px !important;
+}
+/* --- OVERRIDE: 3-DOTS MENU FIX --- */
+#song-options-menu.song-context-menu {
+    display: none; /* JS handle karega */
+    height: auto !important; 
+    min-height: 180px !important; /* Force increase height */
+    max-height: none !important;
+    background: #1c1c1e !important; /* Apple style dark */
+    padding: 8px 0 !important;
+    border: 0.5px solid #333 !important;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6) !important;
+    overflow: visible !important; /* Taaki buttons bahar na katein */
+}
+
+/* Delete button ki styling */
+.menu-item[onclick*="handleDeleteSong"] {
+    color: #ff3b30 !important; /* Vivid Red */
+    border-top: 0.5px solid #333 !important;
+    margin-top: 5px !important;
+    padding-top: 15px !important;
+}
+
+.menu-item i.fa-trash-alt {
+    color: #ff3b30 !important;
+}
+
