@@ -232,27 +232,30 @@
     <div class="menu-item" onclick="handleMenuChangeCover()">
         <i class="fas fa-image"></i> Change Cover
     </div>
+    
+    <div class="menu-item" onclick="handleDeleteSong()" style="color: #ff3b30; border-top: 1px solid #38383a;">
+        <i class="fas fa-trash-alt"></i> Delete from Library
+    </div>
 </div>
+
 <div id="import-menu-overlay" class="import-overlay" onclick="hideImportMenu()">
     <div class="apple-action-sheet" onclick="event.stopPropagation()">
         
-        <div class="action-group">
+           <div class="action-group">
             <div class="action-item" onclick="document.getElementById('direct-local-import').click(); hideImportMenu();">
                 <i class="fas fa-file-audio"></i> <span>Choose Files</span>
             </div>
             
             <div class="action-item" onclick="handleAuthClick(); hideImportMenu();" style="color: #4285F4;">
-                <i class="fab fa-google-drive"></i> <span>Google Drive</span>
+                <i class="fab fa-google-drive"></i> <span>Drive Songs</span>
+            </div>
+
+            <div class="action-item" onclick="createPicker('folder'); hideImportMenu();" style="color: #4285F4; border-top: 1px solid #333;">
+                <i class="fas fa-folder-plus"></i> <span>Drive Folder</span>
             </div>
             
             <div class="action-item">
                 <i class="fas fa-images"></i> <span>Photo Library</span>
-            </div>
-        </div>
-
-        <div class="action-group cancel-group">
-            <div class="action-item" onclick="hideImportMenu()" style="color: #ff3b30; font-weight: 600;">
-                <span>Cancel</span>
             </div>
         </div>
 
@@ -291,3 +294,4 @@
     </script>
 </body>
 </html>
+
