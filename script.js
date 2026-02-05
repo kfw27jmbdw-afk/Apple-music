@@ -1,13 +1,15 @@
 // ==========================================
-// 1. GOOGLE DRIVE & ITUNES CONFIGURATION
+// ==========================================
+// 1. UPDATED CONFIGURATION (GitHub Fix)
 // ==========================================
 const CLIENT_ID = '493639014923-7gqsn4g853icgtctj6hhugkcqhm6178e.apps.googleusercontent.com';
-const API_KEY = 'AIzaSyBYAmzGj45WRLuBlM1RVrLsg9sltzo8Yho';
+const API_KEY = 'AIzaSyBYAmzGj45WRLuBlM1RVrLsg9sltzo8Yho'; // Teri nayi key
 const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
 
 let tokenClient;
 let accessToken = null;
-let currentMenuIndex = null; // Isse pata chalega kis gaane ka 3-dots khula hai
+let currentMenuIndex = null; // Sirf YAHAN declare rahega. Line 1811 se delete kar dena!
+
 
 
 // ==========================================
