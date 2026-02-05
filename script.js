@@ -7,6 +7,8 @@ const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
 
 let tokenClient;
 let accessToken = null;
+let currentMenuIndex = null; // Isse pata chalega kis gaane ka 3-dots khula hai
+
 
 // ==========================================
 // 2. GOOGLE API ENGINE (INIT & AUTH)
@@ -64,10 +66,18 @@ function handleAuthClick() {
 // ==========================================
 // 3. GOOGLE PICKER & CALLBACK
 // ==========================================
-function openPicker() {
-    const view = new google.picker.View(google.picker.ViewId.DOCS);
-    view.setMimeTypes("audio/mpeg,audio/mp3,audio/wav,audio/x-m4a");
-    
+function createPicker(mode = 'file') {
+    let view;
+    if (mode === 'folder') {
+        // Folder selection mode
+        view = new google.picker.DocsView(google.picker.ViewId.FOLDERS);
+        view.setSelectFolderEnabled(true);
+    } else {
+        // Single file mode
+        view = new google.picker.View(google.picker.ViewId.DOCS);
+        view.setMimeTypes("audio/mpeg,audio/mp3,audio/wav,audio/x-m4a");
+    }
+
     const picker = new google.picker.PickerBuilder()
         .enableFeature(google.picker.Feature.NAV_HIDDEN)
         .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
@@ -79,15 +89,93 @@ function openPicker() {
     picker.setVisible(true);
 }
 
+
 async function pickerCallback(data) {
     if (data.action === google.picker.Action.PICKED) {
-        const file = data.docs[0];
-        const fileId = file.id;
-        const fileName = file.name;
-        let cleanName = fileName.replace(/\.[^/.]+$/, "");
-        fetchMusicMeta(fileId, cleanName);
+        const doc = data.docs[0];
+        
+        // Agar folder pick kiya hai
+        if (doc.mimeType === "application/vnd.google-apps.folder") {
+            scanDriveFolder(doc.id, doc.name);
+        } else {
+            // Purana single file logic
+            let cleanName = doc.name.replace(/\.[^/.]+$/, "");
+            fetchMusicMeta(doc.id, cleanName);
+        }
     }
 }
+async function scanDriveFolder(folderId, folderName) {
+    showTempMessage(` Scanning Folder: ${folderName}`);
+    
+    try {
+        const response = await fetch(`https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+mimeType+contains+'audio/'&fields=files(id,name)&key=${API_KEY}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        const data = await response.json();
+        const files = data.files;
+
+        if (!files || files.length === 0) {
+            showTempMessage("Bhai, folder khali hai!");
+            return;
+        }
+
+        // 1. Duplicate check karke naye gaane nikaalo
+        const newFiles = files.filter(f => !playlist.some(p => p.driveId === f.id));
+
+        for (const file of newFiles) {
+            let cleanName = file.name.replace(/\.[^/.]+$/, "");
+            
+            // 2. Turant Skeleton entry daalo (Dummy screen)
+            const skeletonEntry = {
+                name: cleanName,
+                artist: "Loading Metadata...",
+                img: "https://upload.wikimedia.org/wikipedia/commons/b/b1/Loading_icon.gif",
+                isDrive: true,
+                driveId: file.id,
+                isGhost: true // Isse hume pata chalega ye dummy hai
+            };
+            
+            playlist.unshift(skeletonEntry);
+            renderPlaylist(); // Update UI with skeleton
+
+            // 3. iTunes se "Thappa" lagwao (Background mein)
+            fetchMusicMetaForFolder(file.id, cleanName);
+            
+            // Wait taaki iTunes API block na kare (Rate limit fix)
+            await new Promise(r => setTimeout(r, 1500)); 
+        }
+
+    } catch (err) {
+        console.error("Folder Scan Error:", err);
+    }
+}
+
+// Special function for folder batching
+async function fetchMusicMetaForFolder(id, query) {
+    // Ye function fetchMusicMeta jaisa hi hai, bas ye 'loadAndPlay' nahi karega, 
+    // balki existing skeleton entry ko update karega.
+    try {
+        let shortQuery = query.split(' ').slice(0, 2).join(' ');
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(shortQuery)}&entity=song&limit=1`);
+        const data = await res.json();
+        
+        let song = playlist.find(s => s.driveId === id);
+        if(!song) return;
+
+        if (data.results && data.results.length > 0) {
+            const track = data.results[0];
+            song.name = track.trackName;
+            song.artist = track.artistName;
+            song.img = track.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
+        }
+        delete song.isGhost;
+        savePlaylistToDisk();
+        renderPlaylist();
+    } catch (e) {
+        console.error("iTunes Folder Fix Error:", e);
+    }
+}
+
 
 // ==========================================
 // 4. ITUNES METADATA & PLAYBACK
@@ -1109,23 +1197,30 @@ document.addEventListener('click', (e) => {
 /* ================= FEATURE: BACKGROUND DOWNLOAD ================= */
 /* ================= COMPLETE UPGRADED DOWNLOAD BLOCK ================= */
 /* ================= FULL UPDATED DOWNLOAD /* ================= FEATURE: BACKGROUND DOWNLOAD (FIXED) ================= */
+/* ================= COMPLETE UPGRADED DOWNLOAD BLOCK (DRIVE + LOCAL) ================= */
 async function handleDownload() {
-    if (selectedMenuIndex === null || selectedMenuIndex === undefined) {
+    // 🟢 SMART INDEX PICKER: Check both potential index variables
+    let activeIndex = (selectedMenuIndex !== null) ? selectedMenuIndex : currentMenuIndex;
+
+    if (activeIndex === null || activeIndex === undefined) {
         showTempMessage("Please select a song first!");
         return;
     }
 
     if (!userLibrary.downloaded) { userLibrary.downloaded = []; }
 
-    const song = playlist[selectedMenuIndex];
+    const song = playlist[activeIndex];
     let finalURL;
 
-    // 🟢 STEP 1: Pehle Base64 link ko asli URL mein badlo
+    // 🟢 STEP 1: URL RESOLVER (Handles Drive, Web, and Base64)
     try {
-        if (song.url.startsWith("http") || song.url.startsWith("music/")) {
+        if (song.isDrive && song.driveId) {
+            // Google Drive direct media download URL
+            finalURL = `https://www.googleapis.com/drive/v3/files/${song.driveId}?alt=media`;
+        } else if (song.url.startsWith("http") || song.url.startsWith("music/")) {
             finalURL = song.url; 
         } else {
-            // Padding fix taaki decoding crash na ho
+            // Padding fix for Base64 decoding
             let base64String = song.url.trim();
             while (base64String.length % 4 !== 0) { base64String += '='; }
             finalURL = atob(base64String); 
@@ -1136,19 +1231,24 @@ async function handleDownload() {
         return;
     }
 
-    // 🟢 STEP 2: Browser ko batao ye ek valid web address hai
+    // Prepare Browser URL
     const songURL = new URL(finalURL, window.location.origin).href;
     
     const progressContainer = document.getElementById('download-progress-container');
     const progressBar = document.getElementById('download-progress-bar');
     
     if (progressContainer) progressContainer.style.display = 'block';
-    showTempMessage("Downloading " + song.name);
+    showTempMessage(" Downloading: " + song.name);
 
     try {
-        // 🟢 STEP 3: Asli URL se gaana fetch karo
-        const response = await fetch(songURL, { mode: 'cors' });
-        if (!response.ok) throw new Error("Network error");
+        // 🟢 STEP 2: NETWORK FETCH (With Auth if needed)
+        const fetchOptions = { mode: 'cors' };
+        if (song.isDrive && accessToken) {
+            fetchOptions.headers = { 'Authorization': `Bearer ${accessToken}` };
+        }
+
+        const response = await fetch(songURL, fetchOptions);
+        if (!response.ok) throw new Error("Network error or Access Denied");
 
         const reader = response.body.getReader();
         const contentLength = +response.headers.get('Content-Length'); 
@@ -1156,13 +1256,16 @@ async function handleDownload() {
         let receivedLength = 0; 
         let chunks = []; 
 
+        // 🟢 STEP 3: STREAM READING & PROGRESS UPDATE
         while(true) {
             const {done, value} = await reader.read();
             if (done) break;
             chunks.push(value);
             receivedLength += value.length;
+            
             if (contentLength && progressBar) {
-                progressBar.style.width = (receivedLength / contentLength) * 100 + "%";
+                let progress = (receivedLength / contentLength) * 100;
+                progressBar.style.width = progress + "%";
             }
         }
 
@@ -1170,29 +1273,42 @@ async function handleDownload() {
         const cache = await caches.open('apple-music-v2');
         
         const responseToCache = new Response(blob, {
-            headers: { 'Content-Type': 'audio/mpeg', 'Content-Length': blob.size }
+            headers: { 
+                'Content-Type': 'audio/mpeg', 
+                'Content-Length': blob.size,
+                'X-Song-Name': encodeURIComponent(song.name) 
+            }
         });
 
-        // 🟢 STEP 4: Cache mein asli URL ke naam se save karo
+        // 🟢 STEP 4: PERMANENT CACHING
         await cache.put(songURL, responseToCache);
 
-        if (!userLibrary.downloaded.includes(selectedMenuIndex)) {
-            userLibrary.downloaded.push(selectedMenuIndex);
+        if (!userLibrary.downloaded.includes(activeIndex)) {
+            userLibrary.downloaded.push(activeIndex);
             saveLibraryToDisk();
         }
 
-        showTempMessage("Saved for Offline: " + song.name);
+        showTempMessage(" Saved for Offline: " + song.name);
         renderPlaylist();
 
     } catch (err) {
         console.error("Download failed:", err);
-        showTempMessage("Download failed: Network/CORS Issue");
+        showTempMessage("Download failed: Network/Auth Issue");
     } finally {
-        setTimeout(() => { if (progressContainer) progressContainer.style.display = 'none'; }, 500);
+        // Cleanup UI
+        setTimeout(() => { 
+            if (progressContainer) progressContainer.style.display = 'none'; 
+            if (progressBar) progressBar.style.width = "0%";
+        }, 800);
+        
         const menu = document.getElementById('song-options-menu');
         if (menu) menu.style.display = 'none';
+        
+        // Reset selected state
+        selectedMenuIndex = null;
     }
 }
+
 
 
 
@@ -1802,4 +1918,54 @@ window.addEventListener('load', () => {
     });
     renderLibraryContent('all');
 });
+// ==========================================
+// 5. CONTEXT MENU & DELETE LOGIC (NEW)
+// ==========================================
+function openSongMenu(e, index) {
+    e.stopPropagation(); // Gaana play hone se roko
+    currentMenuIndex = index; // Index save kiya delete ke liye
+    
+    const menu = document.getElementById('song-options-menu');
+    menu.style.display = 'block';
+    
+    // Apple Style Positioning: Jahan click kiya wahan glass menu dikhega
+    const x = e.clientX || (e.touches && e.touches[0].clientX);
+    const y = e.clientY || (e.touches && e.touches[0].clientY);
+    
+    menu.style.top = `${y}px`;
+    menu.style.left = `${x - 160}px`; // Menu thoda left shift
+}
+
+async function handleDeleteSong() {
+    if (currentMenuIndex === null) return;
+    
+    const song = playlist[currentMenuIndex];
+    const confirmDelete = confirm(`Bhai, "${song.name}" ko library se nikal du?`);
+    
+    if (confirmDelete) {
+        // 1. Agar LOCAL gaana hai toh IndexedDB (Tijori) se uda do
+        if (song.isLocal && song.localId) {
+            const transaction = musicDB.transaction(["localSongs"], "readwrite");
+            transaction.objectStore("localSongs").delete(song.localId);
+        }
+        
+        // 2. Agar DRIVE gaana hai toh permanent history se uda do
+        if (song.isDrive) {
+            let savedSongs = JSON.parse(localStorage.getItem('my_drive_songs')) || [];
+            savedSongs = savedSongs.filter(s => s.id !== song.driveId);
+            localStorage.setItem('my_drive_songs', JSON.stringify(savedSongs));
+        }
+
+        // 3. Array se remove karo
+        playlist.splice(currentMenuIndex, 1);
+
+        // 4. Sab jagah update maro (Metadata + UI)
+        savePlaylistToDisk();
+        renderPlaylist();
+        
+        // 5. Menu band karo
+        document.getElementById('song-options-menu').style.display = 'none';
+        showTempMessage(" Removed from Library");
+    }
+}
 
