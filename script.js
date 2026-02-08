@@ -1,14 +1,53 @@
 // ==========================================
 // ==========================================
-// 1. UPDATED CONFIGURATION (GitHub Fix)
 // ==========================================
-const CLIENT_ID = '493639014923-7gqsn4g853icgtctj6hhugkcqhm6178e.apps.googleusercontent.com';
-const API_KEY = 'AIzaSyBYAmzGj45WRLuBlM1RVrLsg9sltzo8Yho'; // Teri nayi key
+// 1. DYNAMIC CONFIGURATION (User Provided)
+// ==========================================
+// Pehle se saved keys uthao, agar nahi hain toh khali rakho
+let API_KEY = localStorage.getItem('user_api_key') || '';
+let CLIENT_ID = localStorage.getItem('user_client_id') || '';
 const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
 
 let tokenClient;
 let accessToken = null;
-let currentMenuIndex = null; // Sirf YAHAN declare rahega. Line 1811 se delete kar dena!
+let currentMenuIndex = null;
+
+// --- DEVELOPER SETTINGS FUNCTIONS ---
+
+function openSettings() {
+    // Modal khulne par input fields mein current keys bhar do
+    document.getElementById('user-api-key').value = API_KEY;
+    document.getElementById('user-client-id').value = CLIENT_ID;
+    document.getElementById('settings-modal').style.display = 'block';
+}
+
+function closeSettings() {
+    document.getElementById('settings-modal').style.display = 'none';
+}
+
+function saveSettings() {
+    const newKey = document.getElementById('user-api-key').value.trim();
+    const newId = document.getElementById('user-client-id').value.trim();
+    
+    if (newKey && newId) {
+        // LocalStorage mein save karo
+        localStorage.setItem('user_api_key', newKey);
+        localStorage.setItem('user_client_id', newId);
+        
+        // Variables update karo
+        API_KEY = newKey;
+        CLIENT_ID = newId;
+        
+        closeSettings();
+        showTempMessage(" Settings Saved & Applied");
+        
+        // Reload zaroori hai taaki GAPI naye credentials ke saath initialize ho
+        setTimeout(() => location.reload(), 1000);
+    } else {
+        alert("Bhai, API Key aur Client ID dono dalo!");
+    }
+}
+
 
 
 
@@ -48,21 +87,31 @@ function gisLoaded() {
 
 
 function handleAuthClick() {
-    // Check karo ki kya Google ki library load ho chuki hai
+    // 1. Sabse pehle check karo ki user ne Keys dali hain ya nahi
+    if (!API_KEY || !CLIENT_ID) {
+        showTempMessage(" Please set API Key & Client ID first!");
+        // Thoda delay dekar settings khol do taaki user ko msg dikh jaye
+        setTimeout(() => openSettings(), 800);
+        return;
+    }
+
+    // 2. Check karo ki Google ki library load ho chuki hai
     if (!tokenClient) {
-        console.error("Google GIS library loaded nahi hai! Thoda wait karke try karo.");
+        console.error("Google GIS library loaded nahi hai!");
         alert("Google services are initializing... Please try again in 2 seconds.");
         return;
     }
 
+    // 3. Auth Process
     if (accessToken === null) {
         // Login window khulegi
         tokenClient.requestAccessToken({prompt: 'consent'});
     } else {
-        // Agar pehle se login ho toh seedha picker
-        openPicker();
+        // Agar pehle se login ho toh seedha picker (createPicker ya openPicker jo bhi tera naam hai)
+        createPicker(); 
     }
 }
+
 
 
 // ==========================================
