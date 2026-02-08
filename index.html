@@ -56,17 +56,15 @@
    <div id="playlist-screen" class="tab-content">
     <div class="playlist-header">
         <h2>Your Library</h2>
-               <div class="header-icons">
+        <div class="header-icons">
+            <i class="fas fa-cog" onclick="openSettings()" style="cursor: pointer; font-size: 20px; margin-right: 15px; color: #8e8e93;"></i>
             <i class="fas fa-plus" onclick="showImportMenu()" style="cursor: pointer; font-size: 22px;"></i>
-        </div>
+        </div> </div> <div id="song-list-container"></div>
+</div> <div id="player-screen">
+    <div class="drag-handle" id="drag-area">
+        <div class="handle-bar"></div>
     </div>
-    <div id="song-list-container"></div>
-</div>
 
-    <div id="player-screen">
-        <div class="drag-handle" id="drag-area">
-            <div class="handle-bar"></div>
-        </div>
         
         <div class="top-bar">
             <i class="fas fa-chevron-down" onclick="minimizePlayer()"></i>
@@ -261,6 +259,33 @@
 
     </div>
 </div>
+<div id="settings-modal" class="overlay" style="display:none; z-index: 50000 !important;">
+    <div class="modal-content" style="background: rgba(28, 28, 30, 0.95); backdrop-filter: blur(25px); border: 0.5px solid rgba(255,255,255,0.1); border-radius: 25px;">
+        <div class="modal-header" style="text-align: center;">
+            <i class="fas fa-tools" style="font-size: 30px; color: #ff3b30; margin-bottom: 15px;"></i>
+            <h3>Developer Settings</h3>
+            <p style="font-size: 13px; color: #8e8e93;">Google Cloud Credentials yahan set karein.</p>
+        </div>
+        
+        <div class="modal-body" style="margin-top: 20px;">
+            <div style="margin-bottom: 15px;">
+                <label style="font-size: 11px; color: #ff3b30; font-weight: bold; margin-left: 5px;">GOOGLE API KEY</label>
+                <input type="password" id="user-api-key" placeholder="AIzaSy..." style="width: 100%; padding: 14px; background: #1c1c1e; border: 1px solid #333; color: #fff; border-radius: 12px; margin-top: 5px; box-sizing: border-box;">
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <label style="font-size: 11px; color: #ff3b30; font-weight: bold; margin-left: 5px;">OAUTH CLIENT ID</label>
+                <input type="text" id="user-client-id" placeholder="Client ID yahan paste karein..." style="width: 100%; padding: 14px; background: #1c1c1e; border: 1px solid #333; color: #fff; border-radius: 12px; margin-top: 5px; box-sizing: border-box;">
+            </div>
+        </div>
+
+        <div class="modal-footer" style="display: flex; gap: 12px; margin-top: 25px;">
+            <button class="btn-outline" onclick="closeSettings()" style="flex: 1; border-radius: 15px; border: 1px solid #444; padding: 12px;">Cancel</button>
+            <button class="btn-green" onclick="saveSettings()" style="flex: 1; background: #ff3b30; border-radius: 15px; border: none; padding: 12px; font-weight: bold;">Save & Sync</button>
+        </div>
+    </div>
+</div>
+
 
     <script src="script.js"></script>
     <script>
