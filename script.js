@@ -1,6 +1,7 @@
 // ==========================================
 // ==========================================
 // ==========================================
+// ==========================================
 // 1. DYNAMIC CONFIGURATION (User Provided)
 // ==========================================
 // Pehle se saved keys uthao, agar nahi hain toh khali rakho
@@ -10,19 +11,26 @@ const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
 
 let tokenClient;
 let accessToken = null;
-let currentMenuIndex = null;
+let currentMenuIndex = null; // Sirf yahan rahega, 1811 se delete kar dena!
 
-// --- DEVELOPER SETTINGS FUNCTIONS ---
+// --- SETTINGS MODAL FUNCTIONS ---
 
 function openSettings() {
-    // Modal khulne par input fields mein current keys bhar do
-    document.getElementById('user-api-key').value = API_KEY;
-    document.getElementById('user-client-id').value = CLIENT_ID;
-    document.getElementById('settings-modal').style.display = 'block';
+    const modal = document.getElementById('settings-modal');
+    const apiKeyInput = document.getElementById('user-api-key');
+    const clientIdInput = document.getElementById('user-client-id');
+
+    if (modal && apiKeyInput && clientIdInput) {
+        // Modal khulne par saved keys dikhao
+        apiKeyInput.value = API_KEY;
+        clientIdInput.value = CLIENT_ID;
+        modal.style.display = 'block';
+    }
 }
 
 function closeSettings() {
-    document.getElementById('settings-modal').style.display = 'none';
+    const modal = document.getElementById('settings-modal');
+    if (modal) modal.style.display = 'none';
 }
 
 function saveSettings() {
@@ -30,7 +38,7 @@ function saveSettings() {
     const newId = document.getElementById('user-client-id').value.trim();
     
     if (newKey && newId) {
-        // LocalStorage mein save karo
+        // LocalStorage mein permanent save karo
         localStorage.setItem('user_api_key', newKey);
         localStorage.setItem('user_client_id', newId);
         
@@ -41,12 +49,13 @@ function saveSettings() {
         closeSettings();
         showTempMessage(" Settings Saved & Applied");
         
-        // Reload zaroori hai taaki GAPI naye credentials ke saath initialize ho
+        // Reload taaki Google Engine naye credentials ke saath start ho
         setTimeout(() => location.reload(), 1000);
     } else {
-        alert("Bhai, API Key aur Client ID dono dalo!");
+        alert("Bhai, dono fields bharna zaroori hai!");
     }
 }
+
 
 
 
@@ -54,7 +63,14 @@ function saveSettings() {
 // ==========================================
 // 2. GOOGLE API ENGINE (INIT & AUTH)
 // ==========================================
+// ==========================================
+// 2. GOOGLE API ENGINE (INIT & AUTH)
+// ==========================================
+
 function gapiLoaded() {
+    // Agar API_KEY nahi hai toh init mat karo, user ko pehle settings bharne do
+    if (!API_KEY) return;
+
     gapi.load('client:picker', () => {
         gapi.client.init({
             apiKey: API_KEY,
@@ -64,77 +80,78 @@ function gapiLoaded() {
 }
 
 function gisLoaded() {
+    // Agar CLIENT_ID nahi hai toh wait karo
+    if (!CLIENT_ID) return;
+
     tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
         callback: (resp) => {
             if (resp.error !== undefined) throw (resp);
             accessToken = resp.access_token;
-            // Token ko save karlo taaki reload par kaam aaye
+            
+            // Token save karlo session ke liye
             localStorage.setItem('drive_token', accessToken);
             
-            // Agar koi gaana ruka hua tha re-auth ki wajah se, toh use bajao
-            if(currentIndex !== null) loadSong(currentIndex);
+            // Login hote hi agar picker khulna tha toh khol do
+            createPicker('file');
         },
     });
 
-    // Reload par purana token uthao
     const savedToken = localStorage.getItem('drive_token');
-    if (savedToken) {
-        accessToken = savedToken;
-    }
+    if (savedToken) accessToken = savedToken;
 }
 
-
 function handleAuthClick() {
-    // 1. Sabse pehle check karo ki user ne Keys dali hain ya nahi
+    // 🟢 Validation: Bina keys ke aage nahi badhne dena
     if (!API_KEY || !CLIENT_ID) {
         showTempMessage(" Please set API Key & Client ID first!");
-        // Thoda delay dekar settings khol do taaki user ko msg dikh jaye
         setTimeout(() => openSettings(), 800);
         return;
     }
 
-    // 2. Check karo ki Google ki library load ho chuki hai
     if (!tokenClient) {
-        console.error("Google GIS library loaded nahi hai!");
-        alert("Google services are initializing... Please try again in 2 seconds.");
+        alert("Google services are initializing... Please try again.");
         return;
     }
 
-    // 3. Auth Process
     if (accessToken === null) {
-        // Login window khulegi
         tokenClient.requestAccessToken({prompt: 'consent'});
     } else {
-        // Agar pehle se login ho toh seedha picker (createPicker ya openPicker jo bhi tera naam hai)
-        createPicker(); 
+        createPicker('file'); // Seedha picker kholo
     }
 }
+
 
 
 
 // ==========================================
 // 3. GOOGLE PICKER & CALLBACK
 // ==========================================
-// Function rename to match HTML: createPicker
+// ==========================================
+// 3. UPDATED GOOGLE PICKER & SCANNER
+// ==========================================
+
 function createPicker(mode = 'file') {
     if (!accessToken) {
-        handleAuthClick(); // Agar token nahi hai toh login karwao
+        handleAuthClick(); 
         return;
     }
 
     let view;
     if (mode === 'folder') {
+        // 📂 Folder selection view
         view = new google.picker.DocsView(google.picker.ViewId.FOLDERS);
         view.setSelectFolderEnabled(true);
     } else {
+        // 🎵 Audio files view + Multiselect enabled
         view = new google.picker.View(google.picker.ViewId.DOCS);
         view.setMimeTypes("audio/mpeg,audio/mp3,audio/wav,audio/x-m4a");
     }
 
     const picker = new google.picker.PickerBuilder()
         .enableFeature(google.picker.Feature.NAV_HIDDEN)
+        .enableFeature(google.picker.Feature.MULTISELECT_ENABLED) // ✅ Ab ek saath kai gaane select kar sakte ho
         .setDeveloperKey(API_KEY)
         .setOAuthToken(accessToken)
         .addView(view)
@@ -145,69 +162,83 @@ function createPicker(mode = 'file') {
 
 async function pickerCallback(data) {
     if (data.action === google.picker.Action.PICKED) {
-        const doc = data.docs[0];
-        // Agar folder hai toh scanner chalao, warna single file logic
-        if (doc.mimeType === "application/vnd.google-apps.folder") {
-            scanDriveFolder(doc.id, doc.name);
-        } else {
-            let cleanName = doc.name.replace(/\.[^/.]+$/, "");
-            fetchMusicMeta(doc.id, cleanName);
+        // Loop chalaya hai taaki agar user multiselect kare toh sab load hon
+        for (const doc of data.docs) {
+            if (doc.mimeType === "application/vnd.google-apps.folder") {
+                scanDriveFolder(doc.id, doc.name);
+            } else {
+                let cleanName = doc.name.replace(/\.[^/.]+$/, "");
+                fetchMusicMeta(doc.id, cleanName);
+            }
         }
     }
 }
 
 async function scanDriveFolder(folderId, folderName) {
-    showTempMessage(` Scanning Folder: ${folderName}`);
+    showTempMessage(` Scanning: ${folderName}`);
     
     try {
-        const response = await fetch(`https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+mimeType+contains+'audio/'&fields=files(id,name)&key=${API_KEY}`, {
+        // Drive API v3: Audio files fetch karne ka faster query
+        const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+mimeType+contains+'audio/'&fields=files(id,name)&key=${API_KEY}`;
+        
+        const response = await fetch(url, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
+        
         const data = await response.json();
-        const files = data.files;
+        
+        if (data.error) {
+            if (data.error.status === "UNAUTHENTICATED") {
+                accessToken = null;
+                handleAuthClick();
+                return;
+            }
+            throw new Error(data.error.message);
+        }
 
+        const files = data.files;
         if (!files || files.length === 0) {
             showTempMessage("Bhai, folder khali hai!");
             return;
         }
 
-        // 1. Duplicate check karke naye gaane nikaalo
+        // Filter: Jo playlist mein pehle se nahi hain
         const newFiles = files.filter(f => !playlist.some(p => p.driveId === f.id));
+        showTempMessage(` Found ${newFiles.length} new songs!`);
 
         for (const file of newFiles) {
             let cleanName = file.name.replace(/\.[^/.]+$/, "");
             
-            // 2. Turant Skeleton entry daalo (Dummy screen)
+            // 🟢 Skeleton Entry (UI Refresh)
             const skeletonEntry = {
                 name: cleanName,
-                artist: "Loading Metadata...",
+                artist: "Matching on iTunes...",
                 img: "https://upload.wikimedia.org/wikipedia/commons/b/b1/Loading_icon.gif",
                 isDrive: true,
                 driveId: file.id,
-                isGhost: true // Isse hume pata chalega ye dummy hai
+                isGhost: true 
             };
             
             playlist.unshift(skeletonEntry);
-            renderPlaylist(); // Update UI with skeleton
+            renderPlaylist(); 
 
-            // 3. iTunes se "Thappa" lagwao (Background mein)
+            // Background mein Meta sync
             fetchMusicMetaForFolder(file.id, cleanName);
             
-            // Wait taaki iTunes API block na kare (Rate limit fix)
-            await new Promise(r => setTimeout(r, 1500)); 
+            // 1 second delay (iTunes block se bachne ke liye)
+            await new Promise(r => setTimeout(r, 1000)); 
         }
 
     } catch (err) {
         console.error("Folder Scan Error:", err);
+        showTempMessage("Drive Scan Failed: Check API Key");
     }
 }
 
-// Special function for folder batching
 async function fetchMusicMetaForFolder(id, query) {
-    // Ye function fetchMusicMeta jaisa hi hai, bas ye 'loadAndPlay' nahi karega, 
-    // balki existing skeleton entry ko update karega.
     try {
-        let shortQuery = query.split(' ').slice(0, 2).join(' ');
+        // Sirf pehle 2 words lo taaki match accurate ho
+        let shortQuery = query.split(/[\s-_]+/).slice(0, 2).join(' ');
         const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(shortQuery)}&entity=song&limit=1`);
         const data = await res.json();
         
@@ -219,14 +250,19 @@ async function fetchMusicMetaForFolder(id, query) {
             song.name = track.trackName;
             song.artist = track.artistName;
             song.img = track.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
+        } else {
+            song.artist = "Unknown Artist";
+            song.img = defaultImg;
         }
+        
         delete song.isGhost;
         savePlaylistToDisk();
         renderPlaylist();
     } catch (e) {
-        console.error("iTunes Folder Fix Error:", e);
+        console.error("iTunes Sync Error:", e);
     }
 }
+
 
 
 // ==========================================
@@ -1251,41 +1287,37 @@ document.addEventListener('click', (e) => {
 /* ================= FULL UPDATED DOWNLOAD /* ================= FEATURE: BACKGROUND DOWNLOAD (FIXED) ================= */
 /* ================= COMPLETE UPGRADED DOWNLOAD BLOCK (DRIVE + LOCAL) ================= */
 async function handleDownload() {
-    // 🟢 SMART INDEX PICKER: Check both potential index variables
+    // 🟢 SMART INDEX PICKER
     let activeIndex = (selectedMenuIndex !== null) ? selectedMenuIndex : currentMenuIndex;
 
     if (activeIndex === null || activeIndex === undefined) {
-        showTempMessage("Please select a song first!");
+        showTempMessage(" Please select a song first!");
         return;
     }
 
+    const song = playlist[activeIndex];
+    if (!song) return;
+
     if (!userLibrary.downloaded) { userLibrary.downloaded = []; }
 
-    const song = playlist[activeIndex];
     let finalURL;
-
-    // 🟢 STEP 1: URL RESOLVER (Handles Drive, Web, and Base64)
+    // 🟢 STEP 1: URL RESOLVER (GitHub & Drive Fix)
     try {
         if (song.isDrive && song.driveId) {
-            // Google Drive direct media download URL
+            // Drive API v3 download link
             finalURL = `https://www.googleapis.com/drive/v3/files/${song.driveId}?alt=media`;
         } else if (song.url.startsWith("http") || song.url.startsWith("music/")) {
             finalURL = song.url; 
         } else {
-            // Padding fix for Base64 decoding
             let base64String = song.url.trim();
             while (base64String.length % 4 !== 0) { base64String += '='; }
             finalURL = atob(base64String); 
         }
     } catch (e) {
-        console.error("URL Decoding Failed", e);
         showTempMessage("Invalid Song URL!");
         return;
     }
 
-    // Prepare Browser URL
-    const songURL = new URL(finalURL, window.location.origin).href;
-    
     const progressContainer = document.getElementById('download-progress-container');
     const progressBar = document.getElementById('download-progress-bar');
     
@@ -1293,14 +1325,33 @@ async function handleDownload() {
     showTempMessage(" Downloading: " + song.name);
 
     try {
-        // 🟢 STEP 2: NETWORK FETCH (With Auth if needed)
-        const fetchOptions = { mode: 'cors' };
-        if (song.isDrive && accessToken) {
+        // 🟢 STEP 2: SECURE FETCH
+        const fetchOptions = { 
+            method: 'GET',
+            mode: 'cors',
+            cache: 'no-cache'
+        };
+
+        // Agar Drive ka gaana hai toh Access Token lagana zaroori hai
+        if (song.isDrive) {
+            if (!accessToken) {
+                showTempMessage("Login required for Drive download");
+                handleAuthClick();
+                return;
+            }
             fetchOptions.headers = { 'Authorization': `Bearer ${accessToken}` };
         }
 
-        const response = await fetch(songURL, fetchOptions);
-        if (!response.ok) throw new Error("Network error or Access Denied");
+        const response = await fetch(finalURL, fetchOptions);
+        
+        // Agar 401 error aaye (Token expired)
+        if (response.status === 401) {
+            accessToken = null;
+            handleAuthClick();
+            return;
+        }
+
+        if (!response.ok) throw new Error("Network response was not ok");
 
         const reader = response.body.getReader();
         const contentLength = +response.headers.get('Content-Length'); 
@@ -1308,7 +1359,7 @@ async function handleDownload() {
         let receivedLength = 0; 
         let chunks = []; 
 
-        // 🟢 STEP 3: STREAM READING & PROGRESS UPDATE
+        // 🟢 STEP 3: STREAMING PROGRESS
         while(true) {
             const {done, value} = await reader.read();
             if (done) break;
@@ -1321,33 +1372,31 @@ async function handleDownload() {
             }
         }
 
+        // 🟢 STEP 4: PERMANENT OFFLINE STORAGE (Cache API)
         const blob = new Blob(chunks, { type: 'audio/mpeg' }); 
         const cache = await caches.open('apple-music-v2');
         
-        const responseToCache = new Response(blob, {
+        // Hum URL ko hi key banate hain taaki offline playback ise dhoond sake
+        await cache.put(finalURL, new Response(blob, {
             headers: { 
-                'Content-Type': 'audio/mpeg', 
-                'Content-Length': blob.size,
-                'X-Song-Name': encodeURIComponent(song.name) 
+                'Content-Type': 'audio/mpeg',
+                'Content-Length': blob.size.toString()
             }
-        });
+        }));
 
-        // 🟢 STEP 4: PERMANENT CACHING
-        await cache.put(songURL, responseToCache);
-
+        // Library update
         if (!userLibrary.downloaded.includes(activeIndex)) {
             userLibrary.downloaded.push(activeIndex);
             saveLibraryToDisk();
         }
 
-        showTempMessage(" Saved for Offline: " + song.name);
+        showTempMessage(" Saved Offline: " + song.name);
         renderPlaylist();
 
     } catch (err) {
         console.error("Download failed:", err);
-        showTempMessage("Download failed: Network/Auth Issue");
+        showTempMessage("Download failed! Check connection.");
     } finally {
-        // Cleanup UI
         setTimeout(() => { 
             if (progressContainer) progressContainer.style.display = 'none'; 
             if (progressBar) progressBar.style.width = "0%";
@@ -1355,8 +1404,6 @@ async function handleDownload() {
         
         const menu = document.getElementById('song-options-menu');
         if (menu) menu.style.display = 'none';
-        
-        // Reset selected state
         selectedMenuIndex = null;
     }
 }
@@ -2008,7 +2055,7 @@ async function handleDeleteSong() {
             localStorage.setItem('my_drive_songs', JSON.stringify(savedSongs));
         }
 
-        // 3. Array se remove karo
+        // 3. Array se remove karo 
         playlist.splice(currentMenuIndex, 1);
 
         // 4. Sab jagah update maro (Metadata + UI)
