@@ -1371,7 +1371,7 @@ body,
     display: flex;
     align-items: flex-end;       /* Lyrics ko niche sarakane ke liye */
     justify-content: flex-start; /* Lyrics ko LEFT karne ke liye */
-    margin-top: 25px !important; /* Album art se niche ka gap */
+    margin-top: 5px !important; /* Album art se niche ka gap */
     padding-left: 25px;          /* Screen ke left se gap (Apple Music style) */
     background: transparent;
     position: relative;
