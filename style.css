@@ -215,7 +215,7 @@ body {
     align-items: center; 
     
     /* --- YAHAN SE ADJUST KARO --- */
-    margin-top: auto !important;   /* Isse Meta neeche Seekbar ke paas chala jayega */
+    margin-top: 0px !important;   /* Isse Meta neeche Seekbar ke paas chala jayega */
     margin-bottom: 5px !important; /* Seekbar se kitni doori chahiye (Ise badhao/ghatao) */
     
     padding: 0 5px; /* Side se spacing adjust karne ke liye */
