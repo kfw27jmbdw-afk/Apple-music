@@ -1362,43 +1362,41 @@ body,
 .menu-item i.fa-trash-alt {
     color: #ff3b30 !important;
 }
-/* =================  SPOTIFY STYLE: ONE LINE LYRICS ================= */
+/* =================  SPOTIFY STYLE: LEFT & BOTTOM ALIGNED ================= */
 
-/* 1. Lyrics ka box - isko chhota aur fix rakha hai */
+/* 1. Lyrics Container - Left aur Niche set kiya hai */
 #synced-lyrics-view {
-    height: 70px !important;    /* Sirf ek line ki jagah */
-    overflow: hidden !important; /* Baaki saari lines chupa do */
+    height: 100px !important;    /* Thoda bada area taaki padding handle ho sake */
+    overflow: hidden !important; 
     display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 15px 0;
+    align-items: flex-end;       /* Lyrics ko niche sarakane ke liye */
+    justify-content: flex-start; /* Lyrics ko LEFT karne ke liye */
+    margin-top: 35px !important; /* Album art se niche ka gap */
+    padding-left: 25px;          /* Screen ke left se gap (Apple Music style) */
     background: transparent;
     position: relative;
 }
 
-/* 2. Saari lines ko pehle GAYAB (Hide) karo */
+/* 2. Saari lines Default Hide (Spotify Style) */
 .lyric-line {
-    display: none !important;    /* Strict hide: koi list nahi dikhegi */
-    font-size: 22px;
-    font-weight: 800;
-    text-align: center;
-    color: rgba(255, 255, 255, 0.5); /* Halki white */
-    width: 100%;
+    display: none !important;    
+    font-size: 26px;             /* Badi aur bold lyrics */
+    font-weight: 900;
+    text-align: left;            /* Text ko left align kiya */
+    color: #ffffff;
+    width: 90%;                  /* Poora width nahi taaki margin rahe */
     line-height: 1.2;
-    padding: 0 10px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
 }
 
-/* 3. Sirf wahi line dikhao jo baj rahi hai */
+/* 3. Sirf Active line chamkegi + "Searching" visibility fix */
 .lyric-line.active {
-    display: block !important;   /* Magic: Sirf active line prakat hogi */
-    color: #ffffff;              /* Chamakti white */
-    animation: spotifyFade 0.3s ease-in-out; /* Spotify jaisa halka effect */
+    display: block !important;   
+    animation: spotifySlideIn 0.4s cubic-bezier(0.1, 0.7, 1.0, 0.1); 
 }
 
-/* Chhota sa transition animation */
-@keyframes spotifyFade {
-    from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
+/* Spotify jaisa Smooth Left-to-Right Entry */
+@keyframes spotifySlideIn {
+    from { opacity: 0; transform: translateX(-15px); }
+    to { opacity: 1; transform: translateX(0); }
 }
-
-
