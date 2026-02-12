@@ -1371,7 +1371,7 @@ body,
     display: flex;
     align-items: flex-end;       /* Lyrics ko niche sarakane ke liye */
     justify-content: flex-start; /* Lyrics ko LEFT karne ke liye */
-    margin-top: 35px !important; /* Album art se niche ka gap */
+    margin-top: 55px !important; /* Album art se niche ka gap */
     padding-left: 25px;          /* Screen ke left se gap (Apple Music style) */
     background: transparent;
     position: relative;
@@ -1380,7 +1380,7 @@ body,
 /* 2. Saari lines Default Hide (Spotify Style) */
 .lyric-line {
     display: none !important;    
-    font-size: 26px;             /* Badi aur bold lyrics */
+    font-size: 20px;             /* Badi aur bold lyrics */
     font-weight: 900;
     text-align: left;            /* Text ko left align kiya */
     color: #ffffff;
