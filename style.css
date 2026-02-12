@@ -99,10 +99,12 @@ body {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: linear-gradient(to bottom, var(--bg-color) 0%, #121212 100%);
     z-index: 1000;
-    display: flex; flex-direction: column;
+    display: flex; 
+    flex-direction: column; /* Isse content vertical align hoga */
     transition: transform 0.5s cubic-bezier(0.3, 1, 0.4, 1), opacity 0.4s ease;
     transform-origin: bottom center;
 }
+
 
 #player-screen.minimized { 
     transform: translateY(100%) scale(0.5); 
@@ -152,24 +154,86 @@ body {
 .drag-handle { width: 100%; height: 40px; display: flex; justify-content: center; align-items: center; cursor: grab; }
 .handle-bar { width: 40px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
 
-.top-bar { display: flex; justify-content: space-between; padding: 10px 25px; position: relative; }
+.top-bar { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    
+    /* 1. Minus margin se poori bar upar chali jayegi */
+    margin-top: -15px !important; 
+    
+    /* 2. Padding ko positive rakho (Top padding kam kar di hai) */
+    padding: 2px 25px 5px 25px !important; 
+    
+    position: relative; 
+    flex-shrink: 0;
+    z-index: 100;
+}
+
 .hidden-menu { 
     display:none; position: absolute; right: 25px; top: 50px; 
     background: #282828; padding: 15px; border-radius: 8px; 
     z-index: 110; border: 1px solid #444; width: 150px; 
 }
 
-.player-content { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 0 35px; }
-.banner-container { 
-    width: 100%; aspect-ratio: 1/1; max-width: 320px; 
-    margin: 15px 0; overflow: hidden; border-radius: 12px; 
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+.player-content { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    padding: 0 35px; 
+    height: 100%; /* Height fix ki taaki meta niche push ho sake */
 }
-.banner-container img { width: 100%; height: 100%; object-fit: cover; }
 
-.song-info-area { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-.meta h2 { margin: 0; font-size: 24px; font-weight: 700; }
-.plus-btn { font-size: 28px; cursor: pointer; }
+.banner-container { 
+    /* 1. SIZE: 280px se 300px ke beech best lagta hai */
+    width: 300px !important; 
+    height: 300px !important; 
+    aspect-ratio: 1/1; 
+    
+    /* 2. POSITION: Center align aur Top se gap */
+    margin: -11px auto 5px auto !important; /* Top margin badhane se image niche aayegi */
+    
+    /* 3. LOOK: Apple style rounding aur shadow */
+    overflow: hidden; 
+    border-radius: 20px !important; /* Zyada round corner Apple style ke liye */
+    box-shadow: 0 15px 45px rgba(0,0,0,0.6); /* Deep shadow premium feel ke liye */
+    
+    flex-shrink: 0; /* Isse image pichakne se bachegi */
+}
+
+.banner-container img { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+}
+
+.song-info-area { 
+    width: 100%; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    
+    /* --- YAHAN SE ADJUST KARO --- */
+    margin-top: auto !important;   /* Isse Meta neeche Seekbar ke paas chala jayega */
+    margin-bottom: 5px !important; /* Seekbar se kitni doori chahiye (Ise badhao/ghatao) */
+    
+    padding: 0 5px; /* Side se spacing adjust karne ke liye */
+}
+
+.meta h2 { 
+    margin: 0; 
+    font-size: 22px; /* Song Name ka size yahan se adjust kar */
+    font-weight: 800; /* Apple style extra bold ke liye 800 kar de */
+    letter-spacing: -0.5px; 
+}
+
+.meta p {
+    margin: 2px 0 0;
+    font-size: 16px; /* Artist name ka size */
+    color: #8e8e93; /* Apple Gray color */
+}
+
 
 .controls-wrapper { width: 100%; padding-bottom: 60px; }
 #seek-bar { width: 100%; accent-color: #fff; margin-bottom: 10px; cursor: pointer; }
@@ -1298,4 +1362,43 @@ body,
 .menu-item i.fa-trash-alt {
     color: #ff3b30 !important;
 }
+/* =================  SPOTIFY STYLE: ONE LINE LYRICS ================= */
+
+/* 1. Lyrics ka box - isko chhota aur fix rakha hai */
+#synced-lyrics-view {
+    height: 70px !important;    /* Sirf ek line ki jagah */
+    overflow: hidden !important; /* Baaki saari lines chupa do */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 15px 0;
+    background: transparent;
+    position: relative;
+}
+
+/* 2. Saari lines ko pehle GAYAB (Hide) karo */
+.lyric-line {
+    display: none !important;    /* Strict hide: koi list nahi dikhegi */
+    font-size: 22px;
+    font-weight: 800;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5); /* Halki white */
+    width: 100%;
+    line-height: 1.2;
+    padding: 0 10px;
+}
+
+/* 3. Sirf wahi line dikhao jo baj rahi hai */
+.lyric-line.active {
+    display: block !important;   /* Magic: Sirf active line prakat hogi */
+    color: #ffffff;              /* Chamakti white */
+    animation: spotifyFade 0.3s ease-in-out; /* Spotify jaisa halka effect */
+}
+
+/* Chhota sa transition animation */
+@keyframes spotifyFade {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 
