@@ -192,7 +192,7 @@ body {
     aspect-ratio: 1/1; 
     
     /* 2. POSITION: Center align aur Top se gap */
-    margin: 20px auto 5px auto !important; /* Top margin badhane se image niche aayegi */
+    margin: 45px auto 5px auto !important; /* Top margin badhane se image niche aayegi */
     
     /* 3. LOOK: Apple style rounding aur shadow */
     overflow: hidden; 
@@ -1371,7 +1371,7 @@ body,
     display: flex;
     align-items: flex-end;       /* Lyrics ko niche sarakane ke liye */
     justify-content: flex-start; /* Lyrics ko LEFT karne ke liye */
-    margin-top: 55px !important; /* Album art se niche ka gap */
+    margin-top: 25px !important; /* Album art se niche ka gap */
     padding-left: 25px;          /* Screen ke left se gap (Apple Music style) */
     background: transparent;
     position: relative;
