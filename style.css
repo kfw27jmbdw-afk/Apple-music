@@ -192,7 +192,7 @@ body {
     aspect-ratio: 1/1; 
     
     /* 2. POSITION: Center align aur Top se gap */
-    margin: 45px auto 5px auto !important; /* Top margin badhane se image niche aayegi */
+    margin: 25px auto 5px auto !important; /* Top margin badhane se image niche aayegi */
     
     /* 3. LOOK: Apple style rounding aur shadow */
     overflow: hidden; 
