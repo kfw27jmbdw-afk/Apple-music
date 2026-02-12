@@ -571,6 +571,17 @@ async function loadSong(index) {
     document.getElementById('mini-title').innerText = s.name;
     document.getElementById('mini-artist').innerText = s.artist;
     
+    //  LYRICS RESET & TRIGGER: Purane lyrics clear karo aur naye fetch karo
+    currentLyrics = []; // Data clear
+    const scroller = document.getElementById('lyrics-scroller');
+    if (scroller) scroller.innerHTML = ''; // UI clear
+    
+    if (typeof fetchSyncedLyrics === "function") {
+        fetchSyncedLyrics(s.artist, s.name);
+    }
+
+
+    
     const finalImg = s.img || defaultImg;
     if(mainImg) mainImg.src = finalImg;
     const miniImg = document.getElementById('mini-img');
@@ -769,20 +780,39 @@ function updatePlayIcons(isPlaying) {
 
 
 
-/* ================= FIXED: SEEK BAR & TIME UPDATE ================= */
-if(audio) {
+/* =================  FIXED: SEEK BAR & LYRICS SYNC ENGINE ================= */
+if (audio) {
     audio.ontimeupdate = () => {
-        if(audio.duration) {
+        if (audio.duration) {
             const seekBar = document.getElementById('seek-bar');
             const currentText = document.getElementById('current');
             const durationText = document.getElementById('duration');
 
-            // Bar update
-            if(seekBar) seekBar.value = (audio.currentTime / audio.duration) * 100;
-            
-            // Time text update (00:00)
-            if(currentText) currentText.innerText = formatTime(audio.currentTime);
-            if(durationText) durationText.innerText = formatTime(audio.duration);
+            // 1. Progress Bar & Time Update
+            if (seekBar) seekBar.value = (audio.currentTime / audio.duration) * 100;
+            if (currentText) currentText.innerText = formatTime(audio.currentTime);
+            if (durationText) durationText.innerText = formatTime(audio.duration);
+
+            // 2.  LYRICS SCROLL ENGINE
+            if (typeof currentLyrics !== 'undefined' && currentLyrics.length > 0) {
+                const currentTime = audio.currentTime;
+                const activeLine = currentLyrics.find((l, i) => 
+                    currentTime >= l.time && (!currentLyrics[i+1] || currentTime < currentLyrics[i+1].time)
+                );
+
+                if (activeLine) {
+                    document.querySelectorAll('.lyric-line').forEach(l => l.classList.remove('active'));
+                    const el = document.getElementById(`line-${activeLine.index}`);
+                    if (el) {
+                        el.classList.add('active');
+                        const container = document.getElementById('synced-lyrics-view');
+                        if (container) {
+                            const scrollPos = el.offsetTop - (container.offsetHeight / 2) + (el.offsetHeight / 2);
+                            container.scrollTo({ top: scrollPos, behavior: 'smooth' });
+                        }
+                    }
+                }
+            }
         }
     };
 }
@@ -794,6 +824,8 @@ function seekSong() {
         audio.currentTime = (seekBar.value / 100) * audio.duration;
     }
 }
+
+
 
 /* ================= STEP 1: MODAL & STORAGE CORE ================= */
 
@@ -2068,3 +2100,64 @@ async function handleDeleteSong() {
     }
 }
 
+// --- LYRICS ENGINE START ---
+
+let currentLyrics = []; // Ye lyrics ka data yaad rakhega
+
+async function fetchSyncedLyrics(artist, title) {
+    const scroller = document.getElementById('lyrics-scroller');
+    if (!scroller) return;
+    
+    scroller.innerHTML = '<p class="lyric-line active"> Searching...</p>';
+    
+    try {
+        // Naam saaf karna zaroori hai (e.g. "Song Name (Official Video)" se sirf "Song Name")
+        const cleanArtist = artist.split(',')[0].split('&')[0].trim();
+        const cleanTitle = title.split('(')[0].split('-')[0].trim();
+        
+        const res = await fetch(`https://lrclib.net/api/search?artist_name=${encodeURIComponent(cleanArtist)}&track_name=${encodeURIComponent(cleanTitle)}`);
+        const data = await res.json();
+        
+        if (data && data.length > 0) {
+            // Best match dhoondna (syncedLyrics priority hai)
+            const track = data.find(t => t.syncedLyrics) || data[0];
+            
+            if (track.syncedLyrics) {
+                parseLRC(track.syncedLyrics);
+            } else {
+                scroller.innerHTML = '<p class="lyric-line">Synced lyrics not available </p>';
+            }
+        } else {
+            scroller.innerHTML = '<p class="lyric-line">Lyrics not found </p>';
+        }
+    } catch (err) {
+        console.error("Lyrics Error:", err);
+        scroller.innerHTML = '<p class="lyric-line">Connection Error</p>';
+    }
+}
+
+function parseLRC(lrcContent) {
+    currentLyrics = [];
+    const lines = lrcContent.split('\n');
+    const scroller = document.getElementById('lyrics-scroller');
+    scroller.innerHTML = ''; 
+
+    lines.forEach((line, index) => {
+        // [00:12.34] Format ko pakadne ke liye regex
+        const match = line.match(/\[(\d+):(\d+\.\d+)\](.*)/);
+        if (match) {
+            const time = parseInt(match[1]) * 60 + parseFloat(match[2]);
+            const text = match[3].trim();
+            
+            if (text) {
+                currentLyrics.push({ time, text, index });
+                const p = document.createElement('p');
+                p.className = 'lyric-line';
+                p.id = `line-${index}`;
+                p.innerText = text;
+                scroller.appendChild(p);
+            }
+        }
+    });
+}
+// --- LYRICS ENGINE END ---
