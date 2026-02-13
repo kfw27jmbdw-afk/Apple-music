@@ -4,26 +4,32 @@
 // ==========================================
 const DRIVE_FOLDER_ID = '1TA2Vsuk1vXbyaf1Vxn5CXBGViybHjY03';
 async function searchDriveFolder(query) {
-    // Check karo ki kya Google API load hui hai
-    if (typeof gapi === 'undefined' || !gapi.client || !gapi.client.drive) {
-        alert("Bhai, Google Drive API abhi load nahi hui. Ek baar 'Drive Songs' button daba kar login check karo.");
+    if (!accessToken) {
+        console.warn("No access token, Drive search might fail.");
         return [];
     }
 
     try {
         const response = await gapi.client.drive.files.list({
+            // 'q' parameter ko thoda loose karte hain taaki results milein
             'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${query}' and mimeType contains 'audio/' and trashed = false`,
             'fields': 'files(id, name, webContentLink, thumbnailLink)',
             'pageSize': 10
         });
+
+        console.log("Drive Search Success:", response.result.files);
         return response.result.files || [];
     } catch (error) {
-        // Agar error aata hai toh screen par alert dikhao (Safari debugging ke liye)
-        alert("Drive Error: " + JSON.stringify(error));
-        console.error("Drive Search Error:", error);
+        console.error("Drive Search Error Details:", error);
+        // Agar 401 error hai toh token expire ho gaya hai
+        if (error.status === 401) {
+            accessToken = null;
+            handleAuthClick(); 
+        }
         return [];
     }
 }
+
 
 async function getITunesMetadata(fileName) {
     try {
@@ -251,14 +257,20 @@ function saveSettings() {
 
 function gapiLoaded() {
     if (!API_KEY) return;
-    gapi.load('client:picker', async () => {
-        await gapi.client.init({
-            apiKey: API_KEY,
-            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-        });
-        console.log(" Drive Search Engine Ready!");
+
+    gapi.load('client', async () => {
+        try {
+            await gapi.client.init({
+                apiKey: API_KEY,
+                discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"],
+            });
+            console.log(" Drive API Initialized for Search");
+        } catch (err) {
+            console.error("Error initializing GAPI client", err);
+        }
     });
 }
+
 
 
 function gisLoaded() {
