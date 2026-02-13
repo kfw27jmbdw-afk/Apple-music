@@ -54,53 +54,76 @@ async function getITunesMetadata(fileName) {
 }
 
 async function handleHybridSearch() {
-    const query = document.getElementById('app-search-input').value;
+    const query = document.getElementById('app-search-input').value.toLowerCase();
     const resultsContainer = document.getElementById('global-search-results');
     
-    // Agar search box khali hai toh results chhupao
     if (!query || query.length < 2) {
         resultsContainer.style.display = 'none';
         return;
     }
 
-    // Drive mein file dhoondna shuru
+    resultsContainer.innerHTML = '<p style="color:gray; padding:15px; font-size:12px;">Searching Drive & Library...</p>';
+    resultsContainer.style.display = 'block';
+
+    // 1. DRIVE SEARCH (NEW)
     const driveFiles = await searchDriveFolder(query);
     
-    if (driveFiles.length > 0) {
-        resultsContainer.innerHTML = ''; // Purane results saaf karo
-        resultsContainer.style.display = 'block';
+    // 2. LOCAL SEARCH (OLD)
+    const localMatches = playlist.filter(s => 
+        s.name.toLowerCase().includes(query) || s.artist.toLowerCase().includes(query)
+    );
 
-        for (let file of driveFiles) {
-            // iTunes se "Thappa" (Metadata) mangwana
-            const officialData = await getITunesMetadata(file.name);
-            
-            // Final object banana jo player use karega
-            const song = {
-                id: file.id,
-                title: officialData ? officialData.title : file.name,
-                artist: officialData ? officialData.artistName : "Unknown Artist",
-                cover: officialData ? officialData.cover : 'default-cover.jpg', // Default image agar iTunes pe na mile
-                url: file.webContentLink,
-                isOfficial: !!officialData
-            };
+    resultsContainer.innerHTML = ''; // Loading message hatao
 
-            // Screen par dikhane ke liye HTML banana
-            const resultItem = `
-                <div class="search-result-item" onclick="playDriveSong('${song.url}', '${song.title}', '${song.artist}', '${song.cover}')" style="display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #333; cursor: pointer;">
-                    <img src="${song.cover}" style="width: 50px; height: 50px; border-radius: 8px; margin-right: 15px; object-fit: cover;">
-                    <div style="flex-grow: 1;">
-                        <h4 style="margin: 0; font-size: 16px; color: #fff;">
-                            ${song.title} ${song.isOfficial ? '<i class="fas fa-check-circle" style="color:#ff3b30; font-size:12px; margin-left:5px;"></i>' : ''}
-                        </h4>
-                        <p style="margin: 0; font-size: 13px; color: #8e8e93;">${song.artist}</p>
-                    </div>
-                    <i class="fas fa-plus" onclick="event.stopPropagation(); addToLibraryFromDrive('${song.id}', '${song.title}')" style="color: #ff3b30; font-size: 18px; padding: 10px;"></i>
-                </div>
-            `;
-            resultsContainer.innerHTML += resultItem;
-        }
+    // DRIVE RESULTS RENDER
+    for (let file of driveFiles) {
+        const officialData = await getITunesMetadata(file.name);
+        const song = {
+            id: file.id,
+            title: officialData ? officialData.title : file.name,
+            artist: officialData ? officialData.artistName : "Unknown Artist",
+            cover: officialData ? officialData.cover : defaultImg,
+            url: file.webContentLink,
+            isOfficial: !!officialData
+        };
+        renderHybridResult(song, true);
     }
+
+    // LOCAL RESULTS RENDER
+    localMatches.forEach((song, idx) => {
+        renderHybridResult({
+            ...song,
+            title: song.name,
+            cover: song.img,
+            isOfficial: false,
+            localIndex: playlist.indexOf(song)
+        }, false);
+    });
 }
+
+// Helper function to render items
+function renderHybridResult(song, isDrive) {
+    const resultsContainer = document.getElementById('global-search-results');
+    const div = document.createElement('div');
+    div.className = 'search-result-item';
+    div.style = "display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #333; cursor: pointer;";
+    
+    // Play Click logic
+    const clickAction = isDrive 
+        ? `playDriveSong('${song.url}', '${song.title.replace(/'/g, "\\'")}', '${song.artist.replace(/'/g, "\\'")}', '${song.cover}')`
+        : `loadSong(${song.localIndex}); maximizePlayer();`;
+
+    div.innerHTML = `
+        <img src="${song.cover}" style="width: 45px; height: 45px; border-radius: 6px; margin-right: 12px;">
+        <div style="flex: 1;" onclick="${clickAction}">
+            <h4 style="margin:0; color:white; font-size:15px;">${song.title} ${song.isOfficial ? ' <i class="fas fa-check-circle" style="color:#ff3b30; font-size:11px;"></i>' : ''}</h4>
+            <p style="margin:0; color:gray; font-size:12px;">${isDrive ? '☁️ Drive • ' : '💿 Library • '}${song.artist}</p>
+        </div>
+        ${isDrive ? `<i class="fas fa-plus" onclick="addToLibraryFromDrive('${song.id}', '${song.title.replace(/'/g, "\\'")}')" style="color:#ff3b30; padding:10px;"></i>` : ''}
+    `;
+    resultsContainer.appendChild(div);
+}
+
 
 // 1. Search Result se Gaana Bajane ka Logic
 function playDriveSong(url, title, artist, cover) {
@@ -227,16 +250,16 @@ function saveSettings() {
 // ==========================================
 
 function gapiLoaded() {
-    // Agar API_KEY nahi hai toh init mat karo, user ko pehle settings bharne do
     if (!API_KEY) return;
-
-    gapi.load('client:picker', () => {
-        gapi.client.init({
+    gapi.load('client:picker', async () => {
+        await gapi.client.init({
             apiKey: API_KEY,
             discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
         });
+        console.log(" Drive Search Engine Ready!");
     });
 }
+
 
 function gisLoaded() {
     // Agar CLIENT_ID nahi hai toh wait karo
