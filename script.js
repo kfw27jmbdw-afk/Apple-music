@@ -2,6 +2,159 @@
 // ==========================================
 // ==========================================
 // ==========================================
+const DRIVE_FOLDER_ID = '1TA2Vsuk1vXbyaf1Vxn5CXBGViybHjY03';
+async function searchDriveFolder(query) {
+    try {
+        // Drive API se files ki list mangwana
+        const response = await gapi.client.drive.files.list({
+            // Q (Query) parameter: Folder ID match kare, naam mein query ho, aur wo file ek audio ho
+            'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${query}' and mimeType contains 'audio/' and trashed = false`,
+            'fields': 'files(id, name, webContentLink, thumbnailLink)',
+            'pageSize': 10 // Filhal top 10 results dikhayenge
+        });
+
+        return response.result.files || [];
+    } catch (error) {
+        console.error("Drive Search Error:", error);
+        return [];
+    }
+}
+async function getITunesMetadata(fileName) {
+    try {
+        // File name se faltu cheezein hatana (jaise .mp3) taaki search accurate ho
+        const cleanName = fileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+        
+        const url = `https://itunes.apple.com/search?term=${encodeURIComponent(cleanName)}&media=music&limit=1`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.results && data.results.length > 0) {
+            const track = data.results[0];
+            return {
+                title: track.trackName,
+                artist: track.artistName,
+                // 100x100 image ko 600x600 mein badalna HQ ke liye
+                cover: track.artworkUrl100.replace('100x100', '600x600bb.jpg'),
+                album: track.collectionName,
+                isOfficial: true
+            };
+        }
+        return null; // Agar iTunes par nahi mila
+    } catch (error) {
+        console.error("iTunes API Error:", error);
+        return null;
+    }
+}
+
+async function handleHybridSearch() {
+    const query = document.getElementById('app-search-input').value;
+    const resultsContainer = document.getElementById('global-search-results');
+    
+    // Agar search box khali hai toh results chhupao
+    if (!query || query.length < 2) {
+        resultsContainer.style.display = 'none';
+        return;
+    }
+
+    // Drive mein file dhoondna shuru
+    const driveFiles = await searchDriveFolder(query);
+    
+    if (driveFiles.length > 0) {
+        resultsContainer.innerHTML = ''; // Purane results saaf karo
+        resultsContainer.style.display = 'block';
+
+        for (let file of driveFiles) {
+            // iTunes se "Thappa" (Metadata) mangwana
+            const officialData = await getITunesMetadata(file.name);
+            
+            // Final object banana jo player use karega
+            const song = {
+                id: file.id,
+                title: officialData ? officialData.title : file.name,
+                artist: officialData ? officialData.artistName : "Unknown Artist",
+                cover: officialData ? officialData.cover : 'default-cover.jpg', // Default image agar iTunes pe na mile
+                url: file.webContentLink,
+                isOfficial: !!officialData
+            };
+
+            // Screen par dikhane ke liye HTML banana
+            const resultItem = `
+                <div class="search-result-item" onclick="playDriveSong('${song.url}', '${song.title}', '${song.artist}', '${song.cover}')" style="display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #333; cursor: pointer;">
+                    <img src="${song.cover}" style="width: 50px; height: 50px; border-radius: 8px; margin-right: 15px; object-fit: cover;">
+                    <div style="flex-grow: 1;">
+                        <h4 style="margin: 0; font-size: 16px; color: #fff;">
+                            ${song.title} ${song.isOfficial ? '<i class="fas fa-check-circle" style="color:#ff3b30; font-size:12px; margin-left:5px;"></i>' : ''}
+                        </h4>
+                        <p style="margin: 0; font-size: 13px; color: #8e8e93;">${song.artist}</p>
+                    </div>
+                    <i class="fas fa-plus" onclick="event.stopPropagation(); addToLibraryFromDrive('${song.id}', '${song.title}')" style="color: #ff3b30; font-size: 18px; padding: 10px;"></i>
+                </div>
+            `;
+            resultsContainer.innerHTML += resultItem;
+        }
+    }
+}
+
+// 1. Search Result se Gaana Bajane ka Logic
+function playDriveSong(url, title, artist, cover) {
+    const audio = document.getElementById('main-audio');
+    const playerTitle = document.getElementById('player-title');
+    const playerArtist = document.getElementById('player-artist');
+    const playerImg = document.getElementById('song-image');
+
+    // UI Update karo
+    playerTitle.innerText = title;
+    playerArtist.innerText = artist;
+    playerImg.src = cover;
+
+    // Audio source set karo aur bajao
+    audio.src = url;
+    audio.play();
+    
+    // Mini player bhi update kar do agar hai toh
+    if(document.getElementById('mini-title')) {
+        document.getElementById('mini-title').innerText = title;
+        document.getElementById('mini-artist').innerText = artist;
+        document.getElementById('mini-img').src = cover;
+    }
+    
+    // Search results chhupa do gaana shuru hote hi
+    document.getElementById('global-search-results').style.display = 'none';
+}
+
+// 2. Drive se Library mein Save karne ka Logic (With iTunes Data)
+async function addToLibraryFromDrive(fileId, songName) {
+    // Pehle metadata dobara fetch karo taaki library mein "Thappa" save ho
+    const meta = await getITunesMetadata(songName);
+    
+    const newSong = {
+        id: fileId,
+        title: meta ? meta.title : songName,
+        artist: meta ? meta.artist : "Unknown Artist",
+        cover: meta ? meta.cover : 'default-cover.jpg',
+        url: `https://drive.google.com/uc?export=download&id=${fileId}`, // Direct link
+        dateAdded: new Date().getTime()
+    };
+
+    // Library fetch karo (LocalStorage se)
+    let library = JSON.parse(localStorage.getItem('myLibrary')) || [];
+    
+    // Check karo kahin pehle se toh nahi hai
+    if(!library.some(s => s.id === fileId)) {
+        library.push(newSong);
+        localStorage.setItem('myLibrary', JSON.stringify(library));
+        alert(" Added to Library with Official Metadata!");
+        
+        // Agar Library screen khuli hai toh refresh karo
+        if(typeof renderLibrary === "function") renderLibrary();
+    } else {
+        alert("Bhai, ye toh pehle se hai Library mein!");
+    }
+}
+
+
+
 // 1. DYNAMIC CONFIGURATION (User Provided)
 // ==========================================
 // Pehle se saved keys uthao, agar nahi hain toh khali rakho
