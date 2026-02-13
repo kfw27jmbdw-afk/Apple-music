@@ -171,11 +171,15 @@
             <div class="search-active-tab" id="current-active-indicator">
                 <i class="fas fa-home"></i>
             </div>
-            <div class="search-input-wrapper" style="position: relative;">
-                <i class="fas fa-search search-inside-icon"></i>
-                <input type="text" id="app-search-input" placeholder="Search Songs..." oninput="filterSongs()" autocomplete="off">
-            </div>
-        </div>
+            <<div class="search-input-wrapper" style="position: relative;">
+    <i class="fas fa-search search-inside-icon"></i>
+    <input type="text" 
+           id="app-search-input" 
+           placeholder="Search Songs in Drive..." 
+           oninput="handleHybridSearch()" 
+           autocomplete="off">
+</div>
+
         
         <div id="global-search-results" style="display: none; position: fixed; bottom: 85px; left: 12px; right: 12px; background: #1c1c1e; z-index: 999999; max-height: 60vh; overflow-y: auto; border-radius: 20px; border: 1px solid #333; box-shadow: 0 -15px 35px rgba(0,0,0,0.8);"></div>
 
