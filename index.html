@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title> Music Mini-Lab</title>
 
 <style>
@@ -27,29 +28,17 @@ width:100%;
 max-width:400px;
 }
 
-h2{
-text-align:center;
-margin-bottom:30px;
-}
-
 .card{
-background:var(--apple-dark);
+background:#1c1c1e;
 padding:15px;
 border-radius:12px;
 margin-bottom:20px;
-border:1px solid #333;
-}
-
-label{
-font-size:11px;
-color:var(--apple-red);
-font-weight:bold;
 }
 
 input{
 width:100%;
 padding:12px;
-margin:8px 0 15px 0;
+margin-top:10px;
 background:#000;
 border:1px solid #444;
 color:#fff;
@@ -57,56 +46,45 @@ border-radius:8px;
 }
 
 button{
-background:var(--apple-red);
-color:white;
-border:none;
-padding:14px;
-border-radius:10px;
+margin-top:10px;
 width:100%;
+padding:14px;
+border:none;
+border-radius:10px;
+background:#ff3b30;
+color:white;
 font-weight:bold;
-cursor:pointer;
-}
-
-#results{
-margin-top:20px;
 }
 
 .result-item{
 display:flex;
 align-items:center;
-background:var(--apple-dark);
 padding:10px;
+background:#1c1c1e;
+margin-top:10px;
 border-radius:10px;
-margin-bottom:10px;
-cursor:pointer;
 }
 
 .result-item img{
 width:55px;
 height:55px;
 border-radius:6px;
-margin-right:15px;
-}
-
-.result-info small{
-color:#8e8e93;
+margin-right:10px;
 }
 
 #folder-config,
 #search-section,
-#player-ui{
+#player{
 display:none;
 }
 
-#player-ui{
+#player{
 position:fixed;
 bottom:0;
 left:0;
 right:0;
 background:#111;
-padding:20px;
-border-top:1px solid #333;
-text-align:center;
+padding:15px;
 }
 
 audio{
@@ -121,17 +99,13 @@ filter:invert(1);
 
 <div class="container">
 
-<h2> Mini-Lab</h2>
-
 <div class="card" id="auth-card">
 
-<label>Step 1: Authorization</label>
+<label>OAuth Client ID</label>
 
-<input
-id="client-id"
-placeholder="Paste OAuth Client ID">
+<input id="client-id">
 
-<button id="auth-btn" onclick="handleAuth()">
+<button onclick="connectDrive()">
 Connect Google Drive
 </button>
 
@@ -140,22 +114,18 @@ Connect Google Drive
 
 <div class="card" id="folder-config">
 
-<label>Step 2: Folder Config</label>
+<label>Folder ID</label>
 
-<input
-id="folder-id"
-placeholder="Folder ID">
+<input id="folder-id">
 
 </div>
 
 
 <div id="search-section">
 
-<label>Search</label>
-
 <input
-id="search-input"
-placeholder="Search song..."
+id="search"
+placeholder="Search song"
 oninput="searchSongs()">
 
 <div id="results"></div>
@@ -165,7 +135,7 @@ oninput="searchSongs()">
 </div>
 
 
-<div id="player-ui">
+<div id="player">
 
 <b id="title"></b><br>
 
@@ -184,16 +154,13 @@ oninput="searchSongs()">
 <script>
 
 let accessToken=null;
-let tokenClient=null;
-let gapiReady=false;
-let gisReady=false;
 
 
-//////////////////////////////
-// INIT
-//////////////////////////////
+/////////////////////////////
+// INIT GAPI
+/////////////////////////////
 
-gapi.load("client", async()=>{
+gapi.load("client",async()=>{
 
 await gapi.client.init({
 
@@ -203,33 +170,47 @@ discoveryDocs:[
 
 });
 
-gapiReady=true;
-
 });
 
 
+/////////////////////////////
+// HANDLE REDIRECT RETURN
+/////////////////////////////
+
 window.onload=()=>{
 
-gisReady=true;
+const hash=window.location.hash;
+
+if(hash.includes("access_token")){
+
+const params=new URLSearchParams(hash.substring(1));
+
+accessToken=params.get("access_token");
+
+gapi.client.setToken({
+access_token:accessToken
+});
+
+showApp();
+
+history.replaceState(
+{},
+document.title,
+window.location.pathname
+);
+
+}
 
 };
 
 
-//////////////////////////////
-// AUTH
-//////////////////////////////
+/////////////////////////////
+// CONNECT DRIVE
+/////////////////////////////
 
-function handleAuth(){
+function connectDrive(){
 
-if(!gapiReady||!gisReady){
-
-alert("Wait 2 sec for API load");
-
-return;
-
-}
-
-let clientID=
+const clientID=
 document.getElementById("client-id").value;
 
 if(!clientID){
@@ -240,24 +221,36 @@ return;
 
 }
 
+const redirectUri=
+window.location.origin+
+window.location.pathname;
 
-tokenClient=
+
+const tokenClient=
 google.accounts.oauth2.initTokenClient({
 
 client_id:clientID,
 
-scope:"https://www.googleapis.com/auth/drive.readonly",
+scope:
+"https://www.googleapis.com/auth/drive.readonly",
 
-callback:(resp)=>{
+ux_mode:"redirect",
 
-accessToken=resp.access_token;
-
-gapi.client.setToken({
-
-access_token:accessToken
+redirect_uri:redirectUri
 
 });
 
+
+tokenClient.requestAccessToken();
+
+}
+
+
+/////////////////////////////
+// SHOW APP
+/////////////////////////////
+
+function showApp(){
 
 document.getElementById("auth-card").style.display="none";
 
@@ -265,36 +258,25 @@ document.getElementById("folder-config").style.display="block";
 
 document.getElementById("search-section").style.display="block";
 
-alert("Connected");
-
-}
-
-});
-
-
-tokenClient.requestAccessToken({
-prompt:"consent"
-});
-
 }
 
 
-//////////////////////////////
-// SEARCH
-//////////////////////////////
+/////////////////////////////
+// SEARCH SONGS
+/////////////////////////////
 
 async function searchSongs(){
 
-let query=
-document.getElementById("search-input").value;
+const query=
+document.getElementById("search").value;
 
-let folderId=
+const folderId=
 document.getElementById("folder-id").value;
 
 if(query.length<2)return;
 
 
-let res=
+const res=
 await gapi.client.drive.files.list({
 
 q:`'${folderId}' in parents and name contains '${query}' and trashed=false`,
@@ -304,31 +286,31 @@ fields:"files(id,name)"
 });
 
 
-let files=res.result.files;
+const files=res.result.files;
 
-let results=document.getElementById("results");
+const results=
+document.getElementById("results");
 
 results.innerHTML="";
 
 
-for(let file of files){
+for(const file of files){
 
-let cleanName=
-file.name.replace(/\.[^/.]+$/,"");
+const clean=file.name.replace(/\.[^/.]+$/,"");
 
-let meta=
+const meta=
 await fetch(
-`https://itunes.apple.com/search?term=${cleanName}&limit=1`
+`https://itunes.apple.com/search?term=${clean}&limit=1`
 ).then(r=>r.json());
 
-let song=
+const song=
 meta.results[0]||{
 trackName:file.name,
 artistName:"Unknown",
 artworkUrl100:""
 };
 
-let img=
+const img=
 song.artworkUrl100?
 song.artworkUrl100.replace("100x100","600x600"):
 "https://via.placeholder.com/100";
@@ -343,9 +325,9 @@ onclick="playSong('${file.id}',
 
 <img src="${img}">
 
-<div class="result-info">
+<div>
 
-<b>${song.trackName}</b>
+<b>${song.trackName}</b><br>
 
 <small>${song.artistName}</small>
 
@@ -360,34 +342,33 @@ onclick="playSong('${file.id}',
 }
 
 
-//////////////////////////////
-// PLAY
-//////////////////////////////
+/////////////////////////////
+// PLAY SONG
+/////////////////////////////
 
 function playSong(id,title,artist){
 
-let audio=document.getElementById("audio");
+const audio=
+document.getElementById("audio");
 
 audio.src=
 `https://www.googleapis.com/drive/v3/files/${id}?alt=media`;
 
-audio.setAttribute(
-"Authorization",
-"Bearer "+accessToken
-);
+audio.load();
+
+audio.play();
+
 
 document.getElementById("title").innerText=title;
 
 document.getElementById("artist").innerText=artist;
 
-document.getElementById("player-ui").style.display="block";
-
-audio.play();
+document.getElementById("player").style.display="block";
 
 }
 
-</script>
 
+</script>
 
 </body>
 </html>
