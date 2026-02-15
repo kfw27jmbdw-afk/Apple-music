@@ -80,23 +80,31 @@
     }
 
     function handleAuth() {
+    try {
         const clientID = document.getElementById('lab-client-id').value;
-        if (!clientID) return alert("Bhai, Client ID toh dalo!");
+        if (!clientID) return alert("Bhai, Client ID dalo!");
 
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: clientID,
             scope: 'https://www.googleapis.com/auth/drive.readonly',
             callback: (resp) => {
+                if (resp.error) {
+                    alert("Google Error: " + resp.error);
+                    return;
+                }
                 if (resp.access_token) {
                     accessToken = resp.access_token;
                     document.getElementById('auth-btn').innerText = "✅ Connected";
                     document.getElementById('search-section').style.display = 'block';
-                    alert(" Connection Successful!");
+                    alert(" Connected!");
                 }
             },
         });
         tokenClient.requestAccessToken();
+    } catch (e) {
+        alert("Catch Error: " + e.message);
     }
+}
 
     // --- THE HYBRID ENGINE (DRIVE + ITUNES) ---
     async function doHybridSearch() {
