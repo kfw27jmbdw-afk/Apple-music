@@ -192,7 +192,7 @@ body {
     aspect-ratio: 1/1; 
     
     /* 2. POSITION: Center align aur Top se gap */
-    margin: 25px auto 5px auto !important; /* Top margin badhane se image niche aayegi */
+    margin: 30px auto 5px auto !important; /* Top margin badhane se image niche aayegi */
     
     /* 3. LOOK: Apple style rounding aur shadow */
     overflow: hidden; 
@@ -215,7 +215,7 @@ body {
     align-items: center; 
     
     /* --- YAHAN SE ADJUST KARO --- */
-    margin-top: 0px !important;   /* Isse Meta neeche Seekbar ke paas chala jayega */
+    margin-top: auto !important;   /* Isse Meta neeche Seekbar ke paas chala jayega */
     margin-bottom: 5px !important; /* Seekbar se kitni doori chahiye (Ise badhao/ghatao) */
     
     padding: 0 5px; /* Side se spacing adjust karne ke liye */
@@ -1371,7 +1371,7 @@ body,
     display: flex;
     align-items: flex-end;       /* Lyrics ko niche sarakane ke liye */
     justify-content: flex-start; /* Lyrics ko LEFT karne ke liye */
-    margin-top: 5px !important; /* Album art se niche ka gap */
+    margin-top: 55px !important; /* Album art se niche ka gap */
     padding-left: 25px;          /* Screen ke left se gap (Apple Music style) */
     background: transparent;
     position: relative;
