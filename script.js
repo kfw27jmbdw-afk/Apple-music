@@ -134,12 +134,15 @@ function handleAuthClick() {
 // ==========================================
 //  NEXT STEP: HYBRID SEARCH LOGIC
 // ==========================================
-// Yeh function tab chalega jab user search bar mein type karega
+// ==========================================
+//  HYBRID SEARCH ENGINE (DRIVE + LOCAL)
+// ==========================================
+
 async function handleHybridSearch() {
-    const query = document.getElementById('app-search-input').value.trim().toLowerCase();
+    const query = document.getElementById('app-search-input').value.trim();
     const resultsContainer = document.getElementById('global-search-results');
     
-    // Agar query choti hai toh results hide kar do
+    // 1. Agar query 2 char se kam hai toh tray band karo
     if (!query || query.length < 2) {
         resultsContainer.style.display = 'none';
         return;
@@ -150,60 +153,75 @@ async function handleHybridSearch() {
     resultsContainer.style.display = 'block';
 
     try {
-        // 1. Google Drive Search (Specific Folder)
+        // --- 2. GOOGLE DRIVE SEARCH ---
+        // 'name contains' case-sensitive ho sakta hai, isliye query ko clean rakha hai
+        // mimeType filter se sirf audio files hi aayengi
         const driveResponse = await gapi.client.drive.files.list({
-            'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${query}' and trashed = false`,
+            'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${query}' and trashed = false and mimeType contains 'audio/'`,
             'fields': 'files(id, name, webContentLink, thumbnailLink)',
-            'pageSize': 10
+            'pageSize': 15
         });
+
+        console.log(" Drive Search Raw Response:", driveResponse.result); // Debugging ke liye
         const driveFiles = driveResponse.result.files || [];
 
-        // 2. Local Playlist Search
+        // --- 3. LOCAL PLAYLIST SEARCH ---
         const localMatches = playlist.filter(s => 
-            s.name.toLowerCase().includes(query) || 
-            s.artist.toLowerCase().includes(query)
+            (s.name && s.name.toLowerCase().includes(query.toLowerCase())) || 
+            (s.artist && s.artist.toLowerCase().includes(query.toLowerCase()))
         );
 
         resultsContainer.innerHTML = ''; // Loading clear karo
 
-        // DRIVE RESULTS RENDER
+        // --- 4. RENDER DRIVE RESULTS ---
         driveFiles.forEach(file => {
-            renderSearchRow(file.name.replace(/\.[^/.]+$/, ""), "Cloud Drive", defaultImg, file.id, true);
+            // Extension (.mp3 etc) hata kar naam dikhao
+            let cleanDriveName = file.name.replace(/\.[^/.]+$/, "");
+            renderSearchRow(cleanDriveName, "Cloud Drive", defaultImg, file.id, true);
         });
 
-        // LOCAL RESULTS RENDER
+        // --- 5. RENDER LOCAL RESULTS ---
         localMatches.forEach(song => {
             const originalIndex = playlist.indexOf(song);
             renderSearchRow(song.name, song.artist, song.img || defaultImg, originalIndex, false);
         });
 
+        // --- 6. NO RESULTS FOUND ---
         if (driveFiles.length === 0 && localMatches.length === 0) {
-            resultsContainer.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">No results found.</div>';
+            resultsContainer.innerHTML = '<div style="padding:20px; text-align:center; color:gray; font-size:13px;">No results found in Drive or Library.</div>';
         }
 
     } catch (err) {
-        console.error("Search Error:", err);
-        resultsContainer.innerHTML = '<div style="padding:20px; color:#ff3b30; text-align:center;">Search Error: Check API Key/Connection</div>';
+        console.error(" Search Logic Error:", err);
+        // Agar 401/403 hai toh login expired hai
+        if (err.status === 401 || err.status === 403) {
+            resultsContainer.innerHTML = '<div style="padding:20px; color:#ff3b30; text-align:center; font-size:12px;">Drive session expired. <br> Please click "+" and reconnect Drive.</div>';
+        } else {
+            resultsContainer.innerHTML = '<div style="padding:20px; color:#ff3b30; text-align:center; font-size:12px;">Search Error. Check console (F12).</div>';
+        }
     }
 }
 
-// Search Results ko list mein dikhane ke liye helper function
+// Search Results Row UI Helper
 function renderSearchRow(title, artist, img, idOrIndex, isDrive) {
     const resultsContainer = document.getElementById('global-search-results');
     const div = document.createElement('div');
     div.className = 'song-item';
-    div.style.borderBottom = "0.5px solid rgba(255,255,255,0.1)";
+    div.style.borderBottom = "0.5px solid rgba(255,255,255,0.05)";
+    div.style.padding = "8px 12px";
 
+    // Play Logic: Drive hai toh iTunes meta fetch karega, warna seedha load karega
+    // title.replace logic ensure karti hai ki single quotes se JS na toote
     const clickAction = isDrive 
         ? `fetchMusicMeta('${idOrIndex}', '${title.replace(/'/g, "\\'")}')` 
         : `loadSong(${idOrIndex}); maximizePlayer();`;
 
     div.innerHTML = `
         <div class="song-info-container" onclick="${clickAction}; document.getElementById('global-search-results').style.display='none';">
-            <img src="${img}" style="width:45px; height:45px; border-radius:6px; object-fit:cover;">
-            <div>
-                <h4 style="font-size:15px; margin:0; color:white;">${title}</h4>
-                <p style="font-size:12px; margin:0; color:#8e8e93;">${isDrive ? '☁️ ' : '💿 '}${artist}</p>
+            <img src="${img}" style="width:48px; height:48px; border-radius:8px; object-fit:cover; background:#2c2c2e;">
+            <div style="margin-left:12px; overflow:hidden;">
+                <h4 style="font-size:15px; margin:0; color:white; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${title}</h4>
+                <p style="font-size:12px; margin:2px 0 0; color:#8e8e93; font-weight:500;">${isDrive ? '☁️ Cloud' : '💿 Library'} • ${artist}</p>
             </div>
         </div>
     `;
