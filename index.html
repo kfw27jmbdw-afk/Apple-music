@@ -17,14 +17,17 @@
         button { background: var(--apple-red); color: white; border: none; padding: 14px; border-radius: 10px; width: 100%; font-weight: bold; cursor: pointer; font-size: 15px; }
         #results { margin-top: 20px; width: 100%; }
         
-        .result-item { display: flex; align-items: center; background: var(--apple-dark); padding: 10px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #333; }
+        .result-item { display: flex; align-items: center; background: var(--apple-dark); padding: 10px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #333; cursor: pointer;}
         .result-item img { width: 55px; height: 55px; border-radius: 6px; margin-right: 15px; object-fit: cover; }
         .result-info { flex: 1; }
         .result-info b { display: block; font-size: 14px; }
         .result-info small { color: #8e8e93; font-size: 12px; }
 
-        #player-ui { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(28,28,30,0.98); padding: 20px; border-top: 1px solid #333; display: none; text-align: center; }
+        /* Hidden Sections */
+        #folder-config, #search-section, #player-ui { display: none; }
+
         audio { width: 100%; filter: invert(1); margin-top: 10px; }
+        #player-ui { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(28,28,30,0.98); padding: 20px; border-top: 1px solid #333; text-align: center; }
     </style>
 </head>
 <body>
@@ -32,16 +35,21 @@
 <div class="container">
     <h2> Mini-Lab</h2>
     
-    <div class="card">
-        <label>Configuration</label>
-        <input type="password" id="lab-api-key" placeholder="Google API Key">
-        <input type="text" id="lab-client-id" placeholder="OAuth Client ID">
-        <input type="text" id="lab-folder-id" placeholder="Folder ID (1TA2Vsuk...)" value="1TA2Vsuk1vXbyaf1Vxn5CXBGViybHjY03">
-        <button id="auth-btn" onclick="handleAuth()">1. Connect Drive</button>
+    <div class="card" id="auth-card">
+        <label>Step 1: Authorization</label>
+        <input type="text" id="lab-client-id" placeholder="Paste OAuth Client ID here">
+        <button id="auth-btn" onclick="handleAuth()">Connect Google Drive</button>
     </div>
 
-    <div id="search-section" style="display:none; width: 100%;">
-        <label>Search in Folder</label>
+    <div class="card" id="folder-config">
+        <label>Step 2: Folder Configuration</label>
+        <input type="password" id="lab-api-key" placeholder="Enter API Key">
+        <input type="text" id="lab-folder-id" placeholder="Folder ID (e.g. 1TA2V...)" value="1TA2Vsuk1vXbyaf1Vxn5CXBGViybHjY03">
+        <p style="font-size: 10px; color: #8e8e93; margin-top: -10px;">Login success! Now set your folder & API key.</p>
+    </div>
+
+    <div id="search-section" style="width: 100%;">
+        <label>Search Music</label>
         <input type="text" id="lab-search-input" placeholder="Type song name..." oninput="doHybridSearch()">
         <div id="results"></div>
     </div>
@@ -72,17 +80,23 @@
 
     function handleAuth() {
         const clientID = document.getElementById('lab-client-id').value;
-        if (!clientID) return alert("Client ID missing!");
+        if (!clientID) return alert("Bhai, Client ID dalo pehle!");
 
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: clientID,
             scope: 'https://www.googleapis.com/auth/drive.readonly',
             callback: (resp) => {
+                if (resp.error) {
+                    alert("Auth Error: " + resp.error);
+                    return;
+                }
                 if (resp.access_token) {
                     accessToken = resp.access_token;
-                    document.getElementById('auth-btn').innerText = "✅ Connected";
+                    // SUCCESS: Hide Step 1, Show Step 2 & 3
+                    document.getElementById('auth-card').style.display = 'none';
+                    document.getElementById('folder-config').style.display = 'block';
                     document.getElementById('search-section').style.display = 'block';
-                    alert("Drive Connected!");
+                    alert(" Google Drive Connected Successfully!");
                 }
             },
         });
@@ -98,10 +112,9 @@
         if (!accessToken || query.length < 2) return;
 
         try {
-            // Check if Folder is accessible
             const response = await gapi.client.drive.files.list({
                 'q': `'${folderId}' in parents and name contains '${query}' and trashed = false`,
-                'fields': 'files(id, name, webContentLink)'
+                'fields': 'files(id, name)'
             });
 
             const files = response.result.files;
@@ -113,12 +126,11 @@
             }
 
             for (let file of files) {
-                // iTunes metadata "Thappa"
                 const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
                 const itunes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanName)}&limit=1`).then(r => r.json());
                 
-                const meta = itunes.results[0] || { trackName: file.name, artistName: "Unknown", artworkUrl100: "https://via.placeholder.com/150" };
-                const img = meta.artworkUrl100.replace('100x100', '600x600');
+                const meta = itunes.results[0] || { trackName: file.name, artistName: "Unknown", artworkUrl100: "" };
+                const img = meta.artworkUrl100 ? meta.artworkUrl100.replace('100x100', '600x600') : 'https://via.placeholder.com/300';
 
                 resultsDiv.innerHTML += `
                     <div class="result-item" onclick="playSong('${file.id}', '${meta.trackName}', '${meta.artistName}', '${apiKey}')">
@@ -130,13 +142,12 @@
                     </div>`;
             }
         } catch (err) {
-            alert("Search Error: " + JSON.stringify(err));
+            console.error(err);
         }
     }
 
     async function playSong(id, title, artist, key) {
         const audio = document.getElementById('lab-audio');
-        // Drive streaming with Auth
         const url = `https://www.googleapis.com/drive/v3/files/${id}?alt=media&key=${key}`;
         
         try {
