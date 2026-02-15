@@ -6,28 +6,24 @@
     <title> Music Mini-Lab</title>
     <style>
         :root { --apple-red: #ff3b30; --apple-dark: #1c1c1e; }
-        body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        body { background: #000; color: #fff; font-family: -apple-system, sans-serif; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .container { width: 100%; max-width: 400px; }
-        h2 { text-align: center; letter-spacing: -1px; }
+        h2 { text-align: center; letter-spacing: -1px; margin-bottom: 30px; }
         
         .card { background: var(--apple-dark); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; }
         label { font-size: 11px; color: var(--apple-red); font-weight: bold; text-transform: uppercase; margin-left: 5px; }
         input { width: 100%; padding: 12px; margin: 8px 0 15px 0; background: #000; border: 1px solid #444; color: #fff; border-radius: 8px; box-sizing: border-box; }
         
         button { background: var(--apple-red); color: white; border: none; padding: 14px; border-radius: 10px; width: 100%; font-weight: bold; cursor: pointer; font-size: 15px; }
-        button:active { transform: scale(0.98); }
-
-        .search-box { display: none; margin-top: 10px; }
         #results { margin-top: 20px; width: 100%; }
         
         .result-item { display: flex; align-items: center; background: var(--apple-dark); padding: 10px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #333; }
         .result-item img { width: 55px; height: 55px; border-radius: 6px; margin-right: 15px; object-fit: cover; }
         .result-info { flex: 1; }
-        .result-info b { display: block; font-size: 14px; margin-bottom: 2px; }
+        .result-info b { display: block; font-size: 14px; }
         .result-info small { color: #8e8e93; font-size: 12px; }
-        .play-btn { width: 50px; padding: 8px; font-size: 12px; }
 
-        #player-ui { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(28,28,30,0.95); backdrop-filter: blur(20px); padding: 20px; border-top: 1px solid #333; display: none; text-align: center; }
+        #player-ui { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(28,28,30,0.98); padding: 20px; border-top: 1px solid #333; display: none; text-align: center; }
         audio { width: 100%; filter: invert(1); margin-top: 10px; }
     </style>
 </head>
@@ -37,23 +33,23 @@
     <h2> Mini-Lab</h2>
     
     <div class="card">
-        <label>Google Credentials</label>
+        <label>Configuration</label>
         <input type="password" id="lab-api-key" placeholder="Google API Key">
         <input type="text" id="lab-client-id" placeholder="OAuth Client ID">
-        <input type="text" id="lab-folder-id" placeholder="Drive Folder ID (e.g. 1TA2Vs...)">
-        <button id="auth-btn" onclick="handleAuth()">1. Connect & Authorize</button>
+        <input type="text" id="lab-folder-id" placeholder="Folder ID (1TA2Vsuk...)" value="1TA2Vsuk1vXbyaf1Vxn5CXBGViybHjY03">
+        <button id="auth-btn" onclick="handleAuth()">1. Connect Drive</button>
     </div>
 
-    <div id="search-section" class="search-box">
-        <label>Hybrid Search (Drive + iTunes)</label>
-        <input type="text" id="lab-search-input" placeholder="Search song name..." oninput="doHybridSearch()">
+    <div id="search-section" style="display:none; width: 100%;">
+        <label>Search in Folder</label>
+        <input type="text" id="lab-search-input" placeholder="Type song name..." oninput="doHybridSearch()">
         <div id="results"></div>
     </div>
 </div>
 
 <div id="player-ui">
+    <b id="playing-title"></b><br>
     <small id="playing-artist" style="color:var(--apple-red)"></small>
-    <b id="playing-title" style="display:block; margin-bottom:10px;"></b>
     <audio id="lab-audio" controls></audio>
 </div>
 
@@ -64,49 +60,35 @@
     let accessToken = null;
     let tokenClient;
 
-    // --- INITIALIZATION ---
     function gapiInit() {
         gapi.load('client', async () => {
-            // Hum Drive V3 discovery load karenge taaki search engine chale
             await gapi.client.init({
                 discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
             });
-            console.log("GAPI Ready");
         });
     }
 
-    function gisInit() {
-        // Isey handleAuth ke andar re-init karenge IDs uthane ke liye
-    }
+    function gisInit() {}
 
     function handleAuth() {
-    try {
         const clientID = document.getElementById('lab-client-id').value;
-        if (!clientID) return alert("Bhai, Client ID dalo!");
+        if (!clientID) return alert("Client ID missing!");
 
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: clientID,
             scope: 'https://www.googleapis.com/auth/drive.readonly',
             callback: (resp) => {
-                if (resp.error) {
-                    alert("Google Error: " + resp.error);
-                    return;
-                }
                 if (resp.access_token) {
                     accessToken = resp.access_token;
                     document.getElementById('auth-btn').innerText = "✅ Connected";
                     document.getElementById('search-section').style.display = 'block';
-                    alert(" Connected!");
+                    alert("Drive Connected!");
                 }
             },
         });
         tokenClient.requestAccessToken();
-    } catch (e) {
-        alert("Catch Error: " + e.message);
     }
-}
 
-    // --- THE HYBRID ENGINE (DRIVE + ITUNES) ---
     async function doHybridSearch() {
         const query = document.getElementById('lab-search-input').value;
         const folderId = document.getElementById('lab-folder-id').value;
@@ -116,80 +98,57 @@
         if (!accessToken || query.length < 2) return;
 
         try {
-            // 1. Google Drive Search
+            // Check if Folder is accessible
             const response = await gapi.client.drive.files.list({
                 'q': `'${folderId}' in parents and name contains '${query}' and trashed = false`,
-                'fields': 'files(id, name, webContentLink)',
-                'pageSize': 10
+                'fields': 'files(id, name, webContentLink)'
             });
 
             const files = response.result.files;
             resultsDiv.innerHTML = "";
 
             if (!files || files.length === 0) {
-                resultsDiv.innerHTML = "<p style='text-align:center; color:#666;'>No songs found in folder.</p>";
+                resultsDiv.innerHTML = "<p style='text-align:center; color:#666;'>No files found. Folder ID check karo!</p>";
                 return;
             }
 
             for (let file of files) {
-                // 2. iTunes "Thappa" Logic (Cleaning file name)
+                // iTunes metadata "Thappa"
                 const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-                const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(cleanName)}&media=music&limit=1`;
+                const itunes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanName)}&limit=1`).then(r => r.json());
                 
-                const itunesResp = await fetch(itunesUrl).then(r => r.json());
-                const meta = itunesResp.results[0] || { 
-                    trackName: file.name, 
-                    artistName: "Unknown Artist", 
-                    artworkUrl100: "https://via.placeholder.com/150" 
-                };
+                const meta = itunes.results[0] || { trackName: file.name, artistName: "Unknown", artworkUrl100: "https://via.placeholder.com/150" };
+                const img = meta.artworkUrl100.replace('100x100', '600x600');
 
-                const imgHQ = meta.artworkUrl100.replace('100x100', '600x600');
-                
-                // 3. Render Item
-                const div = document.createElement('div');
-                div.className = 'result-item';
-                div.innerHTML = `
-                    <img src="${imgHQ}">
-                    <div class="result-info">
-                        <b>${meta.trackName}</b>
-                        <small>${meta.artistName}</small>
-                    </div>
-                    <button class="play-btn" onclick="playSong('${file.id}', '${meta.trackName}', '${meta.artistName}', '${apiKey}')">PLAY</button>
-                `;
-                resultsDiv.appendChild(div);
+                resultsDiv.innerHTML += `
+                    <div class="result-item" onclick="playSong('${file.id}', '${meta.trackName}', '${meta.artistName}', '${apiKey}')">
+                        <img src="${img}">
+                        <div class="result-info">
+                            <b>${meta.trackName}</b>
+                            <small>${meta.artistName}</small>
+                        </div>
+                    </div>`;
             }
         } catch (err) {
-            console.error("Search Error:", err);
-            resultsDiv.innerHTML = "<p style='color:red'>Error: Check Console/API Key</p>";
+            alert("Search Error: " + JSON.stringify(err));
         }
     }
 
-    // --- PLAYBACK ENGINE ---
-    async function playSong(fileId, title, artist, apiKey) {
+    async function playSong(id, title, artist, key) {
         const audio = document.getElementById('lab-audio');
-        const playerUi = document.getElementById('player-ui');
+        // Drive streaming with Auth
+        const url = `https://www.googleapis.com/drive/v3/files/${id}?alt=media&key=${key}`;
         
-        // Drive URL build
-        const driveUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${apiKey}`;
-
-        // Authorization inject karke play karna
         try {
-            const response = await fetch(driveUrl, {
-                headers: { 'Authorization': `Bearer ${accessToken}` }
-            });
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            
-            audio.src = blobUrl;
+            const resp = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+            const blob = await resp.blob();
+            audio.src = URL.createObjectURL(blob);
             document.getElementById('playing-title').innerText = title;
             document.getElementById('playing-artist').innerText = artist;
-            playerUi.style.display = 'block';
+            document.getElementById('player-ui').style.display = 'block';
             audio.play();
-        } catch (err) {
-            alert("Bhai playback fail ho gaya: " + err);
-        }
+        } catch (e) { alert("Playback Error!"); }
     }
 </script>
-
 </body>
 </html>
