@@ -131,6 +131,84 @@ function handleAuthClick() {
     }
 }
 
+// ==========================================
+//  NEXT STEP: HYBRID SEARCH LOGIC
+// ==========================================
+// Yeh function tab chalega jab user search bar mein type karega
+async function handleHybridSearch() {
+    const query = document.getElementById('app-search-input').value.trim().toLowerCase();
+    const resultsContainer = document.getElementById('global-search-results');
+    
+    // Agar query choti hai toh results hide kar do
+    if (!query || query.length < 2) {
+        resultsContainer.style.display = 'none';
+        return;
+    }
+
+    // UI Loading state
+    resultsContainer.innerHTML = '<div style="padding:20px; text-align:center; color:gray; font-size:13px;"> Searching Drive & Library...</div>';
+    resultsContainer.style.display = 'block';
+
+    try {
+        // 1. Google Drive Search (Specific Folder)
+        const driveResponse = await gapi.client.drive.files.list({
+            'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${query}' and trashed = false`,
+            'fields': 'files(id, name, webContentLink, thumbnailLink)',
+            'pageSize': 10
+        });
+        const driveFiles = driveResponse.result.files || [];
+
+        // 2. Local Playlist Search
+        const localMatches = playlist.filter(s => 
+            s.name.toLowerCase().includes(query) || 
+            s.artist.toLowerCase().includes(query)
+        );
+
+        resultsContainer.innerHTML = ''; // Loading clear karo
+
+        // DRIVE RESULTS RENDER
+        driveFiles.forEach(file => {
+            renderSearchRow(file.name.replace(/\.[^/.]+$/, ""), "Cloud Drive", defaultImg, file.id, true);
+        });
+
+        // LOCAL RESULTS RENDER
+        localMatches.forEach(song => {
+            const originalIndex = playlist.indexOf(song);
+            renderSearchRow(song.name, song.artist, song.img || defaultImg, originalIndex, false);
+        });
+
+        if (driveFiles.length === 0 && localMatches.length === 0) {
+            resultsContainer.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">No results found.</div>';
+        }
+
+    } catch (err) {
+        console.error("Search Error:", err);
+        resultsContainer.innerHTML = '<div style="padding:20px; color:#ff3b30; text-align:center;">Search Error: Check API Key/Connection</div>';
+    }
+}
+
+// Search Results ko list mein dikhane ke liye helper function
+function renderSearchRow(title, artist, img, idOrIndex, isDrive) {
+    const resultsContainer = document.getElementById('global-search-results');
+    const div = document.createElement('div');
+    div.className = 'song-item';
+    div.style.borderBottom = "0.5px solid rgba(255,255,255,0.1)";
+
+    const clickAction = isDrive 
+        ? `fetchMusicMeta('${idOrIndex}', '${title.replace(/'/g, "\\'")}')` 
+        : `loadSong(${idOrIndex}); maximizePlayer();`;
+
+    div.innerHTML = `
+        <div class="song-info-container" onclick="${clickAction}; document.getElementById('global-search-results').style.display='none';">
+            <img src="${img}" style="width:45px; height:45px; border-radius:6px; object-fit:cover;">
+            <div>
+                <h4 style="font-size:15px; margin:0; color:white;">${title}</h4>
+                <p style="font-size:12px; margin:0; color:#8e8e93;">${isDrive ? '☁️ ' : '💿 '}${artist}</p>
+            </div>
+        </div>
+    `;
+    resultsContainer.appendChild(div);
+}
 
 
 
