@@ -138,38 +138,36 @@ function handleAuthClick() {
 // ==========================================
 //  NEXT STEP: HYBRID SEARCH LOGIC
 // // // ==========================================
-//  FULL HYBRID SEARCH ENGINE (DRIVE + LOCAL)
-// ==========================================
-
 async function handleHybridSearch() {
-    // 1. Input se query uthao
     const rawQuery = document.getElementById('app-search-input').value.trim();
     const resultsContainer = document.getElementById('global-search-results');
     
-    // Agar query 2 char se kam hai toh tray band rakho
     if (!rawQuery || rawQuery.length < 2) {
         resultsContainer.style.display = 'none';
         return;
     }
 
-    // UI Loading state dikhao
-    resultsContainer.innerHTML = '<div style="padding:20px; text-align:center; color:gray; font-size:13px;"> Searching Drive & Library...</div>';
+    // 🟢 Step 1: Loading & Initial Status
+    resultsContainer.innerHTML = '<div id="search-status" style="padding:15px; text-align:center; color:#007aff; font-size:13px; border-bottom:1px solid #333;"> Checking Connection...</div>';
     resultsContainer.style.display = 'block';
 
+    const statusDiv = document.getElementById('search-status');
+
     try {
-        // --- 🟢 STEP 1: FOLDER ACCESS CHECK (DEBUGGING) ---
-        // Ye line bataegi ki hum folder tak pahunch rahe hain ya nahi
+        // 🟢 Step 2: Folder Connection Check (Directly on Screen)
         try {
             const folderCheck = await gapi.client.drive.files.get({
                 fileId: DRIVE_FOLDER_ID,
                 fields: 'name'
             });
-            console.log(" Connected to Folder:", folderCheck.result.name);
+            statusDiv.innerHTML = ` Connected to: <b style="color:white;">${folderCheck.result.name}</b>`;
+            statusDiv.style.color = "#34c759"; // Green color if success
         } catch (fErr) {
-            console.warn(" Folder Access Issue:", fErr.result?.error?.message);
+            statusDiv.innerHTML = ` Folder Error: <b style="color:#ff3b30;">Not Found/No Access</b>`;
+            statusDiv.style.color = "#ff3b30";
         }
 
-        // --- 🟢 STEP 2: GOOGLE DRIVE SEARCH ---
+        // 🟢 Step 3: Drive Search
         const driveResponse = await gapi.client.drive.files.list({
             'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${rawQuery}' and trashed = false`,
             'fields': 'files(id, name, webContentLink, thumbnailLink)',
@@ -177,67 +175,59 @@ async function handleHybridSearch() {
         });
 
         const driveFiles = driveResponse.result.files || [];
-        console.log(" Drive Results Found:", driveFiles.length);
 
-        // --- 🟢 STEP 3: LOCAL PLAYLIST SEARCH ---
+        // 🟢 Step 4: Local Search
         const localMatches = playlist.filter(s => 
             (s.name && s.name.toLowerCase().includes(rawQuery.toLowerCase())) || 
             (s.artist && s.artist.toLowerCase().includes(rawQuery.toLowerCase()))
         );
 
-        resultsContainer.innerHTML = ''; // Loading text saaf karo
+        // Results Container update (Status ko upar hi rehne do, niche results)
+        let resultsHTML = '';
 
-        // --- 🟢 STEP 4: RENDER DRIVE RESULTS ---
+        // Drive Results
         driveFiles.forEach(file => {
-            let cleanName = file.name.replace(/\.[^/.]+$/, ""); // Extension hatao
-            renderSearchRow(cleanName, "Cloud Drive", defaultImg, file.id, true);
+            let cleanName = file.name.replace(/\.[^/.]+$/, "");
+            resultsHTML += renderSearchRowHTML(cleanName, "Cloud Drive", defaultImg, file.id, true);
         });
 
-        // --- 🟢 STEP 5: RENDER LOCAL RESULTS ---
+        // Local Results
         localMatches.forEach(song => {
             const originalIndex = playlist.indexOf(song);
-            renderSearchRow(song.name, song.artist, song.img || defaultImg, originalIndex, false);
+            resultsHTML += renderSearchRowHTML(song.name, song.artist, song.img || defaultImg, originalIndex, false);
         });
 
-        // Agar dono jagah kuch nahi mila
         if (driveFiles.length === 0 && localMatches.length === 0) {
-            resultsContainer.innerHTML = '<div style="padding:20px; text-align:center; color:gray; font-size:13px;">No results found.</div>';
+            resultsContainer.innerHTML += '<div style="padding:20px; text-align:center; color:gray;">No matching songs found.</div>';
+        } else {
+            resultsContainer.innerHTML += resultsHTML;
         }
 
     } catch (err) {
-        console.error(" Search API Error:", err);
-        if (err.status === 401 || err.status === 403) {
-            resultsContainer.innerHTML = '<div style="padding:20px; color:#ff3b30; text-align:center; font-size:12px;">Login/API Key Expired! <br> Check Settings & Reconnect.</div>';
-        }
+        console.error(err);
+        statusDiv.innerHTML = ` System Error: <b style="color:#ff3b30;">API/Token Issue</b>`;
     }
 }
 
-/**
- *  Helper function to build Search Result Row
- */
-function renderSearchRow(title, artist, img, idOrIndex, isDrive) {
-    const resultsContainer = document.getElementById('global-search-results');
-    const div = document.createElement('div');
-    div.className = 'song-item';
-    div.style.borderBottom = "0.5px solid rgba(255,255,255,0.05)";
-    div.style.padding = "10px";
-
-    // Play Logic: Single quotes escape logic included
+// 🟢 Zaroori: Is helper function ko bhi update kar lo
+function renderSearchRowHTML(title, artist, img, idOrIndex, isDrive) {
     const clickAction = isDrive 
         ? `fetchMusicMeta('${idOrIndex}', '${title.replace(/'/g, "\\'")}')` 
         : `loadSong(${idOrIndex}); maximizePlayer();`;
 
-    div.innerHTML = `
-        <div class="song-info-container" onclick="${clickAction}; document.getElementById('global-search-results').style.display='none';">
-            <img src="${img}" style="width:48px; height:48px; border-radius:8px; object-fit:cover; background:#2c2c2e;">
-            <div style="margin-left:12px; overflow:hidden;">
-                <h4 style="font-size:15px; margin:0; color:white; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${title}</h4>
-                <p style="font-size:12px; margin:2px 0 0; color:#8e8e93;">${isDrive ? '☁️ Cloud' : '💿 Library'} • ${artist}</p>
+    return `
+        <div class="song-item" style="border-bottom: 0.5px solid rgba(255,255,255,0.05); padding:10px;">
+            <div class="song-info-container" onclick="${clickAction}; document.getElementById('global-search-results').style.display='none';">
+                <img src="${img}" style="width:48px; height:48px; border-radius:8px; object-fit:cover;">
+                <div style="margin-left:12px; overflow:hidden;">
+                    <h4 style="font-size:15px; margin:0; color:white; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${title}</h4>
+                    <p style="font-size:12px; margin:2px 0 0; color:#8e8e93;">${isDrive ? '☁️ Cloud' : '💿 Library'} • ${artist}</p>
+                </div>
             </div>
         </div>
     `;
-    resultsContainer.appendChild(div);
 }
+
 
 
 
