@@ -133,18 +133,20 @@ function handleAuthClick() {
     }
 }
 
+
+
 // ==========================================
 //  NEXT STEP: HYBRID SEARCH LOGIC
-// // ==========================================
+// // // ==========================================
 //  FULL HYBRID SEARCH ENGINE (DRIVE + LOCAL)
 // ==========================================
 
 async function handleHybridSearch() {
-    // 1. Input se text uthao (Case-sensitive rakha hai Drive API ke liye)
+    // 1. Input se query uthao
     const rawQuery = document.getElementById('app-search-input').value.trim();
     const resultsContainer = document.getElementById('global-search-results');
     
-    // Agar query 2 characters se kam hai toh band rakho
+    // Agar query 2 char se kam hai toh tray band rakho
     if (!rawQuery || rawQuery.length < 2) {
         resultsContainer.style.display = 'none';
         return;
@@ -155,8 +157,19 @@ async function handleHybridSearch() {
     resultsContainer.style.display = 'block';
 
     try {
-        // --- A. GOOGLE DRIVE SEARCH ---
-        // 'q' parameter ensure karta hai ki hum sirf usi Folder (DRIVE_FOLDER_ID) mein dhoondh rahe hain
+        // --- 🟢 STEP 1: FOLDER ACCESS CHECK (DEBUGGING) ---
+        // Ye line bataegi ki hum folder tak pahunch rahe hain ya nahi
+        try {
+            const folderCheck = await gapi.client.drive.files.get({
+                fileId: DRIVE_FOLDER_ID,
+                fields: 'name'
+            });
+            console.log(" Connected to Folder:", folderCheck.result.name);
+        } catch (fErr) {
+            console.warn(" Folder Access Issue:", fErr.result?.error?.message);
+        }
+
+        // --- 🟢 STEP 2: GOOGLE DRIVE SEARCH ---
         const driveResponse = await gapi.client.drive.files.list({
             'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${rawQuery}' and trashed = false`,
             'fields': 'files(id, name, webContentLink, thumbnailLink)',
@@ -164,10 +177,9 @@ async function handleHybridSearch() {
         });
 
         const driveFiles = driveResponse.result.files || [];
-        console.log(" Drive Results Found:", driveFiles);
+        console.log(" Drive Results Found:", driveFiles.length);
 
-        // --- B. LOCAL PLAYLIST SEARCH ---
-        // Library mein hum case-insensitive search karte hain filter use karke
+        // --- 🟢 STEP 3: LOCAL PLAYLIST SEARCH ---
         const localMatches = playlist.filter(s => 
             (s.name && s.name.toLowerCase().includes(rawQuery.toLowerCase())) || 
             (s.artist && s.artist.toLowerCase().includes(rawQuery.toLowerCase()))
@@ -175,13 +187,13 @@ async function handleHybridSearch() {
 
         resultsContainer.innerHTML = ''; // Loading text saaf karo
 
-        // --- C. RENDER DRIVE RESULTS ---
+        // --- 🟢 STEP 4: RENDER DRIVE RESULTS ---
         driveFiles.forEach(file => {
-            let cleanName = file.name.replace(/\.[^/.]+$/, ""); // Extension (.mp3) hatao
+            let cleanName = file.name.replace(/\.[^/.]+$/, ""); // Extension hatao
             renderSearchRow(cleanName, "Cloud Drive", defaultImg, file.id, true);
         });
 
-        // --- D. RENDER LOCAL RESULTS ---
+        // --- 🟢 STEP 5: RENDER LOCAL RESULTS ---
         localMatches.forEach(song => {
             const originalIndex = playlist.indexOf(song);
             renderSearchRow(song.name, song.artist, song.img || defaultImg, originalIndex, false);
@@ -195,13 +207,13 @@ async function handleHybridSearch() {
     } catch (err) {
         console.error(" Search API Error:", err);
         if (err.status === 401 || err.status === 403) {
-            resultsContainer.innerHTML = '<div style="padding:20px; color:#ff3b30; text-align:center; font-size:12px;">Login Expired! Click "+" and reconnect Drive.</div>';
+            resultsContainer.innerHTML = '<div style="padding:20px; color:#ff3b30; text-align:center; font-size:12px;">Login/API Key Expired! <br> Check Settings & Reconnect.</div>';
         }
     }
 }
 
 /**
- * Helper function jo search results ko tray mein render karta hai
+ *  Helper function to build Search Result Row
  */
 function renderSearchRow(title, artist, img, idOrIndex, isDrive) {
     const resultsContainer = document.getElementById('global-search-results');
@@ -210,7 +222,7 @@ function renderSearchRow(title, artist, img, idOrIndex, isDrive) {
     div.style.borderBottom = "0.5px solid rgba(255,255,255,0.05)";
     div.style.padding = "10px";
 
-    // Play Logic: Drive file hai toh iTunes meta fetch karega, warna seedha load karega
+    // Play Logic: Single quotes escape logic included
     const clickAction = isDrive 
         ? `fetchMusicMeta('${idOrIndex}', '${title.replace(/'/g, "\\'")}')` 
         : `loadSong(${idOrIndex}); maximizePlayer();`;
@@ -226,6 +238,7 @@ function renderSearchRow(title, artist, img, idOrIndex, isDrive) {
     `;
     resultsContainer.appendChild(div);
 }
+
 
 
 
