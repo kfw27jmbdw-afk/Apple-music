@@ -139,85 +139,135 @@ function handleAuthClick() {
 // ==========================================
 
 async function handleHybridSearch() {
-    // 🟢 FIX 1: Search term ko lowerCase mat karo yahan, warna Drive API result nahi degi
+
     const rawQuery = document.getElementById('app-search-input').value.trim();
     const resultsContainer = document.getElementById('global-search-results');
-    
+
     if (!rawQuery || rawQuery.length < 2) {
         resultsContainer.style.display = 'none';
         return;
     }
 
-    resultsContainer.innerHTML = '<div style="padding:20px; text-align:center; color:gray; font-size:13px;"> Searching Drive & Library...</div>';
+    resultsContainer.innerHTML =
+        '<div style="padding:20px;text-align:center;color:gray;font-size:13px;"> Searching Drive & Library...</div>';
+
     resultsContainer.style.display = 'block';
 
     try {
-        // --- 1. GOOGLE DRIVE SEARCH ---
-        // 🟢 FIX 2: rawQuery use karo Drive ke liye
-        const driveResponse = await gapi.client.drive.files.list({
-            'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${rawQuery}' and trashed = false`,
-            'fields': 'files(id, name, webContentLink, thumbnailLink)',
-            'pageSize': 15
-        });
 
-        const driveFiles = driveResponse.result.files || [];
-        console.log(" Drive Found:", driveFiles.length, "files");
+        // ==========================
+        // FIX 1: Ensure Drive auth
+        // ==========================
+        if (!accessToken) {
+            console.log("Drive not connected");
+        }
 
-        // --- 2. LOCAL PLAYLIST SEARCH ---
-        const localMatches = playlist.filter(s => 
-            (s.name && s.name.toLowerCase().includes(rawQuery.toLowerCase())) || 
-            (s.artist && s.artist.toLowerCase().includes(rawQuery.toLowerCase()))
+        // ==========================
+        // FIX 2: Escape query safely
+        // ==========================
+        const safeQuery = rawQuery.replace(/'/g, "\\'");
+
+        // ==========================
+        // FIX 3: Use fetch instead of gapi
+        // ==========================
+        let driveFiles = [];
+
+        if (accessToken) {
+
+            const url =
+                `https://www.googleapis.com/drive/v3/files` +
+                `?q='${DRIVE_FOLDER_ID}'+in+parents` +
+                `+and+name+contains+'${encodeURIComponent(rawQuery)}'` +
+                `+and+trashed=false` +
+                `&fields=files(id,name)` +
+                `&pageSize=15`;
+
+            const response = await fetch(url, {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.files)
+                driveFiles = data.files;
+        }
+
+        console.log("Drive found:", driveFiles.length);
+
+        // ==========================
+        // LOCAL SEARCH
+        // ==========================
+        const localMatches = playlist.filter(song =>
+            song.name?.toLowerCase().includes(rawQuery.toLowerCase()) ||
+            song.artist?.toLowerCase().includes(rawQuery.toLowerCase())
         );
 
-        resultsContainer.innerHTML = ''; // Loading clear
+        resultsContainer.innerHTML = "";
 
-        // --- 3. RENDER RESULTS ---
-        // Drive Results
+        // ==========================
+        // RENDER DRIVE
+        // ==========================
         driveFiles.forEach(file => {
-            let cleanName = file.name.replace(/\.[^/.]+$/, "");
-            renderSearchRow(cleanName, "Cloud Drive", defaultImg, file.id, true);
+
+            const cleanName =
+                file.name.replace(/\.[^/.]+$/, "");
+
+            renderSearchRow(
+                cleanName,
+                "Cloud Drive",
+                defaultImg,
+                file.id,
+                true
+            );
+
         });
 
-        // Local Results
+        // ==========================
+        // RENDER LOCAL
+        // ==========================
         localMatches.forEach(song => {
-            const originalIndex = playlist.indexOf(song);
-            renderSearchRow(song.name, song.artist, song.img || defaultImg, originalIndex, false);
+
+            const index = playlist.indexOf(song);
+
+            renderSearchRow(
+                song.name,
+                song.artist,
+                song.img || defaultImg,
+                index,
+                false
+            );
+
         });
 
-        if (driveFiles.length === 0 && localMatches.length === 0) {
-            resultsContainer.innerHTML = '<div style="padding:20px; text-align:center; color:gray; font-size:13px;">No results found.</div>';
+        // ==========================
+        // NO RESULTS
+        // ==========================
+        if (driveFiles.length === 0 &&
+            localMatches.length === 0) {
+
+            resultsContainer.innerHTML =
+                `<div style="padding:20px;text-align:center;color:gray;">
+                No results found
+                </div>`;
         }
 
-    } catch (err) {
-        console.error(" Search Error:", err);
-        // Token expire hone par
+    }
+    catch (err) {
+
+        console.error(err);
+
         if (err.status === 401) {
-            resultsContainer.innerHTML = '<div style="padding:20px; color:#ff3b30; text-align:center; font-size:12px;">Login Expired! Click "+" and reconnect Drive.</div>';
+
+            accessToken = null;
+
+            resultsContainer.innerHTML =
+                `<div style="padding:20px;text-align:center;color:#ff3b30;">
+                Drive login expired. Reconnect.
+                </div>`;
         }
     }
-}
-
-// Search Results UI Helper
-function renderSearchRow(title, artist, img, idOrIndex, isDrive) {
-    const resultsContainer = document.getElementById('global-search-results');
-    const div = document.createElement('div');
-    div.className = 'song-item';
-    div.style.borderBottom = "0.5px solid rgba(255,255,255,0.05)";
-
-    const clickAction = isDrive 
-        ? `fetchMusicMeta('${idOrIndex}', '${title.replace(/'/g, "\\'")}')` 
-        : `loadSong(${idOrIndex}); maximizePlayer();`;
-
-    div.innerHTML = `
-        <div class="song-info-container" onclick="${clickAction}; document.getElementById('global-search-results').style.display='none';">
-            <img src="${img}" style="width:48px; height:48px; border-radius:8px; object-fit:cover;">
-            <div style="margin-left:12px;">
-                <h4 style="font-size:15px; margin:0; color:white;">${title}</h4>
-                <p style="font-size:12px; margin:2px 0 0; color:#8e8e93;">${isDrive ? '☁️ Cloud' : '💿 Library'} • ${artist}</p>
-            </div>
-        </div>
-    `;
-    resultsContainer.appendChild(div);
 }
 
 
