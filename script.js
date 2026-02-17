@@ -138,6 +138,10 @@ function handleAuthClick() {
 // ==========================================
 //  NEXT STEP: HYBRID SEARCH LOGIC
 // // // ==========================================
+// ==========================================
+//  FINAL HYBRID SEARCH: ITUNES SYNC & DUPLICATE FIX
+// ==========================================
+
 async function handleHybridSearch() {
     const rawQuery = document.getElementById('app-search-input').value.trim();
     const resultsContainer = document.getElementById('global-search-results');
@@ -147,7 +151,8 @@ async function handleHybridSearch() {
         return;
     }
 
-    resultsContainer.innerHTML = '<div id="search-status" style="padding:15px; text-align:center; color:#007aff; font-size:13px;"> Searching iTunes & Cloud...</div>';
+    // Pehle tray ko khali karo taaki double results ka koi chance na rahe
+    resultsContainer.innerHTML = '<div id="search-status" style="padding:15px; text-align:center; color:#007aff; font-size:13px; border-bottom:1px solid #333;"> Syncing iTunes & Cloud...</div>';
     resultsContainer.style.display = 'block';
 
     try {
@@ -155,7 +160,7 @@ async function handleHybridSearch() {
         const driveResponse = await gapi.client.drive.files.list({
             'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${rawQuery}' and trashed = false`,
             'fields': 'files(id, name)',
-            'pageSize': 8
+            'pageSize': 10
         });
         const driveFiles = driveResponse.result.files || [];
 
@@ -164,17 +169,18 @@ async function handleHybridSearch() {
             (s.name && s.name.toLowerCase().includes(rawQuery.toLowerCase()))
         );
 
-        resultsContainer.innerHTML = ''; // Clear loading
-        let seenIds = new Set(); // Duplicates rokne ke liye
+        // UI ko clear karo results dikhane se pehle
+        resultsContainer.innerHTML = ''; 
+        let seenIds = new Set(); // 🟢 DUPLICATE FIX: Isse ek hi song do baar nahi aayega
 
-        // --- DRIVE RESULTS WITH ITUNES SYNC ---
+        // --- DRIVE RESULTS WITH ITUNES LOOK ---
         for (const file of driveFiles) {
-            if (seenIds.has(file.id)) continue;
+            if (seenIds.has(file.id)) continue; // Agar id repeat ho rahi hai toh skip karo
             seenIds.add(file.id);
 
             let cleanName = file.name.replace(/\.[^/.]+$/, "");
             
-            // iTunes API Call (Directly in Search Tray)
+            // iTunes API fetch (Tray mein hi official metadata dikhane ke liye)
             try {
                 const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanName)}&entity=song&limit=1`);
                 const itunesData = await itunesRes.json();
@@ -193,15 +199,20 @@ async function handleHybridSearch() {
         // --- LOCAL RESULTS ---
         localMatches.forEach(song => {
             const idx = playlist.indexOf(song);
+            // Local mein id check ki itni zaroorat nahi par safety ke liye yahan bhi handle kar sakte ho
             renderSearchRow(song.name, song.artist, song.img || defaultImg, idx, false);
         });
 
+        if (driveFiles.length === 0 && localMatches.length === 0) {
+            resultsContainer.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">No matching songs found.</div>';
+        }
+
     } catch (err) {
-        console.error("Search Error:", err);
+        console.error("Search Logic Error:", err);
     }
 }
 
-// Updated UI Helper (Instant Rendering)
+//  Updated UI Helper: Instant Rendering with Set Protection
 function renderSearchRow(title, artist, img, idOrIndex, isDrive) {
     const resultsContainer = document.getElementById('global-search-results');
     const div = document.createElement('div');
