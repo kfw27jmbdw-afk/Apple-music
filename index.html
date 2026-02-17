@@ -2,71 +2,87 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Gemini Music Lab - Pro Tester</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title> Gemini Music Lab - Full View IDE</title>
     <style>
-        :root { --bg: #1c1c1e; --panel: #2c2c2e; --accent: #007aff; --text: #ffffff; }
+        :root { --bg: #1c1c1e; --panel: #2c2c2e; --accent: #34c759; --text: #ffffff; }
         body { margin: 0; font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
         /* Toolbar */
-        header { padding: 10px 15px; background: var(--panel); border-bottom: 1px solid #3a3a3c; display: flex; gap: 10px; align-items: center; }
-        .btn { background: #3a3a3c; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-        .btn:hover { background: #4a4a4c; }
-        .run-btn { background: var(--accent); font-weight: bold; }
+        header { padding: 10px 15px; background: var(--panel); border-bottom: 1px solid #3a3a3c; display: flex; gap: 8px; align-items: center; z-index: 100; }
+        .btn { background: #3a3a3c; color: white; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 500; transition: 0.2s; }
+        .btn:active { transform: scale(0.95); }
+        .run-btn { background: #007aff; }
+        .full-btn { background: #5856d6; }
         
         /* Tabs */
         .tabs { display: flex; background: #111; padding: 5px 10px 0; gap: 5px; }
-        .tab { padding: 8px 20px; background: #2c2c2e; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 12px; color: #8e8e93; border: none; }
+        .tab { padding: 10px 18px; background: #2c2c2e; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 11px; color: #8e8e93; border: none; text-transform: uppercase; letter-spacing: 1px; }
         .tab.active { background: var(--panel); color: white; font-weight: bold; }
 
         /* Workspace */
-        .main { display: flex; flex: 1; overflow: hidden; }
-        .editor-container { width: 50%; display: flex; flex-direction: column; border-right: 1px solid #3a3a3c; position: relative; }
-        textarea { flex: 1; background: #111; color: #d4d4d4; font-family: 'Consolas', monospace; padding: 15px; border: none; resize: none; font-size: 14px; outline: none; line-height: 1.5; display: none; }
+        .main { display: flex; flex: 1; overflow: hidden; position: relative; }
+        .editor-container { width: 50%; display: flex; flex-direction: column; border-right: 1px solid #3a3a3c; }
+        textarea { flex: 1; background: #000; color: #d4d4d4; font-family: 'SF Mono', 'Consolas', monospace; padding: 15px; border: none; resize: none; font-size: 14px; outline: none; line-height: 1.6; display: none; }
         textarea.active { display: block; }
         
-        iframe { width: 50%; background: white; border: none; }
+        /* Preview Frame */
+        #preview { width: 50%; background: #000; border: none; transition: all 0.3s ease-in-out; }
+        
+        /* 📱 FULL VIEW CLASS */
+        body.full-mode .editor-container, body.full-mode .tabs, body.full-mode header :not(.full-btn) { display: none !important; }
+        body.full-mode #preview { width: 100% !important; height: 100vh !important; position: fixed; top: 0; left: 0; z-index: 999; }
+        .exit-full { position: fixed; bottom: 20px; right: 20px; z-index: 1000; padding: 12px 20px; background: rgba(0,0,0,0.7); color: white; border-radius: 50px; display: none; border: 1px solid #444; backdrop-filter: blur(10px); }
+        body.full-mode .exit-full { display: block; }
 
-        /* Search Bar */
-        #search-box { position: absolute; top: 10px; right: 20px; background: #333; padding: 5px; border-radius: 4px; display: none; border: 1px solid var(--accent); }
-        #search-box input { background: transparent; border: none; color: white; outline: none; width: 150px; }
+        #search-box { position: absolute; top: 10px; right: 20px; background: #333; padding: 5px; border-radius: 4px; display: none; border: 1px solid #007aff; z-index: 101; }
+        #search-box input { background: transparent; border: none; color: white; outline: none; width: 120px; }
     </style>
 </head>
 <body>
 
 <header>
-    <button class="btn run-btn" onclick="runCode()">▶ RUN</button>
-    <button class="btn" onclick="undo()">⟲ Undo</button>
-    <button class="btn" onclick="toggleSearch()">🔍 Search</button>
+    <button class="btn run-btn" onclick="runCode()">RUN</button>
+    <button class="btn full-btn" onclick="toggleFullView()">FULL VIEW</button>
+    <button class="btn" onclick="undo()">UNDO</button>
+    <button class="btn" onclick="toggleSearch()">FIND</button>
+    
     <div id="search-box">
-        <input type="text" id="searchInput" placeholder="Find..." oninput="findInCode()">
+        <input type="text" id="searchInput" placeholder="Search code..." oninput="findInCode()">
     </div>
-    <div style="margin-left: auto; font-size: 12px; color: #8e8e93;"> Quick Tester</div>
 </header>
 
 <div class="tabs">
     <button class="tab active" onclick="openTab(event, 'html')">HTML</button>
     <button class="tab" onclick="openTab(event, 'css')">CSS</button>
-    <button class="tab" onclick="openTab(event, 'js')">JavaScript</button>
+    <button class="tab" onclick="openTab(event, 'js')">JS</button>
 </div>
 
 <div class="main">
     <div class="editor-container">
-        <textarea id="html" class="active" spellcheck="false" placeholder=""></textarea>
-        <textarea id="css" spellcheck="false" placeholder="/* CSS here */"></textarea>
-        <textarea id="js" spellcheck="false" placeholder="// JS here"></textarea>
+        <textarea id="html" class="active" spellcheck="false"></textarea>
+        <textarea id="css" spellcheck="false"></textarea>
+        <textarea id="js" spellcheck="false"></textarea>
     </div>
     <iframe id="preview"></iframe>
 </div>
 
+<button class="exit-full" onclick="toggleFullView()">✕ Exit Full Mode</button>
+
 <script>
-    // State management for Undo
-    let history = { html: [], css: [], js: [] };
     const editors = {
         html: document.getElementById('html'),
         css: document.getElementById('css'),
         js: document.getElementById('js')
     };
+    let history = { html: [], css: [], js: [] };
+
+    function toggleFullView() {
+        document.body.classList.toggle('full-mode');
+        if (!document.body.classList.contains('full-mode')) {
+            runCode(); // Refresh on exit to ensure layout is correct
+        }
+    }
 
     function openTab(evt, lang) {
         document.querySelectorAll('textarea').forEach(t => t.classList.remove('active'));
@@ -75,23 +91,21 @@
         evt.currentTarget.classList.add('active');
     }
 
-    // Capture history for Undo
     Object.keys(editors).forEach(lang => {
         editors[lang].addEventListener('input', () => {
-            if (history[lang].length > 50) history[lang].shift();
+            if (history[lang].length > 30) history[lang].shift();
             history[lang].push(editors[lang].value);
-            localStorage.setItem('lab_' + lang, editors[lang].value);
+            localStorage.setItem('lab_v2_' + lang, editors[lang].value);
         });
-        // Load saved code
-        editors[lang].value = localStorage.getItem('lab_' + lang) || "";
+        editors[lang].value = localStorage.getItem('lab_v2_' + lang) || "";
     });
 
     function undo() {
         const activeEditor = document.querySelector('textarea.active');
         const lang = activeEditor.id;
-        if (history[lang].length > 0) {
-            history[lang].pop(); // remove current
-            activeEditor.value = history[lang][history[lang].length - 1] || "";
+        if (history[lang].length > 1) {
+            history[lang].pop();
+            activeEditor.value = history[lang][history[lang].length - 1];
         }
     }
 
@@ -104,8 +118,6 @@
     function findInCode() {
         const query = document.getElementById('searchInput').value;
         const activeEditor = document.querySelector('textarea.active');
-        if (!query) return;
-        
         const index = activeEditor.value.indexOf(query);
         if (index !== -1) {
             activeEditor.setSelectionRange(index, index + query.length);
@@ -117,21 +129,17 @@
         const html = editors.html.value;
         const css = `<style>${editors.css.value}</style>`;
         const js = `<script>${editors.js.value}<\/script>`;
-        
         const preview = document.getElementById('preview').contentWindow.document;
         preview.open();
         preview.write(html + css + js);
         preview.close();
     }
 
-    // Keyboard Shortcuts
     document.addEventListener('keydown', e => {
         if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); runCode(); }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); toggleSearch(); }
     });
 
-    runCode(); // Initial run
+    runCode();
 </script>
 
 </body>
