@@ -147,88 +147,82 @@ async function handleHybridSearch() {
         return;
     }
 
-    // 🟢 Step 1: Loading & Initial Status
-    resultsContainer.innerHTML = '<div id="search-status" style="padding:15px; text-align:center; color:#007aff; font-size:13px; border-bottom:1px solid #333;"> Checking Connection...</div>';
+    resultsContainer.innerHTML = '<div id="search-status" style="padding:15px; text-align:center; color:#007aff; font-size:13px;"> Searching iTunes & Cloud...</div>';
     resultsContainer.style.display = 'block';
 
-    const statusDiv = document.getElementById('search-status');
-
     try {
-        // 🟢 Step 2: Folder Connection Check (Directly on Screen)
-        try {
-            const folderCheck = await gapi.client.drive.files.get({
-                fileId: DRIVE_FOLDER_ID,
-                fields: 'name'
-            });
-            statusDiv.innerHTML = ` Connected to: <b style="color:white;">${folderCheck.result.name}</b>`;
-            statusDiv.style.color = "#34c759"; // Green color if success
-        } catch (fErr) {
-            statusDiv.innerHTML = ` Folder Error: <b style="color:#ff3b30;">Not Found/No Access</b>`;
-            statusDiv.style.color = "#ff3b30";
-        }
-
-        // 🟢 Step 3: Drive Search
+        // 1. Google Drive Search
         const driveResponse = await gapi.client.drive.files.list({
             'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${rawQuery}' and trashed = false`,
-            'fields': 'files(id, name, webContentLink, thumbnailLink)',
-            'pageSize': 15
+            'fields': 'files(id, name)',
+            'pageSize': 8
         });
-
         const driveFiles = driveResponse.result.files || [];
 
-        // 🟢 Step 4: Local Search
+        // 2. Local Playlist Search
         const localMatches = playlist.filter(s => 
-            (s.name && s.name.toLowerCase().includes(rawQuery.toLowerCase())) || 
-            (s.artist && s.artist.toLowerCase().includes(rawQuery.toLowerCase()))
+            (s.name && s.name.toLowerCase().includes(rawQuery.toLowerCase()))
         );
 
-        // Results Container update (Status ko upar hi rehne do, niche results)
-        let resultsHTML = '';
+        resultsContainer.innerHTML = ''; // Clear loading
+        let seenIds = new Set(); // Duplicates rokne ke liye
 
-        // Drive Results
-        driveFiles.forEach(file => {
+        // --- DRIVE RESULTS WITH ITUNES SYNC ---
+        for (const file of driveFiles) {
+            if (seenIds.has(file.id)) continue;
+            seenIds.add(file.id);
+
             let cleanName = file.name.replace(/\.[^/.]+$/, "");
-            resultsHTML += renderSearchRowHTML(cleanName, "Cloud Drive", defaultImg, file.id, true);
-        });
-
-        // Local Results
-        localMatches.forEach(song => {
-            const originalIndex = playlist.indexOf(song);
-            resultsHTML += renderSearchRowHTML(song.name, song.artist, song.img || defaultImg, originalIndex, false);
-        });
-
-        if (driveFiles.length === 0 && localMatches.length === 0) {
-            resultsContainer.innerHTML += '<div style="padding:20px; text-align:center; color:gray;">No matching songs found.</div>';
-        } else {
-            resultsContainer.innerHTML += resultsHTML;
+            
+            // iTunes API Call (Directly in Search Tray)
+            try {
+                const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanName)}&entity=song&limit=1`);
+                const itunesData = await itunesRes.json();
+                
+                if (itunesData.results && itunesData.results.length > 0) {
+                    const track = itunesData.results[0];
+                    renderSearchRow(track.trackName, track.artistName, track.artworkUrl100.replace('100x100', '300x300'), file.id, true);
+                } else {
+                    renderSearchRow(cleanName, "Cloud Drive", defaultImg, file.id, true);
+                }
+            } catch (e) {
+                renderSearchRow(cleanName, "Cloud Drive", defaultImg, file.id, true);
+            }
         }
 
+        // --- LOCAL RESULTS ---
+        localMatches.forEach(song => {
+            const idx = playlist.indexOf(song);
+            renderSearchRow(song.name, song.artist, song.img || defaultImg, idx, false);
+        });
+
     } catch (err) {
-        console.error(err);
-        statusDiv.innerHTML = ` System Error: <b style="color:#ff3b30;">API/Token Issue</b>`;
+        console.error("Search Error:", err);
     }
 }
 
-// 🟢 Zaroori: Is helper function ko bhi update kar lo
-function renderSearchRowHTML(title, artist, img, idOrIndex, isDrive) {
+// Updated UI Helper (Instant Rendering)
+function renderSearchRow(title, artist, img, idOrIndex, isDrive) {
+    const resultsContainer = document.getElementById('global-search-results');
+    const div = document.createElement('div');
+    div.className = 'song-item';
+    div.style.borderBottom = "0.5px solid rgba(255,255,255,0.05)";
+
     const clickAction = isDrive 
         ? `fetchMusicMeta('${idOrIndex}', '${title.replace(/'/g, "\\'")}')` 
         : `loadSong(${idOrIndex}); maximizePlayer();`;
 
-    return `
-        <div class="song-item" style="border-bottom: 0.5px solid rgba(255,255,255,0.05); padding:10px;">
-            <div class="song-info-container" onclick="${clickAction}; document.getElementById('global-search-results').style.display='none';">
-                <img src="${img}" style="width:48px; height:48px; border-radius:8px; object-fit:cover;">
-                <div style="margin-left:12px; overflow:hidden;">
-                    <h4 style="font-size:15px; margin:0; color:white; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${title}</h4>
-                    <p style="font-size:12px; margin:2px 0 0; color:#8e8e93;">${isDrive ? '☁️ Cloud' : '💿 Library'} • ${artist}</p>
-                </div>
+    div.innerHTML = `
+        <div class="song-info-container" onclick="${clickAction}; document.getElementById('global-search-results').style.display='none';">
+            <img src="${img}" style="width:48px; height:48px; border-radius:8px; object-fit:cover;">
+            <div style="margin-left:12px; overflow:hidden;">
+                <h4 style="font-size:14px; margin:0; color:white; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${title}</h4>
+                <p style="font-size:11px; margin:2px 0 0; color:#8e8e93;">${isDrive ? '☁️ Cloud' : '💿 Library'} • ${artist}</p>
             </div>
         </div>
     `;
+    resultsContainer.appendChild(div);
 }
-
-
 
 
 
