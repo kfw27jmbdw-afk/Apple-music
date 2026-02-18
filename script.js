@@ -139,9 +139,6 @@ function handleAuthClick() {
 //  NEXT STEP: HYBRID SEARCH LOGIC
 // // // ==========================================
 // ==========================================
-//  FINAL HYBRID SEARCH: ITUNES SYNC & DUPLICATE FIX
-// ==========================================
-
 async function handleHybridSearch() {
     const rawQuery = document.getElementById('app-search-input').value.trim();
     const resultsContainer = document.getElementById('global-search-results');
@@ -151,12 +148,12 @@ async function handleHybridSearch() {
         return;
     }
 
-    // Pehle tray ko khali karo taaki double results ka koi chance na rahe
+    // UI Reset aur Syncing Status
     resultsContainer.innerHTML = '<div id="search-status" style="padding:15px; text-align:center; color:#007aff; font-size:13px; border-bottom:1px solid #333;"> Syncing iTunes & Cloud...</div>';
     resultsContainer.style.display = 'block';
 
     try {
-        // 1. Google Drive Search
+        // 1. Google Drive Search (Cloud)
         const driveResponse = await gapi.client.drive.files.list({
             'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${rawQuery}' and trashed = false`,
             'fields': 'files(id, name)',
@@ -164,30 +161,35 @@ async function handleHybridSearch() {
         });
         const driveFiles = driveResponse.result.files || [];
 
-        // 2. Local Playlist Search
+        // 2. Local Playlist Search (Library)
         const localMatches = playlist.filter(s => 
             (s.name && s.name.toLowerCase().includes(rawQuery.toLowerCase()))
         );
 
-        // UI ko clear karo results dikhane se pehle
         resultsContainer.innerHTML = ''; 
-        let seenIds = new Set(); // 🟢 DUPLICATE FIX: Isse ek hi song do baar nahi aayega
+        let seenIds = new Set(); // Duplicate protection
 
-        // --- DRIVE RESULTS WITH ITUNES LOOK ---
+        // --- DRIVE RESULTS WITH 3-WORD ITUNES LOOK ---
         for (const file of driveFiles) {
-            if (seenIds.has(file.id)) continue; // Agar id repeat ho rahi hai toh skip karo
+            if (seenIds.has(file.id)) continue;
             seenIds.add(file.id);
 
-            let cleanName = file.name.replace(/\.[^/.]+$/, "");
+            // Extension aur Faltu Brackets saaf karo
+            let cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/\(.*\)|\[.*\]/g, "").trim();
             
-            // iTunes API fetch (Tray mein hi official metadata dikhane ke liye)
+            // 🟢 SMART SLICE: Pehle 3 words lo behtareen iTunes match ke liye
+            let words = cleanName.split(/\s+/);
+            let searchHighlight = words.slice(0, 3).join(" ");
+
             try {
-                const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanName)}&entity=song&limit=1`);
+                // iTunes Search with Smart Query
+                const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(searchHighlight)}&entity=song&limit=1`);
                 const itunesData = await itunesRes.json();
                 
                 if (itunesData.results && itunesData.results.length > 0) {
                     const track = itunesData.results[0];
-                    renderSearchRow(track.trackName, track.artistName, track.artworkUrl100.replace('100x100', '300x300'), file.id, true);
+                    // Artwork ko 600x600 kiya taaki crisp dikhe
+                    renderSearchRow(track.trackName, track.artistName, track.artworkUrl100.replace('100x100', '600x600'), file.id, true);
                 } else {
                     renderSearchRow(cleanName, "Cloud Drive", defaultImg, file.id, true);
                 }
@@ -199,7 +201,6 @@ async function handleHybridSearch() {
         // --- LOCAL RESULTS ---
         localMatches.forEach(song => {
             const idx = playlist.indexOf(song);
-            // Local mein id check ki itni zaroorat nahi par safety ke liye yahan bhi handle kar sakte ho
             renderSearchRow(song.name, song.artist, song.img || defaultImg, idx, false);
         });
 
@@ -212,7 +213,7 @@ async function handleHybridSearch() {
     }
 }
 
-//  Updated UI Helper: Instant Rendering with Set Protection
+//  UI Helper
 function renderSearchRow(title, artist, img, idOrIndex, isDrive) {
     const resultsContainer = document.getElementById('global-search-results');
     const div = document.createElement('div');
