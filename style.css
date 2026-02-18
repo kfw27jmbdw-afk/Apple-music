@@ -1366,7 +1366,7 @@ body,
 
 /* 1. Lyrics Container */
 #synced-lyrics-view {
-    min-height: 50px !important;    
+    min-height: 60px !important;    
     overflow: hidden !important; 
     display: flex;
     align-items: center;
@@ -1381,7 +1381,7 @@ body,
 /* 2. Lyric Line - No Base Transform */
 .lyric-line {
     display: none !important;    
-    font-size: 20px;             
+    font-size: 18px;             
     font-weight: 900;
     text-align: left;            
     color: #ffffff;
@@ -1389,7 +1389,7 @@ body,
     line-height: 1.2;
     position: absolute;
     top: 50%;
-    left: 25px;
+    left: 35px;
 
     opacity: 0;
 }
@@ -1397,7 +1397,7 @@ body,
 /* 3. Active Line - Smooth Direct Stop */
 .lyric-line.active {
     display: block !important;
-    animation: cleanSlideUp 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+    animation: cleanSlideUp 0.05s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
 }
 
 /* 4. Exit Line */
