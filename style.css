@@ -1362,41 +1362,70 @@ body,
 .menu-item i.fa-trash-alt {
     color: #ff3b30 !important;
 }
-/* =================  SPOTIFY STYLE: LEFT & BOTTOM ALIGNED ================= */
+/* =================  CLEAN DIRECT CENTER SLIDE ================= */
 
-/* 1. Lyrics Container - Left aur Niche set kiya hai */
+/* 1. Lyrics Container */
 #synced-lyrics-view {
-    height: 60px !important;    /* Thoda bada area taaki padding handle ho sake */
+    min-height: 50px !important;    
     overflow: hidden !important; 
     display: flex;
-    align-items: flex-end;       /* Lyrics ko niche sarakane ke liye */
-    justify-content: flex-start; /* Lyrics ko LEFT karne ke liye */
-    margin-top: 0px !important; /* Album art se niche ka gap */
-    padding-left: 25px;          /* Screen ke left se gap (Apple Music style) */
+    align-items: center;
+    justify-content: flex-start; 
+    padding-left: 25px;          
+    padding-right: 30px;         
     background: transparent;
     position: relative;
+    width: 100%;
 }
 
-/* 2. Saari lines Default Hide (Spotify Style) */
+/* 2. Lyric Line - No Base Transform */
 .lyric-line {
     display: none !important;    
-    font-size: 20px;             /* Badi aur bold lyrics */
+    font-size: 20px;             
     font-weight: 900;
-    text-align: left;            /* Text ko left align kiya */
+    text-align: left;            
     color: #ffffff;
-    width: 90%;                  /* Poora width nahi taaki margin rahe */
+    max-width: 90%;              
     line-height: 1.2;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    position: absolute;
+    top: 50%;
+    left: 25px;
+
+    opacity: 0;
 }
 
-/* 3. Sirf Active line chamkegi + "Searching" visibility fix */
+/* 3. Active Line - Smooth Direct Stop */
 .lyric-line.active {
-    display: block !important;   
-    animation: spotifySlideIn 0.4s cubic-bezier(0.1, 0.7, 1.0, 0.1); 
+    display: block !important;
+    animation: cleanSlideUp 0.35s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
 }
 
-/* Spotify jaisa Smooth Left-to-Right Entry */
-@keyframes spotifySlideIn {
-    from { opacity: 0; transform: translateX(-15px); }
-    to { opacity: 1; transform: translateX(0); }
+/* 4. Exit Line */
+.lyric-line.exit {
+    display: block !important;
+    animation: cleanSlideExit 0.25s ease-in forwards;
+}
+
+/* 🔥 KEYFRAMES - No Bounce, No Extra Move */
+
+@keyframes cleanSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(40px); /* niche */
+    }
+    to {
+        opacity: 1;
+        transform: translateY(-50%); /* direct center */
+    }
+}
+
+@keyframes cleanSlideExit {
+    from {
+        opacity: 1;
+        transform: translateY(-50%);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-120%);
+    }
 }
