@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title> Gemini Music - V24.10</title>
+<title> Gemini Music - V24 Master</title>
 <style>
 :root{ --bg:#000; --panel:#1c1c1e; --accent:#007aff; --text:#fff; }
 body{ margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,sans-serif; height:100vh; display:flex; align-items:center; justify-content:center; }
@@ -23,7 +23,7 @@ p{ margin:8px 0 25px; color:#8e8e93; font-size:14px; }
 <div class="player-card" id="player">
   <div id="art-box"><img id="art-img" src="https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2430.jpeg"></div>
   <h2 id="title">Select Song</h2>
-  <p id="artist">V24 Stable Engine</p>
+  <p id="artist">V24 Legend Engine</p>
   <button id="play-btn" class="main-btn">▶</button>
   <label class="btn-pick">🎵 ADD MP3 <input type="file" accept=".mp3,.m4a,.wav" onchange="loadV24(this)"></label>
 </div>
@@ -49,33 +49,42 @@ function loadV24(input){
   const name = file.name.replace(/\.[^/.]+$/, "");
   document.getElementById("title").innerText = name;
   
-  // Initialize MediaSession immediately
   initMediaSession(name);
   
   playBtn.innerHTML = "▶";
   player.classList.remove("playing");
 }
 
+// 🟢 THE MASTER PLAYBACK FUNCTION
 async function togglePlay() {
   if(!audio.src) return;
+
   if(audio.paused){
     try {
+      //  iOS/Android Fix: Seconds chal rahe hon par sound na aaye toh reset karo
+      if (audio.currentTime > 0) {
+        audio.currentTime = audio.currentTime; // Hardware Kick
+      }
+      
       await audio.play();
       playBtn.innerHTML = "⏸";
       player.classList.add("playing");
-      updatePlaybackState("playing");
-    } catch (e) { console.error("Play failed", e); }
+      updateState("playing");
+    } catch (e) { 
+        // Agar pehli baar fail ho toh user gesture se re-try
+        console.error("Play failed", e); 
+    }
   } else {
     audio.pause();
     playBtn.innerHTML = "▶";
     player.classList.remove("playing");
-    updatePlaybackState("paused");
+    updateState("paused");
   }
 }
 
 playBtn.addEventListener("click", togglePlay);
 
-// 🟢 THE FIX: BACKGROUND + LOCK SCREEN REPLAY
+// 🟢 LOCK SCREEN HANDLERS (The Secret Sauce)
 function initMediaSession(name) {
   if ('mediaSession' in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -84,39 +93,40 @@ function initMediaSession(name) {
       artwork: [{ src: document.getElementById("art-img").src, sizes: '512x512', type: 'image/jpeg' }]
     });
 
-    // LOCK SCREEN HANDLERS
     navigator.mediaSession.setActionHandler('play', async () => {
-      // Direct hardware wakeup call
+      //  AWAAZ WAPAS LANE KA JADOO: 
+      // Pehle play karo, fir currentTime ko 0.01s hila do hardware reset ke liye
       await audio.play();
+      audio.currentTime = audio.currentTime; 
+      
       playBtn.innerHTML = "⏸";
       player.classList.add("playing");
-      updatePlaybackState("playing");
+      updateState("playing");
     });
 
     navigator.mediaSession.setActionHandler('pause', () => {
       audio.pause();
       playBtn.innerHTML = "▶";
       player.classList.remove("playing");
-      updatePlaybackState("paused");
+      updateState("paused");
     });
   }
 }
 
-function updatePlaybackState(state) {
+function updateState(state) {
   if ('mediaSession' in navigator) {
     navigator.mediaSession.playbackState = state;
   }
 }
 
-// Ensure the session stays alive during background
-audio.onplay = () => updatePlaybackState("playing");
-audio.onpause = () => updatePlaybackState("paused");
+// Ensure background stays alive
+audio.onplay = () => updateState("playing");
+audio.onpause = () => updateState("paused");
 audio.onended = () => {
   playBtn.innerHTML = "▶";
   player.classList.remove("playing");
-  updatePlaybackState("none");
+  updateState("none");
 };
-
 </script>
 </body>
 </html>
