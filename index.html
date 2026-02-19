@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title> Gemini Music - V24 Master</title>
+<title> Gemini Music - V24.11</title>
 <style>
 :root{ --bg:#000; --panel:#1c1c1e; --accent:#007aff; --text:#fff; }
 body{ margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,sans-serif; height:100vh; display:flex; align-items:center; justify-content:center; }
@@ -23,7 +23,7 @@ p{ margin:8px 0 25px; color:#8e8e93; font-size:14px; }
 <div class="player-card" id="player">
   <div id="art-box"><img id="art-img" src="https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2430.jpeg"></div>
   <h2 id="title">Select Song</h2>
-  <p id="artist">V24 Legend Engine</p>
+  <p id="artist">V24.11 Anti-Silence</p>
   <button id="play-btn" class="main-btn">▶</button>
   <label class="btn-pick">🎵 ADD MP3 <input type="file" accept=".mp3,.m4a,.wav" onchange="loadV24(this)"></label>
 </div>
@@ -36,44 +36,40 @@ const playBtn = document.getElementById("play-btn");
 const player = document.getElementById("player");
 let currentUrl = null;
 
+// 🟢 HARDWARE RE-SYNC JADOO
+function hardwareKick() {
+  if (audio.currentTime > 0) {
+    // Sirf current = current se kaam nahi chalta, 
+    // thoda sa hila kar wapas lana padta hai hardware reset ke liye
+    let oldTime = audio.currentTime;
+    audio.currentTime = oldTime + 0.001; 
+  }
+}
+
 function loadV24(input){
   const file = input.files[0];
   if(!file) return;
-
   if(currentUrl) URL.revokeObjectURL(currentUrl);
   currentUrl = URL.createObjectURL(file);
-  
   audio.src = currentUrl;
   audio.load();
-
   const name = file.name.replace(/\.[^/.]+$/, "");
   document.getElementById("title").innerText = name;
-  
   initMediaSession(name);
-  
   playBtn.innerHTML = "▶";
   player.classList.remove("playing");
 }
 
-// 🟢 THE MASTER PLAYBACK FUNCTION
 async function togglePlay() {
   if(!audio.src) return;
-
   if(audio.paused){
     try {
-      //  iOS/Android Fix: Seconds chal rahe hon par sound na aaye toh reset karo
-      if (audio.currentTime > 0) {
-        audio.currentTime = audio.currentTime; // Hardware Kick
-      }
-      
       await audio.play();
+      hardwareKick(); //  Play ke turant baad kick
       playBtn.innerHTML = "⏸";
       player.classList.add("playing");
       updateState("playing");
-    } catch (e) { 
-        // Agar pehli baar fail ho toh user gesture se re-try
-        console.error("Play failed", e); 
-    }
+    } catch (e) { console.error("Play failed", e); }
   } else {
     audio.pause();
     playBtn.innerHTML = "▶";
@@ -84,7 +80,6 @@ async function togglePlay() {
 
 playBtn.addEventListener("click", togglePlay);
 
-// 🟢 LOCK SCREEN HANDLERS (The Secret Sauce)
 function initMediaSession(name) {
   if ('mediaSession' in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -94,11 +89,8 @@ function initMediaSession(name) {
     });
 
     navigator.mediaSession.setActionHandler('play', async () => {
-      //  AWAAZ WAPAS LANE KA JADOO: 
-      // Pehle play karo, fir currentTime ko 0.01s hila do hardware reset ke liye
       await audio.play();
-      audio.currentTime = audio.currentTime; 
-      
+      hardwareKick(); //  Lock screen play par hardware reset
       playBtn.innerHTML = "⏸";
       player.classList.add("playing");
       updateState("playing");
@@ -119,7 +111,6 @@ function updateState(state) {
   }
 }
 
-// Ensure background stays alive
 audio.onplay = () => updateState("playing");
 audio.onpause = () => updateState("paused");
 audio.onended = () => {
