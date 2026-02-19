@@ -1,123 +1,409 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title> Gemini Music - V24.11</title>
+<title> Gemini Music Lab - Final Fixed</title>
+
 <style>
-:root{ --bg:#000; --panel:#1c1c1e; --accent:#007aff; --text:#fff; }
-body{ margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,sans-serif; height:100vh; display:flex; align-items:center; justify-content:center; }
-.player-card{ background:var(--panel); width:310px; padding:30px; border-radius:40px; text-align:center; box-shadow:0 40px 100px rgba(0,0,0,.8); border:1px solid rgba(255,255,255,0.05); }
-#art-box{ width:100%; aspect-ratio:1/1; border-radius:24px; overflow:hidden; margin-bottom:20px; }
-#art-img{ width:100%; height:100%; object-fit:cover; transition:0.4s; }
-.playing #art-img{ transform:scale(1.05); }
-h2{ margin:0; font-size:18px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-p{ margin:8px 0 25px; color:#8e8e93; font-size:14px; }
-.main-btn{ width:75px; height:75px; border:none; border-radius:50%; font-size:28px; background:var(--accent); color:#fff; cursor:pointer; outline:none; }
-.btn-pick{ display:block; margin-top:20px; background:rgba(255,255,255,0.1); padding:15px; border-radius:16px; font-size:12px; font-weight:700; position:relative; overflow:hidden; }
-.btn-pick input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+:root{
+    --bg:#000;
+    --panel:#1c1c1e;
+    --accent:#007aff;
+    --safe-green:#34c759;
+    --text:#fff;
+}
+
+body{
+    margin:0;
+    font-family:-apple-system,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+}
+
+/* HEADER */
+header{
+    padding:12px;
+    background:var(--panel);
+    display:flex;
+    gap:10px;
+    border-bottom:1px solid #333;
+    align-items:center;
+}
+
+.status{
+    font-size:10px;
+    color:var(--safe-green);
+    margin-left:auto;
+    text-transform:uppercase;
+}
+
+.btn{
+    background:#333;
+    color:#fff;
+    border:none;
+    padding:8px 15px;
+    border-radius:8px;
+    font-size:12px;
+    cursor:pointer;
+    font-weight:600;
+}
+
+.full-btn{
+    background:#5856d6;
+}
+
+/* TABS */
+.tabs-bar{
+    display:flex;
+    background:#111;
+    padding:5px 10px 0;
+    gap:5px;
+}
+
+.tab-btn{
+    padding:8px 15px;
+    background:#2c2c2e;
+    color:#8e8e93;
+    border:none;
+    border-radius:6px 6px 0 0;
+    font-size:11px;
+}
+
+.tab-btn.active{
+    background:var(--panel);
+    color:#fff;
+}
+
+/* WORKSPACE */
+.workspace{
+    display:flex;
+    flex:1;
+    position:relative;
+}
+
+.editor-box{
+    width:50%;
+    display:flex;
+    flex-direction:column;
+    border-right:1px solid #333;
+}
+
+/* ONLY EDITOR TEXTAREAS HIDE */
+.editor-box textarea{
+    flex:1;
+    background:#000;
+    color:#d4d4d4;
+    font-family:monospace;
+    padding:15px;
+    border:none;
+    outline:none;
+    display:none;
+    font-size:14px;
+}
+
+.editor-box textarea.active{
+    display:block;
+}
+
+/* IFRAME */
+iframe{
+    width:50%;
+    background:#fff;
+    border:none;
+}
+
+/* FULL MODE */
+body.full-mode .editor-box,
+body.full-mode .tabs-bar,
+body.full-mode header :not(.full-btn){
+    display:none!important;
+}
+
+body.full-mode iframe{
+    width:100%!important;
+    height:100vh!important;
+    position:fixed;
+    top:0;
+    left:0;
+    z-index:999;
+}
+
+/* CSS FLOATING EDITOR */
+#full-view-css-editor{
+    position:fixed;
+    top:60px;
+    right:20px;
+    width:320px;
+    height:450px;
+
+    background:rgba(20,20,20,0.75);
+    backdrop-filter:blur(30px);
+    -webkit-backdrop-filter:blur(30px);
+
+    border:1px solid rgba(255,255,255,0.2);
+    border-radius:16px;
+    z-index:2000;
+
+    display:none;
+    flex-direction:column;
+
+    box-shadow:0 20px 60px rgba(0,0,0,0.8);
+}
+
+body.full-mode #full-view-css-editor{
+    display:flex;
+}
+
+/* DRAG HANDLE */
+.drag-handle{
+    padding:14px;
+    cursor:move;
+    font-size:10px;
+    color:var(--safe-green);
+    font-weight:bold;
+    text-align:center;
+    border-bottom:1px solid #333;
+    background:rgba(255,255,255,0.08);
+    border-radius:16px 16px 0 0;
+    user-select:none;
+}
+
+/* CSS INPUT FIXED */
+#live-css-input{
+    flex:1;
+    display:block!important;
+    background:transparent!important;
+    border:none!important;
+    color:var(--safe-green);
+    font-family:monospace;
+    padding:15px;
+    resize:none;
+    outline:none;
+    font-size:13px;
+    line-height:1.5;
+}
+
+/* EXIT BUTTON */
+.exit-btn{
+    position:fixed;
+    bottom:30px;
+    left:30px;
+    z-index:2001;
+    background:#ff3b30;
+    color:#fff;
+    border:none;
+    padding:12px 25px;
+    border-radius:50px;
+    display:none;
+    font-weight:bold;
+}
+
+body.full-mode .exit-btn{
+    display:block;
+}
+
 </style>
 </head>
+
 <body>
 
-<div class="player-card" id="player">
-  <div id="art-box"><img id="art-img" src="https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2430.jpeg"></div>
-  <h2 id="title">Select Song</h2>
-  <p id="artist">V24.11 Anti-Silence</p>
-  <button id="play-btn" class="main-btn">▶</button>
-  <label class="btn-pick">🎵 ADD MP3 <input type="file" accept=".mp3,.m4a,.wav" onchange="loadV24(this)"></label>
+<header>
+<button class="btn full-btn" onclick="toggleFullView()">📱 FULL VIEW</button>
+<div class="status" id="status">● Ready</div>
+</header>
+
+<div class="tabs-bar">
+<button class="tab-btn active" onclick="switchTab(event,'html')">HTML</button>
+<button class="tab-btn" onclick="switchTab(event,'js')">JS</button>
 </div>
 
-<audio id="audio-engine" preload="auto" playsinline></audio>
+<div class="workspace">
+
+<div class="editor-box">
+<textarea id="html-code" class="active"></textarea>
+<textarea id="js-code"></textarea>
+</div>
+
+<iframe id="preview"></iframe>
+
+</div>
+
+<!-- FLOATING CSS EDITOR -->
+<div id="full-view-css-editor">
+
+<div class="drag-handle" id="handle">
+ CSS EDITOR (DRAG HERE)
+</div>
+
+<textarea id="live-css-input" placeholder="Paste CSS here..."></textarea>
+
+</div>
+
+<button class="exit-btn" onclick="toggleFullView()">EXIT FULL VIEW</button>
 
 <script>
-const audio = document.getElementById("audio-engine");
-const playBtn = document.getElementById("play-btn");
-const player = document.getElementById("player");
-let currentUrl = null;
 
-// 🟢 HARDWARE RE-SYNC JADOO
-function hardwareKick() {
-  if (audio.currentTime > 0) {
-    // Sirf current = current se kaam nahi chalta, 
-    // thoda sa hila kar wapas lana padta hai hardware reset ke liye
-    let oldTime = audio.currentTime;
-    audio.currentTime = oldTime + 0.001; 
-  }
-}
-
-function loadV24(input){
-  const file = input.files[0];
-  if(!file) return;
-  if(currentUrl) URL.revokeObjectURL(currentUrl);
-  currentUrl = URL.createObjectURL(file);
-  audio.src = currentUrl;
-  audio.load();
-  const name = file.name.replace(/\.[^/.]+$/, "");
-  document.getElementById("title").innerText = name;
-  initMediaSession(name);
-  playBtn.innerHTML = "▶";
-  player.classList.remove("playing");
-}
-
-async function togglePlay() {
-  if(!audio.src) return;
-  if(audio.paused){
-    try {
-      await audio.play();
-      hardwareKick(); //  Play ke turant baad kick
-      playBtn.innerHTML = "⏸";
-      player.classList.add("playing");
-      updateState("playing");
-    } catch (e) { console.error("Play failed", e); }
-  } else {
-    audio.pause();
-    playBtn.innerHTML = "▶";
-    player.classList.remove("playing");
-    updateState("paused");
-  }
-}
-
-playBtn.addEventListener("click", togglePlay);
-
-function initMediaSession(name) {
-  if ('mediaSession' in navigator) {
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: name,
-      artist: "Gemini Music Lab",
-      artwork: [{ src: document.getElementById("art-img").src, sizes: '512x512', type: 'image/jpeg' }]
-    });
-
-    navigator.mediaSession.setActionHandler('play', async () => {
-      await audio.play();
-      hardwareKick(); //  Lock screen play par hardware reset
-      playBtn.innerHTML = "⏸";
-      player.classList.add("playing");
-      updateState("playing");
-    });
-
-    navigator.mediaSession.setActionHandler('pause', () => {
-      audio.pause();
-      playBtn.innerHTML = "▶";
-      player.classList.remove("playing");
-      updateState("paused");
-    });
-  }
-}
-
-function updateState(state) {
-  if ('mediaSession' in navigator) {
-    navigator.mediaSession.playbackState = state;
-  }
-}
-
-audio.onplay = () => updateState("playing");
-audio.onpause = () => updateState("paused");
-audio.onended = () => {
-  playBtn.innerHTML = "▶";
-  player.classList.remove("playing");
-  updateState("none");
+const editors={
+html:document.getElementById("html-code"),
+js:document.getElementById("js-code"),
+css:document.getElementById("live-css-input")
 };
+
+let autoRunTimer;
+
+/* LOAD */
+Object.keys(editors).forEach(lang=>{
+editors[lang].value=
+localStorage.getItem("lab_live_"+lang)||"";
+});
+
+/* SWITCH TAB */
+function switchTab(e,lang){
+
+document
+.querySelectorAll(".editor-box textarea")
+.forEach(t=>t.classList.remove("active"));
+
+document
+.querySelectorAll(".tab-btn")
+.forEach(b=>b.classList.remove("active"));
+
+editors[lang].classList.add("active");
+
+e.currentTarget.classList.add("active");
+}
+
+/* HTML + JS LIVE */
+[editors.html,editors.js].forEach(el=>{
+
+el.addEventListener("input",()=>{
+
+clearTimeout(autoRunTimer);
+
+document.getElementById("status").innerText="○ Syncing...";
+
+autoRunTimer=setTimeout(()=>{
+
+runCode();
+
+document.getElementById("status").innerText="● Live";
+
+},400);
+
+});
+
+});
+
+/* CSS LIVE */
+editors.css.addEventListener("input",()=>{
+
+const frame=
+document.getElementById("preview").contentWindow.document;
+
+let style=
+frame.getElementById("live-style-id");
+
+if(!style){
+
+style=frame.createElement("style");
+
+style.id="live-style-id";
+
+frame.head.appendChild(style);
+
+}
+
+style.textContent=editors.css.value;
+
+localStorage.setItem("lab_live_css",editors.css.value);
+
+});
+
+/* FULL VIEW */
+function toggleFullView(){
+
+document.body.classList.toggle("full-mode");
+
+}
+
+/* RUN CODE */
+function runCode(){
+
+const html=editors.html.value;
+
+const css=
+`<style id="live-style-id">${editors.css.value}</style>`;
+
+const js=
+`<script>${editors.js.value}<\/script>`;
+
+const frame=
+document.getElementById("preview").contentWindow.document;
+
+frame.open();
+
+frame.write(html+css+js);
+
+frame.close();
+
+localStorage.setItem("lab_live_html",html);
+localStorage.setItem("lab_live_js",editors.js.value);
+
+}
+
+/* DRAG SYSTEM */
+const box=document.getElementById("full-view-css-editor");
+
+const handle=document.getElementById("handle");
+
+let posX=0,posY=0,startX=0,startY=0;
+
+handle.onmousedown=dragStart;
+handle.ontouchstart=dragStart;
+
+function dragStart(e){
+
+e.preventDefault();
+
+startX=(e.touches?e.touches[0].clientX:e.clientX)-posX;
+
+startY=(e.touches?e.touches[0].clientY:e.clientY)-posY;
+
+document.onmousemove=dragMove;
+document.ontouchmove=dragMove;
+
+document.onmouseup=dragEnd;
+document.ontouchend=dragEnd;
+
+}
+
+function dragMove(e){
+
+posX=(e.touches?e.touches[0].clientX:e.clientX)-startX;
+
+posY=(e.touches?e.touches[0].clientY:e.clientY)-startY;
+
+box.style.transform=
+`translate(${posX}px,${posY}px)`;
+
+}
+
+function dragEnd(){
+
+document.onmousemove=null;
+document.ontouchmove=null;
+
+}
+
+/* INIT */
+runCode();
+
 </script>
+
 </body>
 </html>
