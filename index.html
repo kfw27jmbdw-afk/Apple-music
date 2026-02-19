@@ -3,38 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title> Gemini Mini Music - V25</title>
-
+<title> Gemini Music - V24 Master</title>
 <style>
 :root{ --bg:#000; --panel:#1c1c1e; --accent:#007aff; --text:#fff; }
-body{ margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,sans-serif; height:100vh; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-.player-card{ background:var(--panel); width:320px; padding:28px; border-radius:40px; text-align:center; box-shadow:0 40px 100px rgba(0,0,0,.8); border: 1px solid rgba(255,255,255,0.05); }
-#art-box{ width:100%; aspect-ratio:1/1; border-radius:24px; overflow:hidden; margin-bottom:20px; background:#2c2c2e; }
-#art-img{ width:100%; height:100%; object-fit:cover; transition:.4s; }
+body{ margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,sans-serif; height:100vh; display:flex; align-items:center; justify-content:center; }
+.player-card{ background:var(--panel); width:320px; padding:30px; border-radius:40px; text-align:center; box-shadow:0 40px 100px rgba(0,0,0,.8); border:1px solid rgba(255,255,255,0.05); }
+#art-box{ width:100%; aspect-ratio:1/1; border-radius:24px; overflow:hidden; margin-bottom:20px; box-shadow:0 15px 40px rgba(0,0,0,0.5); }
+#art-img{ width:100%; height:100%; object-fit:cover; transition:0.4s; }
 .playing #art-img{ transform:scale(1.05); }
 h2{ margin:0; font-size:18px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-p{ margin:8px 0 20px; color:#8e8e93; font-size:14px; }
-.main-btn{ width:75px; height:75px; border:none; border-radius:50%; font-size:28px; background:var(--accent); color:#fff; cursor:pointer; outline:none; }
-.picker-container{ display:flex; gap:12px; margin-top:20px; }
-.btn-pick{ flex:1; background:rgba(255,255,255,.1); padding:15px; border-radius:16px; font-size:12px; font-weight:700; position:relative; overflow:hidden; }
-.btn-pick input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+p{ margin:8px 0 25px; color:#8e8e93; font-size:14px; }
+.main-btn{ width:75px; height:75px; border:none; border-radius:50%; font-size:28px; background:var(--accent); color:#fff; cursor:pointer; }
+.btn-pick{ display:block; margin-top:20px; background:rgba(255,255,255,0.1); padding:15px; border-radius:16px; font-size:12px; font-weight:700; position:relative; overflow:hidden; }
+.btn-pick input{ position:absolute; inset:0; opacity:0; cursor:pointer; }
 </style>
 </head>
 <body>
 
 <div class="player-card" id="player">
-  <div id="art-box">
-    <img id="art-img" src="https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2430.jpeg">
-  </div>
-  <h2 id="title">Select a Song</h2>
-  <p id="artist">V24.9 Final Stable</p>
+  <div id="art-box"><img id="art-img" src="https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2430.jpeg"></div>
+  <h2 id="title">Select Song</h2>
+  <p id="artist">V24 Legend Engine</p>
   <button id="play-btn" class="main-btn">▶</button>
-
-  <div class="picker-container">
-    <label class="btn-pick">🎵 ADD SONG
-      <input type="file" accept=".mp3,.m4a,.wav,.aac,.flac" onchange="loadSong(this)">
-    </label>
-  </div>
+  <label class="btn-pick">🎵 ADD MP3 <input type="file" accept=".mp3,.m4a,.wav" onchange="loadV24(this)"></label>
 </div>
 
 <audio id="audio-engine" preload="auto" playsinline></audio>
@@ -44,112 +35,73 @@ const audio = document.getElementById("audio-engine");
 const playBtn = document.getElementById("play-btn");
 const player = document.getElementById("player");
 
-let currentUrl = null;
-
-/* ⭐ iOS routing stability */
-audio.setAttribute("x-webkit-airplay","allow");
-audio.setAttribute("controlsList","nodownload");
-
-/* ================= LOAD SONG ================= */
-function loadSong(input){
+// 🟢 V24 ORIGINAL FIX: Manual Trigger & Session Lock
+function loadV24(input){
   const file = input.files[0];
   if(!file) return;
 
-  if(currentUrl) URL.revokeObjectURL(currentUrl);
-  currentUrl = URL.createObjectURL(file);
-
-  audio.src = currentUrl;
+  const url = URL.createObjectURL(file);
+  audio.src = url;
   audio.load();
 
-  const cleanName = file.name.replace(/\.[^/.]+$/, "");
-  title.innerText = cleanName;
-
-  fetchArtwork(cleanName);
-  initMediaSession(cleanName);
-
-  playBtn.innerHTML="▶";
+  const name = file.name.replace(/\.[^/.]+$/, "");
+  document.getElementById("title").innerText = name;
+  
+  //  Re-sync Media Session
+  updateMediaSession(name);
+  
+  playBtn.innerHTML = "▶";
   player.classList.remove("playing");
 }
 
-/* ================= SAFE PLAY ================= */
-async function safePlay(){
+async function togglePlay() {
   if(!audio.src) return;
-
-  try{
-    // ⭐ MICRO SEEK FIX (important)
-    const t = audio.currentTime;
-    audio.currentTime = t + 0.001;
-
-    await audio.play();
-    playBtn.innerHTML="⏸";
-    player.classList.add("playing");
-    updateSessionState("playing");
-
-  }catch(e){}
-}
-
-/* ================= TOGGLE ================= */
-function togglePlayback(){
   if(audio.paused){
-    safePlay();
-  }else{
+    await audio.play();
+    playBtn.innerHTML = "⏸";
+    player.classList.add("playing");
+  } else {
     audio.pause();
-    playBtn.innerHTML="▶";
+    playBtn.innerHTML = "▶";
     player.classList.remove("playing");
-    updateSessionState("paused");
   }
 }
 
-playBtn.addEventListener("click", togglePlayback);
+playBtn.addEventListener("click", togglePlay);
 
-/* ================= MEDIA SESSION ================= */
-function initMediaSession(name){
-if(!("mediaSession" in navigator)) return;
+// 🟢 1 MONTH AGO SECRET: Ye handlers lock screen ko "Alive" rakhte hain
+function updateMediaSession(name) {
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: name,
+      artist: "Gemini V24 Master",
+      artwork: [{ src: document.getElementById("art-img").src, sizes: '512x512', type: 'image/jpeg' }]
+    });
 
-navigator.mediaSession.metadata = new MediaMetadata({
-title:name,
-artist:"Gemini Music Lab",
-artwork:[{src:artImg.src,sizes:"512x512",type:"image/jpeg"}]
-});
+    //  LOCK SCREEN RESUME FIX
+    navigator.mediaSession.setActionHandler('play', async () => {
+      await audio.play();
+      playBtn.innerHTML = "⏸";
+      player.classList.add("playing");
+    });
 
-navigator.mediaSession.setActionHandler("play", safePlay);
-
-navigator.mediaSession.setActionHandler("pause", ()=>{
-audio.pause();
-playBtn.innerHTML="▶";
-player.classList.remove("playing");
-updateSessionState("paused");
-});
+    navigator.mediaSession.setActionHandler('pause', () => {
+      audio.pause();
+      playBtn.innerHTML = "▶";
+      player.classList.remove("playing");
+    });
+  }
 }
 
-function updateSessionState(state){
-if("mediaSession" in navigator)
-navigator.mediaSession.playbackState = state;
-}
-
-/* ================= ARTWORK ================= */
-async function fetchArtwork(name){
-try{
-const query=name.split(/[\s-_]+/).slice(0,3).join(" ");
-const res=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&limit=1`);
-const data=await res.json();
-
-if(data.results.length){
-const track=data.results[0];
-const art=track.artworkUrl100.replace("100x100","600x600");
-artImg.src=art;
-artist.innerText=track.artistName;
-
-if("mediaSession" in navigator){
-navigator.mediaSession.metadata.artwork=[{src:art,sizes:"512x512",type:"image/jpeg"}];
-}
-}
-}catch(e){}
-}
-
-audio.onended=()=>{
-playBtn.innerHTML="▶";
-player.classList.remove("playing");
+// 🟢 BACKGROUND BUFFER FIX
+audio.ontimeupdate = () => {
+  if ('mediaSession' in navigator && audio.duration) {
+    navigator.mediaSession.setPositionState({
+      duration: audio.duration,
+      playbackRate: audio.playbackRate,
+      position: audio.currentTime
+    });
+  }
 };
 </script>
 </body>
