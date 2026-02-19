@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title> Gemini Mini Music - V24.9</title>
+<title> Gemini Mini Music - V25</title>
 
 <style>
 :root{ --bg:#000; --panel:#1c1c1e; --accent:#007aff; --text:#fff; }
@@ -29,6 +29,7 @@ p{ margin:8px 0 20px; color:#8e8e93; font-size:14px; }
   <h2 id="title">Select a Song</h2>
   <p id="artist">V24.9 Final Stable</p>
   <button id="play-btn" class="main-btn">▶</button>
+
   <div class="picker-container">
     <label class="btn-pick">🎵 ADD SONG
       <input type="file" accept=".mp3,.m4a,.wav,.aac,.flac" onchange="loadSong(this)">
@@ -42,46 +43,58 @@ p{ margin:8px 0 20px; color:#8e8e93; font-size:14px; }
 const audio = document.getElementById("audio-engine");
 const playBtn = document.getElementById("play-btn");
 const player = document.getElementById("player");
+
 let currentUrl = null;
 
-// 1. Load Song (Strictly iOS/Android Compatible)
+/* ⭐ iOS routing stability */
+audio.setAttribute("x-webkit-airplay","allow");
+audio.setAttribute("controlsList","nodownload");
+
+/* ================= LOAD SONG ================= */
 function loadSong(input){
   const file = input.files[0];
   if(!file) return;
 
-  // Purana URL clean karo
   if(currentUrl) URL.revokeObjectURL(currentUrl);
   currentUrl = URL.createObjectURL(file);
-  
+
   audio.src = currentUrl;
-  audio.load(); // Buffer lock
+  audio.load();
 
   const cleanName = file.name.replace(/\.[^/.]+$/, "");
-  document.getElementById("title").innerText = cleanName;
-  
+  title.innerText = cleanName;
+
   fetchArtwork(cleanName);
   initMediaSession(cleanName);
 
-  // Reset UI
-  playBtn.innerHTML = "▶";
+  playBtn.innerHTML="▶";
   player.classList.remove("playing");
 }
 
-// 2. Play/Pause (User Gesture Only)
-function togglePlayback() {
+/* ================= SAFE PLAY ================= */
+async function safePlay(){
   if(!audio.src) return;
 
+  try{
+    // ⭐ MICRO SEEK FIX (important)
+    const t = audio.currentTime;
+    audio.currentTime = t + 0.001;
+
+    await audio.play();
+    playBtn.innerHTML="⏸";
+    player.classList.add("playing");
+    updateSessionState("playing");
+
+  }catch(e){}
+}
+
+/* ================= TOGGLE ================= */
+function togglePlayback(){
   if(audio.paused){
-    audio.play()
-      .then(() => {
-        playBtn.innerHTML = "⏸";
-        player.classList.add("playing");
-        updateSessionState("playing");
-      })
-      .catch(err => alert("Tap Play again to unlock audio"));
-  } else {
+    safePlay();
+  }else{
     audio.pause();
-    playBtn.innerHTML = "▶";
+    playBtn.innerHTML="▶";
     player.classList.remove("playing");
     updateSessionState("paused");
   }
@@ -89,44 +102,55 @@ function togglePlayback() {
 
 playBtn.addEventListener("click", togglePlayback);
 
-// 3. Lock Screen Control (The Fix)
-function initMediaSession(name) {
-  if ('mediaSession' in navigator) {
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: name,
-      artist: "Gemini Music Lab",
-      artwork: [{ src: document.getElementById("art-img").src, sizes: '512x512', type: 'image/jpeg' }]
-    });
+/* ================= MEDIA SESSION ================= */
+function initMediaSession(name){
+if(!("mediaSession" in navigator)) return;
 
-    // Seedha function call, koi extra logic nahi
-    navigator.mediaSession.setActionHandler('play', togglePlayback);
-    navigator.mediaSession.setActionHandler('pause', togglePlayback);
-  }
+navigator.mediaSession.metadata = new MediaMetadata({
+title:name,
+artist:"Gemini Music Lab",
+artwork:[{src:artImg.src,sizes:"512x512",type:"image/jpeg"}]
+});
+
+navigator.mediaSession.setActionHandler("play", safePlay);
+
+navigator.mediaSession.setActionHandler("pause", ()=>{
+audio.pause();
+playBtn.innerHTML="▶";
+player.classList.remove("playing");
+updateSessionState("paused");
+});
 }
 
-function updateSessionState(state) {
-  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = state;
+function updateSessionState(state){
+if("mediaSession" in navigator)
+navigator.mediaSession.playbackState = state;
 }
 
-// 4. iTunes Artwork (Background fetch)
-async function fetchArtwork(name) {
-    try {
-        const query = name.split(/[\s-_]+/).slice(0, 3).join(' ');
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&limit=1`);
-        const data = await res.json();
-        if (data.results.length > 0) {
-            const track = data.results[0];
-            const artUrl = track.artworkUrl100.replace('100x100', '600x600');
-            document.getElementById("art-img").src = artUrl;
-            document.getElementById("artist").innerText = track.artistName;
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.metadata.artwork = [{ src: artUrl, sizes: '512x512', type: 'image/jpeg' }];
-            }
-        }
-    } catch (e) {}
+/* ================= ARTWORK ================= */
+async function fetchArtwork(name){
+try{
+const query=name.split(/[\s-_]+/).slice(0,3).join(" ");
+const res=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&limit=1`);
+const data=await res.json();
+
+if(data.results.length){
+const track=data.results[0];
+const art=track.artworkUrl100.replace("100x100","600x600");
+artImg.src=art;
+artist.innerText=track.artistName;
+
+if("mediaSession" in navigator){
+navigator.mediaSession.metadata.artwork=[{src:art,sizes:"512x512",type:"image/jpeg"}];
+}
+}
+}catch(e){}
 }
 
-audio.onended = () => { playBtn.innerHTML = "▶"; player.classList.remove("playing"); };
+audio.onended=()=>{
+playBtn.innerHTML="▶";
+player.classList.remove("playing");
+};
 </script>
 </body>
 </html>
