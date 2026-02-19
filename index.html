@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title> Gemini Mini Music - V24.7</title>
+<title> Gemini Mini Music - V24.8</title>
 
 <style>
 :root{ --bg:#000; --panel:#1c1c1e; --accent:#007aff; --text:#fff; }
 body{ margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,sans-serif; height:100vh; display:flex; align-items:center; justify-content:center; overflow:hidden; }
 .player-card{ background:var(--panel); width:320px; padding:28px; border-radius:40px; text-align:center; box-shadow:0 40px 100px rgba(0,0,0,.8); border: 1px solid rgba(255,255,255,0.05); }
-#art-box{ width:100%; aspect-ratio:1/1; border-radius:24px; overflow:hidden; margin-bottom:20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-#art-img{ width:100%; height:100%; object-fit:cover; transition:.4s ease; }
+#art-box{ width:100%; aspect-ratio:1/1; border-radius:24px; overflow:hidden; margin-bottom:20px; }
+#art-img{ width:100%; height:100%; object-fit:cover; transition:.4s; }
 .playing #art-img{ transform:scale(1.05); }
 h2{ margin:0; font-size:18px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 p{ margin:8px 0 20px; color:#8e8e93; font-size:14px; }
-.main-btn{ width:75px; height:75px; border:none; border-radius:50%; font-size:28px; background:var(--accent); color:#fff; cursor:pointer; outline:none; }
+.main-btn{ width:75px; height:75px; border:none; border-radius:50%; font-size:28px; background:var(--accent); color:#fff; cursor:pointer; }
 .picker-container{ display:flex; gap:12px; margin-top:20px; }
-.btn-pick{ flex:1; background:rgba(255,255,255,.1); padding:15px; border-radius:16px; font-size:12px; font-weight:700; position:relative; overflow:hidden; border: 1px solid rgba(255,255,255,0.1); }
+.btn-pick{ flex:1; background:rgba(255,255,255,.1); padding:15px; border-radius:16px; font-size:12px; font-weight:700; position:relative; overflow:hidden; }
 .btn-pick input[type=file]{ position:absolute; inset:0; opacity:0; cursor:pointer; }
 </style>
 </head>
@@ -27,7 +27,7 @@ p{ margin:8px 0 20px; color:#8e8e93; font-size:14px; }
     <img id="art-img" src="https://raw.githubusercontent.com/kfw27jmbdw-afk/Apple-music/main/music/IMG_2430.jpeg">
   </div>
   <h2 id="title">Select a Song</h2>
-  <p id="artist">V24.7 Hybrid Stable</p>
+  <p id="artist">V24.8 Silent Wake Engine</p>
   <button id="play-btn" class="main-btn">▶</button>
   <div class="picker-container">
     <label class="btn-pick">🎵 ADD SONG
@@ -37,9 +37,11 @@ p{ margin:8px 0 20px; color:#8e8e93; font-size:14px; }
 </div>
 
 <audio id="audio-engine" preload="auto" playsinline></audio>
+<audio id="silent-wake" loop src="data:audio/wav;base64,UklGRigAAABXQVZFRm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="></audio>
 
 <script>
 const audio = document.getElementById("audio-engine");
+const silent = document.getElementById("silent-wake");
 const playBtn = document.getElementById("play-btn");
 const player = document.getElementById("player");
 let currentUrl = null;
@@ -47,44 +49,39 @@ let currentUrl = null;
 function loadSong(input){
   const file = input.files[0];
   if(!file) return;
-
   if(currentUrl) URL.revokeObjectURL(currentUrl);
   currentUrl = URL.createObjectURL(file);
-  
   audio.src = currentUrl;
   audio.load();
-
   const cleanName = file.name.replace(/\.[^/.]+$/, "");
   document.getElementById("title").innerText = cleanName;
-  
   fetchArtwork(cleanName);
   initMediaSession(cleanName);
 }
 
-// 🟢 Main Playback (Background Friendly)
 async function togglePlayback() {
   if(!audio.src) return;
 
   if(audio.paused){
     try {
+      // 🟢 PLAY BOTH: Asli gana + Silent track (Hardware ko jagane ke liye)
+      await silent.play();
       await audio.play();
       playBtn.innerHTML = "⏸";
       player.classList.add("playing");
-      updatePlaybackState("playing");
-    } catch (err) {
-      console.log("Playback error", err);
-    }
+      updateState("playing");
+    } catch (err) { console.log(err); }
   } else {
     audio.pause();
+    // 🟢 Silent track ko pause nahi karenge taaki session active rahe
     playBtn.innerHTML = "▶";
     player.classList.remove("playing");
-    updatePlaybackState("paused");
+    updateState("paused");
   }
 }
 
 playBtn.addEventListener("click", togglePlayback);
 
-// 🟢 Lock Screen persistence FIX (No AudioContext to avoid BG kill)
 function initMediaSession(name) {
   if ('mediaSession' in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -93,19 +90,25 @@ function initMediaSession(name) {
       artwork: [{ src: document.getElementById("art-img").src, sizes: '512x512', type: 'image/jpeg' }]
     });
 
-    // Essential handlers
-    navigator.mediaSession.setActionHandler('play', togglePlayback);
-    navigator.mediaSession.setActionHandler('pause', togglePlayback);
-    navigator.mediaSession.setActionHandler('seekbackward', () => { audio.currentTime -= 10; });
-    navigator.mediaSession.setActionHandler('seekforward', () => { audio.currentTime += 10; });
+    // 🟢 Lock Screen Re-play Fix
+    navigator.mediaSession.setActionHandler('play', async () => {
+      await silent.play(); // Hardware Wakeup
+      await audio.play();
+      playBtn.innerHTML = "⏸";
+      player.classList.add("playing");
+      updateState("playing");
+    });
+
+    navigator.mediaSession.setActionHandler('pause', () => {
+      audio.pause();
+      playBtn.innerHTML = "▶";
+      player.classList.remove("playing");
+      updateState("paused");
+    });
   }
 }
 
-function updatePlaybackState(state) {
-  if ('mediaSession' in navigator) {
-    navigator.mediaSession.playbackState = state;
-  }
-}
+function updateState(s) { if('mediaSession' in navigator) navigator.mediaSession.playbackState = s; }
 
 async function fetchArtwork(name) {
     try {
@@ -124,16 +127,7 @@ async function fetchArtwork(name) {
     } catch (e) {}
 }
 
-audio.onended = () => {
-  playBtn.innerHTML = "▶";
-  player.classList.remove("playing");
-  updatePlaybackState("none");
-};
-
-// 🟢 Persistence fix: Audio ko 'active' rakhta hai lockscreen par
-audio.onplay = () => updatePlaybackState("playing");
-audio.onpause = () => updatePlaybackState("paused");
-
+audio.onended = () => { playBtn.innerHTML = "▶"; player.classList.remove("playing"); };
 </script>
 </body>
 </html>
