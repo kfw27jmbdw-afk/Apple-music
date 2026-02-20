@@ -410,7 +410,9 @@ async function fetchMusicMeta(id, query) {
 
 
 async function loadAndPlayDriveSong(id, info) {
-    // 1. UI Updates (Instant response)
+    const audio = document.getElementById('main-audio');
+    
+    // 1. UI Updates (Instant)
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('player-artist').innerText = info.artist;
     document.getElementById('song-image').src = info.artwork;
@@ -419,61 +421,73 @@ async function loadAndPlayDriveSong(id, info) {
     document.getElementById('mini-img').src = info.artwork;
 
     try {
-        // 2. Drive se gaana fetch karna (Stable Blob Method)
-        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+        // --- STAGE 1: QUICK START (0 to 500KB Chunk) ---
+        console.log(" V24: Fetching 10s Chunk for Instant Play...");
+        const quickResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+            headers: { 
+                'Authorization': `Bearer ${accessToken}`,
+                'Range': 'bytes=0-512000' // Pehla 512KB (Approx 10-15 sec)
+            }
+        });
+
+        if (quickResponse.ok) {
+            const quickBlob = await quickResponse.blob();
+            const quickUrl = URL.createObjectURL(quickBlob);
+            
+            audio.src = quickUrl;
+            audio.load();
+            audio.play().then(() => {
+                if(typeof triggerHardwareKick === "function") triggerHardwareKick();
+                updatePlayIcons(true);
+            });
+        }
+
+        // --- STAGE 2: BACKGROUND FULL LOAD ---
+        console.log(" V24: Loading Full Song in Background...");
+        const fullResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
 
-        if (!response.ok) throw new Error("Drive access denied");
+        if (fullResponse.ok) {
+            const fullBlob = await fullResponse.blob();
+            const fullUrl = URL.createObjectURL(fullBlob);
 
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        
-        // 🟢 V24 HARDWARE KICK: Playback se pehle channel jagao
-        if (typeof triggerHardwareKick === "function") triggerHardwareKick();
+            // 🟢 THE SILENT SWAP: Bina rukawat ke gaana switch karo
+            const currentTime = audio.currentTime;
+            const isPaused = audio.paused;
 
-        audio.src = blobUrl;
-        audio.load();
-        
-        // Gaana play karo aur lock screen metadata set karo
-        audio.play().then(() => {
-            updatePlayIcons(true);
-            if (typeof initMediaSessionHandlers === "function") {
-                initMediaSessionHandlers(info.title, info.artist, info.artwork);
+            audio.src = fullUrl;
+            audio.currentTime = currentTime; // Wahi se shuru jahan chunk tha
+            
+            if (!isPaused) {
+                audio.play();
+                console.log(" V24: Swapped to Full Song Blob smoothly.");
             }
-        });
 
-        // 3. SMART INJECTOR: Playlist logic
-        const driveSongEntry = {
-            "name": info.title,
-            "artist": info.artist,
-            "url": blobUrl,
-            "img": info.artwork,
-            "isDrive": true,
-            "driveId": id
-        };
+            // Playlist aur Library Injector
+            const driveSongEntry = {
+                "name": info.title, "artist": info.artist, "url": fullUrl,
+                "img": info.artwork, "isDrive": true, "driveId": id
+            };
 
-        let existingIndex = playlist.findIndex(s => s.driveId === id);
-        if (existingIndex === -1) {
-            playlist.unshift(driveSongEntry);
-            if (!userLibrary.songs.includes(0)) {
-                userLibrary.songs.unshift(0);
+            // Existing Index check & Sync
+            let existingIndex = playlist.findIndex(s => s.driveId === id);
+            if (existingIndex === -1) {
+                playlist.unshift(driveSongEntry);
+                if (!userLibrary.songs.includes(0)) userLibrary.songs.unshift(0);
                 saveLibraryToDisk();
+                saveToPermanentLibrary(id, info);
             }
-            saveToPermanentLibrary(id, info);
         }
 
-        // UI Refresh
+        // Final UI Refreshes
         if (typeof renderPlaylist === 'function') renderPlaylist();
-        if (typeof renderLibraryContent === 'function') renderLibraryContent('all');
         if (typeof maximizePlayer === "function") maximizePlayer();
 
     } catch (error) {
-        console.error("Playback Error:", error);
-        showTempMessage("Playback failed! Check duplicate 'audio' declaration.");
+        console.error("Dual-Stage Playback Error:", error);
     }
 }
-
 
 
 // Memory save function
