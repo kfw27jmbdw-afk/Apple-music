@@ -410,73 +410,44 @@ async function fetchMusicMeta(id, query) {
 
 
 async function loadAndPlayDriveSong(id, info) {
-    const audio = document.getElementById('main-audio');
-    
-    // 1. UI Update (Player Screen) - Instant
+    // 1. UI Updates (Instant response)
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('player-artist').innerText = info.artist;
     document.getElementById('song-image').src = info.artwork;
-    
     document.getElementById('mini-title').innerText = info.title;
     document.getElementById('mini-artist').innerText = info.artist;
     document.getElementById('mini-img').src = info.artwork;
 
     try {
-        // 2. MSE Setup: Streaming engine taiyaar karo
-        const ms = new MediaSource();
-        audio.src = URL.createObjectURL(ms);
+        // 2. Drive se gaana fetch karna (Stable Blob Method)
+        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
 
-        ms.addEventListener('sourceopen', async () => {
-            // Drive ke zyadatar MP3s ke liye audio/mpeg buffer
-            const sb = ms.addSourceBuffer('audio/mpeg');
-            
-            try {
-                const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-                    headers: { 'Authorization': `Bearer ${accessToken}` }
-                });
+        if (!response.ok) throw new Error("Drive access denied");
 
-                if (!response.ok) throw new Error("Drive access denied");
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        
+        // 🟢 V24 HARDWARE KICK: Playback se pehle channel jagao
+        if (typeof triggerHardwareKick === "function") triggerHardwareKick();
 
-                const reader = response.body.getReader();
-                let isFirstChunk = true;
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    
-                    if (done) {
-                        if (ms.readyState === 'open') ms.endOfStream();
-                        break;
-                    }
-
-                    // Buffer mein chunk add karo
-                    sb.appendBuffer(value);
-
-                    // 🟢 PEHLA CHUNK JADOO: Jaise hi thoda data mile, gaana bajao
-                    if (isFirstChunk) {
-                        await new Promise(r => sb.addEventListener('updateend', r, { once: true }));
-                        
-                        // Hardware Kick: Awaaz ko lock screen ke liye jagao
-                        if (typeof triggerHardwareKick === "function") triggerHardwareKick();
-                        
-                        audio.play().then(() => updatePlayIcons(true));
-                        isFirstChunk = false;
-                    }
-
-                    // Buffer flow control (Backpressure)
-                    if (sb.updating) {
-                        await new Promise(r => sb.addEventListener('updateend', r, { once: true }));
-                    }
-                }
-            } catch (err) {
-                console.error("Stream Error:", err);
+        audio.src = blobUrl;
+        audio.load();
+        
+        // Gaana play karo aur lock screen metadata set karo
+        audio.play().then(() => {
+            updatePlayIcons(true);
+            if (typeof initMediaSessionHandlers === "function") {
+                initMediaSessionHandlers(info.title, info.artist, info.artwork);
             }
         });
 
-        // 3.  SMART INJECTOR: Playlist logic
+        // 3. SMART INJECTOR: Playlist logic
         const driveSongEntry = {
             "name": info.title,
             "artist": info.artist,
-            "url": audio.src, // MSE Object URL
+            "url": blobUrl,
             "img": info.artwork,
             "isDrive": true,
             "driveId": id
@@ -492,19 +463,14 @@ async function loadAndPlayDriveSong(id, info) {
             saveToPermanentLibrary(id, info);
         }
 
-        // 4. UI Refresh
+        // UI Refresh
         if (typeof renderPlaylist === 'function') renderPlaylist();
         if (typeof renderLibraryContent === 'function') renderLibraryContent('all');
         if (typeof maximizePlayer === "function") maximizePlayer();
 
-        // 🟢 LOCK SCREEN HANDLERS SYNC
-        if (typeof initMediaSessionHandlers === "function") {
-            initMediaSessionHandlers(info.title, info.artist, info.artwork);
-        }
-
     } catch (error) {
         console.error("Playback Error:", error);
-        showTempMessage("Playback failed! Check connection.");
+        showTempMessage("Playback failed! Check duplicate 'audio' declaration.");
     }
 }
 
