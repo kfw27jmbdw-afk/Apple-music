@@ -410,77 +410,74 @@ async function fetchMusicMeta(id, query) {
 
 
 async function loadAndPlayDriveSong(id, info) {
-    const audio = document.getElementById('main-audio');
-    
-    // 1. UI Updates (Instant)
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    let nextStartTime = 0;
+    let currentByte = 0;
+    const chunkSize = 1024 * 512; // 512KB (~15 sec)
+
+    // UI Updates
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('player-artist').innerText = info.artist;
     document.getElementById('song-image').src = info.artwork;
-    
-    // 2. Media Source Engine (The Pipe)
-    const ms = new MediaSource();
-    audio.src = URL.createObjectURL(ms);
 
-    ms.onsourceopen = async () => {
-        const sb = ms.addSourceBuffer('audio/mpeg');
-        let currentByte = 0;
-        const chunkSize = 1024 * 512; // 512KB per chunk (Approx 15-20 sec)
+    async function fetchAndStitchChunk(start, end) {
+        try {
+            const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Range': `bytes=${start}-${end}` 
+                }
+            });
 
-        // Function: Ek specific range ka chunk uthana
-        async function fetchNextChunk(start, end) {
-            try {
-                const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-                    headers: { 
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Range': `bytes=${start}-${end}` 
-                    }
-                });
-                const data = await response.arrayBuffer();
-                sb.appendBuffer(data);
-                
-                // Chunk append hone ka wait karo
-                await new Promise(r => sb.onupdateend = r);
-                return data.byteLength;
-            } catch (e) {
-                console.error("Chunk Fetch Error", e);
-                return 0;
-            }
+            const arrayBuffer = await response.arrayBuffer();
+            // ArrayBuffer ko AudioBuffer mein badlo (Decoding)
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+            // 🟢 THE PERFECT SYNC: Audio Source Node banao
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+
+            // Timeline par schedule karo
+            const startTime = Math.max(audioContext.currentTime, nextStartTime);
+            source.start(startTime);
+            
+            // Agla gaana kab shuru hona chahiye (End time update)
+            nextStartTime = startTime + audioBuffer.duration;
+            
+            return arrayBuffer.byteLength;
+        } catch (e) {
+            console.error("Stitching Error:", e);
+            return 0;
         }
+    }
 
-        // --- STAGE 1: FIRST STRIKE (Instant Play) ---
-        await fetchNextChunk(0, chunkSize);
-        audio.play();
-        if(typeof triggerHardwareKick === "function") triggerHardwareKick();
-        updatePlayIcons(true);
-        currentByte = chunkSize + 1;
+    // --- STAGE 1: FIRST BLOB (Instant Start) ---
+    const firstChunkSize = await fetchAndStitchChunk(0, chunkSize);
+    currentByte = firstChunkSize + 1;
+    
+    // V24 Hardware Kick (Awaaz ke liye)
+    if(typeof triggerHardwareKick === "function") triggerHardwareKick();
+    updatePlayIcons(true);
 
-        // --- STAGE 2: BACKGROUND PIPELINE (Recursive) ---
-        // Jab tak gaana khatam nahi hota, chunks load karte raho
-        const loadRest = async () => {
-            while (true) {
-                // Buffer check: Agar 30 sec ka data already hai, toh wait karo (Data saving)
-                const buffered = audio.buffered;
-                if (buffered.length > 0 && (buffered.end(0) - audio.currentTime) > 30) {
-                    await new Promise(r => setTimeout(r, 2000));
-                    continue;
-                }
-
-                // Agla 1MB ka chunk mangao (Full song speedup)
-                const bytesRead = await fetchNextChunk(currentByte, currentByte + (1024 * 1024));
-                if (bytesRead === 0) {
-                    if (ms.readyState === 'open') ms.endOfStream();
-                    break;
-                }
-                currentByte += bytesRead;
+    // --- STAGE 2: CONTINUOUS CHAIN (Recursive) ---
+    const runPipeline = async () => {
+        while (true) {
+            // Agar next chunk 10 second door hai, toh wait karo (CPU bachane ke liye)
+            if (nextStartTime - audioContext.currentTime > 20) {
+                await new Promise(r => setTimeout(r, 2000));
+                continue;
             }
-        };
 
-        loadRest(); // Background mein chalta rahega
+            const bytesRead = await fetchAndStitchChunk(currentByte, currentByte + chunkSize);
+            if (bytesRead === 0) break; // Gaana khatam
+            currentByte += bytesRead;
+        }
     };
 
-    // 3. Smart Injector & UI (Wahi purana stable logic)
-    // ... baki ka playlist saving logic yahan rahega
+    runPipeline();
 }
+
 
 
 
