@@ -434,73 +434,61 @@ let currentAbortController = null;
 
 async function loadAndPlayDriveSong(id, info) {
     const logger = document.getElementById('debug-log');
-    const bBar = document.getElementById('buffer-bar');
     const updateLog = (msg) => { if(logger) logger.innerText = " " + msg; };
 
     if (currentAbortController) currentAbortController.abort();
     currentAbortController = new AbortController();
-    const signal = currentAbortController.signal;
+    const { signal } = currentAbortController;
 
-    // Reset Engine
-    if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
-    // iOS Safari Force Start
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    updateLog("Stitching Chunks...");
 
-    let baseTime = audioCtx.currentTime;
-    let d1 = 0; // Chunk 1 duration
+    try {
+        if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
+        window.AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-    updateLog("Double Fire: Loading...");
-    if (bBar) bBar.style.width = "0%";
+        // 1. Parallel Fetch (Dono chunks ek sath)
+        const fetchChunk = (range) => fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=${range}` },
+            signal: signal
+        }).then(res => {
+            if(!res.ok) throw new Error("Drive Error " + res.status);
+            return res.arrayBuffer();
+        });
 
-    // 🟢 FETCH 1: Click ke turant baad
-    const req1 = fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=0-1048576' },
-        signal: signal
-    }).then(r => r.arrayBuffer());
+        updateLog("Downloading Part 1 & 2...");
 
-    // 🟢 FETCH 2: Bina wait kiye, Click ke 1ms baad
-    const req2 = fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=1048577-2097152' },
-        signal: signal
-    }).then(r => r.arrayBuffer());
+        // Dono data parallel mein uthao
+        const [data1, data2] = await Promise.all([
+            fetchChunk("0-1048576"),      // Part 1 (with header)
+            fetchChunk("1048577-2097152") // Part 2
+        ]);
 
-    // Processing Chunk 1
-    req1.then(ab => audioCtx.decodeAudioData(ab)).then(buf => {
-        if (signal.aborted) return;
-        d1 = buf.duration;
+        updateLog("Stitching Data...");
+
+        // 🟢 THE TRICK: Dono chunks ko jod kar ek bada ArrayBuffer banao
+        const combinedBuffer = new Uint8Array(data1.byteLength + data2.byteLength);
+        combinedBuffer.set(new Uint8Array(data1), 0);
+        combinedBuffer.set(new Uint8Array(data2), data1.byteLength);
+
+        updateLog("Decoding Combined Audio...");
+
+        // 2. Ab poore combined data ko ek sath decode karo (Safari happy!)
+        const finalAudioBuf = await audioCtx.decodeAudioData(combinedBuffer.buffer);
+        
         const src = audioCtx.createBufferSource();
-        src.buffer = buf;
+        src.buffer = finalAudioBuf;
         src.connect(audioCtx.destination);
-        src.start(baseTime);
+        src.start(0);
+        
         window.activeSources.push(src);
-        
-        updateLog("Chunk 1 Playing...");
-        if (bBar) bBar.style.width = "40%";
+        updateLog("Playing: 1MB + 1MB Linked!");
         updatePlayIcons(true);
-    }).catch(e => updateLog("C1 Error: " + e.message));
 
-    // Processing Chunk 2 (Parallel)
-    req2.then(ab => audioCtx.decodeAudioData(ab)).then(buf => {
-        if (signal.aborted) return;
-        
-        // Wait loop: Jab tak d1 set na ho jaye (Timing sync)
-        const checkAndStart = () => {
-            if (d1 > 0) {
-                const src = audioCtx.createBufferSource();
-                src.buffer = buf;
-                src.connect(audioCtx.destination);
-                src.start(baseTime + d1);
-                window.activeSources.push(src);
-                updateLog("Chunk 2 Synced!");
-                if (bBar) bBar.style.width = "80%";
-            } else {
-                setTimeout(checkAndStart, 100); // 100ms baad fir check karo
-            }
-        };
-        checkAndStart();
-    }).catch(e => updateLog("C2 Error: " + e.message));
+    } catch (err) {
+        if (err.name !== 'AbortError') updateLog("Error: " + err.message);
+    }
 }
 
 
