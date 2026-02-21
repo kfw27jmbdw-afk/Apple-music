@@ -13,6 +13,13 @@ const DRIVE_FOLDER_ID = '1TA2Vsuk1vXbyaf1Vxn5CXBGViybHjY03'; // Tera target musi
 let tokenClient;
 let accessToken = null;
 let currentMenuIndex = null; // Sirf yahan rahega, 1811 se delete kar dena!
+// 🟢 NEW: WEB AUDIO ENGINE GLOBALS
+let audioCtx = null;
+let audioChain = []; 
+let nextStartTime = 0;
+let totalDuration = 0; 
+let startTimeOffset = 0; 
+
 
 // --- SETTINGS MODAL FUNCTIONS ---
 
@@ -383,7 +390,7 @@ async function fetchMusicMetaForFolder(id, query) {
 // ==========================================
 async function fetchMusicMeta(id, query) {
     try {
-        // Sirf pehle 2 words lo taaki iTunes confuse na ho
+        // 🟢 STEP 1: Query cleaning (iTunes accuracy ke liye)
         let shortQuery = query.split(' ').slice(0, 2).join(' ');
         
         const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(shortQuery)}&entity=song&limit=1`);
@@ -400,26 +407,58 @@ async function fetchMusicMeta(id, query) {
             songInfo.title = track.trackName;
             songInfo.artist = track.artistName;
             songInfo.artwork = track.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
+
+            // 🟢 STEP 2: DURATION SYNC (Seek-bar ka fuel)
+            // iTunes milliseconds deta hai, humein seconds chahiye
+            if (track.trackTimeMillis) {
+                totalDuration = track.trackTimeMillis / 1000;
+                console.log(` Meta Sync: Duration set to ${totalDuration}s`);
+            }
+        } else {
+            // Agar iTunes pe na mile toh default duration (e.g. 4 min) taaki seek-bar crash na ho
+            totalDuration = 240; 
         }
+
+        // 🟢 STEP 3: TRIGGER NEW ENGINE
         loadAndPlayDriveSong(id, songInfo);
+
     } catch (error) {
-        console.error("iTunes Metadata Error:", error);
+        console.error(" iTunes Metadata Error:", error);
+        totalDuration = 240; // Fallback
         loadAndPlayDriveSong(id, {title: query, artist: "Unknown", artwork: ""});
     }
 }
 
 
-async function loadAndPlayDriveSong(id, info) {
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    let nextStartTime = 0;
-    let currentByte = 0;
-    const chunkSize = 1024 * 512; // 512KB (~15 sec)
 
-    // UI Updates
+async function loadAndPlayDriveSong(id, info) {
+    // 1. Reset & Setup Context
+    // Purana context band karo agar chal raha hai
+    if (audioCtx) {
+        try { audioCtx.close(); } catch(e) {}
+    }
+    
+    // Naya Context shuru karo
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioChain = []; // Scheduled chunks track karne ke liye
+    nextStartTime = audioCtx.currentTime;
+    currentByte = 0;
+    const chunkSize = 1024 * 512; // 512KB (~15 sec chunks)
+
+    // 2. UI Updates (Instant Response)
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('player-artist').innerText = info.artist;
     document.getElementById('song-image').src = info.artwork;
+    
+    document.getElementById('mini-title').innerText = info.title;
+    document.getElementById('mini-artist').innerText = info.artist;
+    document.getElementById('mini-img').src = info.artwork;
 
+    // Mini Player show karo agar hidden hai
+    const mini = document.getElementById('mini-player');
+    if(mini) { mini.style.display = 'flex'; mini.style.opacity = '1'; }
+
+    // 3. The Stitcher Logic
     async function fetchAndStitchChunk(start, end) {
         try {
             const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
@@ -429,56 +468,102 @@ async function loadAndPlayDriveSong(id, info) {
                 }
             });
 
+            if (!response.ok) throw new Error("Chunk Fetch Failed");
+
             const arrayBuffer = await response.arrayBuffer();
-            // ArrayBuffer ko AudioBuffer mein badlo (Decoding)
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            // Decode karke audio buffer banao
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
-            // 🟢 THE PERFECT SYNC: Audio Source Node banao
-            const source = audioContext.createBufferSource();
+            // Audio Source taiyaar karo
+            const source = audioCtx.createBufferSource();
             source.buffer = audioBuffer;
-            source.connect(audioContext.destination);
+            source.connect(audioCtx.destination);
 
-            // Timeline par schedule karo
-            const startTime = Math.max(audioContext.currentTime, nextStartTime);
+            // 🟢 THE PERFECT SYNC: Exact timing par schedule karo
+            const startTime = Math.max(audioCtx.currentTime, nextStartTime);
             source.start(startTime);
             
-            // Agla gaana kab shuru hona chahiye (End time update)
+            // Agla chunk kahan se shuru hoga
             nextStartTime = startTime + audioBuffer.duration;
+            
+            // Chain mein save karo taaki future mein control kar sakein
+            audioChain.push({source, duration: audioBuffer.duration});
             
             return arrayBuffer.byteLength;
         } catch (e) {
-            console.error("Stitching Error:", e);
+            console.error(" Stitching Error:", e);
             return 0;
         }
     }
 
-    // --- STAGE 1: FIRST BLOB (Instant Start) ---
-    const firstChunkSize = await fetchAndStitchChunk(0, chunkSize);
-    currentByte = firstChunkSize + 1;
-    
-    // V24 Hardware Kick (Awaaz ke liye)
-    if(typeof triggerHardwareKick === "function") triggerHardwareKick();
-    updatePlayIcons(true);
+    try {
+        // --- STAGE 1: FIRST STRIKE (Instant Play) ---
+        console.log(" V24: Fetching Stage 1...");
+        const bytesRead = await fetchAndStitchChunk(0, chunkSize);
+        currentByte = bytesRead + 1;
 
-    // --- STAGE 2: CONTINUOUS CHAIN (Recursive) ---
-    const runPipeline = async () => {
-        while (true) {
-            // Agar next chunk 10 second door hai, toh wait karo (CPU bachane ke liye)
-            if (nextStartTime - audioContext.currentTime > 20) {
-                await new Promise(r => setTimeout(r, 2000));
-                continue;
+        // Play icons aur hardware kick trigger karo
+        updatePlayIcons(true);
+        if(typeof triggerHardwareKick === "function") triggerHardwareKick();
+        if(typeof maximizePlayer === "function") maximizePlayer();
+
+        // --- STAGE 2: CONTINUOUS PIPELINE (Recursive) ---
+        const runPipeline = async () => {
+            while (true) {
+                // Buffer Management: 20 second aage ka buffer kaafi hai
+                if (nextStartTime - audioCtx.currentTime > 20) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    continue;
+                }
+
+                const read = await fetchAndStitchChunk(currentByte, currentByte + chunkSize);
+                if (read === 0) {
+                    console.log(" V24: Full Song Streamed & Stitched.");
+                    break; 
+                }
+                currentByte += read;
             }
+        };
 
-            const bytesRead = await fetchAndStitchChunk(currentByte, currentByte + chunkSize);
-            if (bytesRead === 0) break; // Gaana khatam
-            currentByte += bytesRead;
+        runPipeline();
+
+        // 4. SMART INJECTOR: Playlist sync
+        const driveSongEntry = {
+            "name": info.title, "artist": info.artist, "url": "WEB_AUDIO_STREAM",
+            "img": info.artwork, "isDrive": true, "driveId": id
+        };
+
+        let existingIndex = playlist.findIndex(s => s.driveId === id);
+        if (existingIndex === -1) {
+            playlist.unshift(driveSongEntry);
+            if (!userLibrary.songs.includes(0)) userLibrary.songs.unshift(0);
+            saveLibraryToDisk();
+            saveToPermanentLibrary(id, info);
         }
-    };
+        if (typeof renderPlaylist === 'function') renderPlaylist();
 
-    runPipeline();
+    } catch (err) {
+        console.error(" Dual-Stage Fetch Failed:", err);
+    }
 }
 
 
+//seek bar ko btao gana kitna bda hai
+setInterval(() => {
+    if (audioCtx && audioCtx.state === 'running') {
+        // Kitna samay beet gaya (currentTime)
+        const elapsed = audioCtx.currentTime; 
+        const seekBar = document.getElementById('seek-bar');
+        const currentText = document.getElementById('current');
+        
+        // Agar iTunes se duration mil chuki hai toh hilaao
+        if (seekBar && totalDuration) {
+            const progress = (elapsed / totalDuration) * 100;
+            seekBar.value = progress;
+            if (currentText) currentText.innerText = formatTime(elapsed);
+        }
+    }
+}, 500);
 
 
 // Memory save function
@@ -784,16 +869,19 @@ async function loadSong(index) {
     audio.onended = () => nextSong();
 }
 
-function togglePlay() { 
-    if(!audio) return;
-    if(audio.paused) { 
-        audio.play(); 
-        updatePlayIcons(true); 
-    } else { 
-        audio.pause(); 
-        updatePlayIcons(false); 
-    } 
+function togglePlay() {
+    if (!audioCtx) return;
+
+    if (audioCtx.state === 'running') {
+        audioCtx.suspend(); 
+        updatePlayIcons(false);
+    } else if (audioCtx.state === 'suspended') {
+        audioCtx.resume(); 
+        updatePlayIcons(true);
+        if(typeof triggerHardwareKick === "function") triggerHardwareKick();
+    }
 }
+
 
 
 
@@ -2274,3 +2362,26 @@ function parseLRC(lrcContent) {
     });
 }
 // --- LYRICS ENGINE END ---
+
+
+// Har 500ms mein seek bar aur time ko update karega
+setInterval(() => {
+    if (audioCtx && audioCtx.state === 'running') {
+        const seekBar = document.getElementById('seek-bar');
+        const currentText = document.getElementById('current');
+        const durationText = document.getElementById('duration');
+
+        // Web Audio API ka current time
+        const elapsed = audioCtx.currentTime;
+
+        if (seekBar && totalDuration) {
+            // Seek bar ki position set karo (0 se 100)
+            seekBar.value = (elapsed / totalDuration) * 100;
+            
+            // Time text update karo
+            if (currentText) currentText.innerText = formatTime(elapsed);
+            if (durationText) durationText.innerText = formatTime(totalDuration);
+        }
+    }
+}, 500);
+
