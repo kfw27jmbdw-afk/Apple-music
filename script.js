@@ -429,7 +429,8 @@ async function fetchMusicMeta(id, query) {
     }
 }
 
-
+// Function ke bahar top par
+let currentAbortController = null; 
 
 async function loadAndPlayDriveSong(id, info) {
     const logger = document.getElementById('debug-log');
