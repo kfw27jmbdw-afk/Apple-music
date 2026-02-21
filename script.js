@@ -431,84 +431,70 @@ async function fetchMusicMeta(id, query) {
 
 
 
-let currentAbortController = null;
-
 async function loadAndPlayDriveSong(id, info) {
     const logger = document.getElementById('debug-log');
     const bBar = document.getElementById('buffer-bar');
     const updateLog = (msg) => { if(logger) logger.innerText = " " + msg; };
 
-    // 1. GHOST KILLER: Purani loading khatam
     if (currentAbortController) currentAbortController.abort();
     currentAbortController = new AbortController();
     const signal = currentAbortController.signal;
 
-    // Reset Audio Engine
     if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-    nextStartTime = audioCtx.currentTime;
-    if (bBar) bBar.style.width = "0%";
+    // Hum variables ko bahar rakhenge taaki dono tasks share kar sakein
+    let chunk1Duration = 0;
+    let baseTime = audioCtx.currentTime;
 
-    updateLog("Firing Double Request...");
+    updateLog("Firing Parallel Chunks...");
 
-    // 🟢 CHUNK 1: 1MB (Primary)
-    const task1 = async () => {
-        updateLog("Fetching Chunk 1 (1MB)...");
-        const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-            headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=0-1048576' },
-            signal: signal
-        });
-        const ab = await res.arrayBuffer();
-        const buf = await audioCtx.decodeAudioData(ab);
-        const src = audioCtx.createBufferSource();
-        src.buffer = buf;
-        src.connect(audioCtx.destination);
-        src.start(nextStartTime);
-        window.activeSources.push(src);
-        nextStartTime += buf.duration;
-        
-        updateLog("Chunk 1 Playing...");
-        if (bBar) bBar.style.width = "40%";
-        updatePlayIcons(true);
-    };
+    // 🟢 TASK 1: CHUNK 1 (0-1MB)
+    const task1 = fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=0-1048576' },
+        signal: signal
+    }).then(res => res.arrayBuffer())
+      .then(ab => audioCtx.decodeAudioData(ab))
+      .then(buf => {
+          chunk1Duration = buf.duration;
+          const src = audioCtx.createBufferSource();
+          src.buffer = buf;
+          src.connect(audioCtx.destination);
+          src.start(baseTime);
+          window.activeSources.push(src);
+          updateLog("Chunk 1 Playing...");
+          if (bBar) bBar.style.width = "40%";
+          updatePlayIcons(true);
+          return buf.duration;
+      });
 
-    // 🟢 CHUNK 2: 500KB (Background - Triggered immediately)
-    const task2 = async () => {
-        try {
-            updateLog("Chunk 2 (500KB) loading in BG...");
-            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-                headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=1048577-1572864' },
-                signal: signal
-            });
-            const ab = await res.arrayBuffer();
-            const buf = await audioCtx.decodeAudioData(ab);
-            
-            if (!signal.aborted) {
-                const src = audioCtx.createBufferSource();
-                src.buffer = buf;
-                src.connect(audioCtx.destination);
-                // Yeh Chunk 1 ke khatam hote hi bajna chahiye
-                src.start(nextStartTime); 
-                window.activeSources.push(src);
-                updateLog("Chunk 2 Synced & Ready!");
-                if (bBar) bBar.style.width = "70%";
-            }
-        } catch (e) {
-            if (e.name !== 'AbortError') updateLog("Chunk 2 Fail: " + e.message);
-        }
-    };
+    // 🟢 TASK 2: CHUNK 2 (1MB-2MB) - ISSE BINA WAIT KIYE FIRE KAR DIYA
+    const task2 = fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=1048577-2097152' },
+        signal: signal
+    }).then(res => res.arrayBuffer())
+      .then(ab => audioCtx.decodeAudioData(ab))
+      .then(async (buf) => {
+          // Yahan humein bas ye ensure karna hai ki Task 1 decode ho chuka ho timing ke liye
+          const d1 = await task1; 
+          if (!signal.aborted) {
+              const src = audioCtx.createBufferSource();
+              src.buffer = buf;
+              src.connect(audioCtx.destination);
+              // Chunk 1 ke theek baad schedule
+              src.start(baseTime + d1); 
+              window.activeSources.push(src);
+              updateLog("Chunk 2 Synced (50s+ Ready)");
+              if (bBar) bBar.style.width = "80%";
+          }
+      });
 
-    // 🚀 DONO EK SAATH FIRE KARO
-    task1().then(() => {
-        task2();
+    // Dono ko parallel handle karo
+    Promise.all([task1, task2]).catch(e => {
+        if (e.name !== 'AbortError') updateLog("Parallel Fail: " + e.message);
     });
 }
-
-
-
-
 
 
 
