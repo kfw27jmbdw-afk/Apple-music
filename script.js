@@ -431,56 +431,61 @@ async function fetchMusicMeta(id, query) {
 
 
 
-async function loadAndPlayDriveSong(id, info) {
-    // 1. GHOST KILLER: Purane gaane ke nodes khatam karo
-    if (window.activeSources) {
-        window.activeSources.forEach(source => { try { source.stop(); } catch(e) {} });
-        window.activeSources = [];
-    } else {
-        window.activeSources = []; 
-    }
+let currentAbortController = null; // Global variable top pe dalo
 
+async function loadAndPlayDriveSong(id, info) {
+    // 1. TURANT PURANI LOADING BAND KARO (Ghost Killer)
+    if (currentAbortController) {
+        currentAbortController.abort(); 
+        console.log(" V24: Previous song loading KILLED.");
+    }
+    currentAbortController = new AbortController();
+    const signal = currentAbortController.signal;
+
+    // 2. DROPBOX/LOCAL STOP
+    const audioTag = document.getElementById('main-audio');
+    if (audioTag) { audioTag.pause(); audioTag.src = ""; }
+
+    // 3. AUDIO CONTEXT RESET
+    if (window.activeSources) {
+        window.activeSources.forEach(s => { try { s.stop(); } catch(e) {} });
+        window.activeSources = [];
+    }
     if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
 
-    // 2. NEW ENGINE START
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     nextStartTime = audioCtx.currentTime;
     let currentByte = 0;
-    const chunkSize = 1024 * 512; // 512KB (~15 sec)
+    const chunkSize = 1024 * 512; 
 
-    // UI Reset (Buffer bar ko 0 se shuru karo)
+    // UI Reset
     const bufferBar = document.getElementById('buffer-bar');
     if (bufferBar) bufferBar.style.width = "0%";
-    
     document.getElementById('player-title').innerText = info.title;
-    document.getElementById('player-artist').innerText = info.artist;
     document.getElementById('song-image').src = info.artwork;
-    if(typeof maximizePlayer === "function") maximizePlayer();
+    
+    // Mini Player Reveal
+    const mini = document.getElementById('mini-player');
+    if (mini) { mini.style.display = 'flex'; mini.style.opacity = '1'; }
 
-    // 🟢 THE STITCHER: Isme buffer line ka calculation fixed hai
+    // 🟢 STITCHER WITH SIGNAL (Loading Control)
     async function fetchAndStitchChunk(start, end) {
         try {
             const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
                 headers: { 
                     'Authorization': `Bearer ${accessToken}`,
                     'Range': `bytes=${start}-${end}` 
-                }
+                },
+                signal: signal // Ye line purani loading rokti hai
             });
 
             if (!response.ok) return 0;
 
-            // 🟢 RED BUFFER BAR CALCULATION (Visual Sync)
             const contentRange = response.headers.get('content-range');
-            const bufferBar = document.getElementById('buffer-bar');
-            
             if (contentRange && bufferBar) {
-                // Formula: (Current Byte / Total Bytes) * 100
                 const totalSize = parseInt(contentRange.split('/')[1]);
                 const progress = (end / totalSize) * 100;
-                
-                // Update the Red Bar
                 bufferBar.style.width = `${Math.min(progress, 100)}%`;
-                console.log(` Buffering: ${Math.round(progress)}%`);
             }
 
             const arrayBuffer = await response.arrayBuffer();
@@ -490,7 +495,9 @@ async function loadAndPlayDriveSong(id, info) {
             source.buffer = audioBuffer;
             source.connect(audioCtx.destination);
 
-            const startTime = Math.max(audioCtx.currentTime, nextStartTime);
+            // Audio Sync Fix: 11 second wala gap bharne ke liye
+            const now = audioCtx.currentTime;
+            const startTime = Math.max(now, nextStartTime);
             source.start(startTime);
             
             window.activeSources.push(source); 
@@ -498,41 +505,36 @@ async function loadAndPlayDriveSong(id, info) {
             
             return arrayBuffer.byteLength;
         } catch (e) {
-            console.error(" Stitching Error:", e);
+            if (e.name === 'AbortError') console.log(" Fetch Aborted");
             return 0;
         }
     }
 
-
+    // Pipeline Execution
     try {
-        // Stage 1: Instant Start
-        const bytesRead = await fetchAndStitchChunk(0, chunkSize);
-        if (bytesRead > 0) {
-            currentByte = bytesRead + 1;
+        const firstRead = await fetchAndStitchChunk(0, chunkSize);
+        if (firstRead > 0) {
+            currentByte = firstRead + 1;
             updatePlayIcons(true);
-            if (typeof triggerHardwareKick === "function") triggerHardwareKick();
-        }
-
-        // Stage 2: Background Pipeline (Isse gaana 10s baad nahi rukega)
-        const runPipeline = async () => {
-            while (true) {
-                // Buffer management: Agar 20s ka data hai toh wait karo
-                if (nextStartTime - audioCtx.currentTime > 20) {
-                    await new Promise(r => setTimeout(r, 1000));
-                    continue;
+            
+            // Loop for next chunks
+            const runPipeline = async () => {
+                while (!signal.aborted) {
+                    // Agar agla chunk load hone mein time hai toh wait karo
+                    if (nextStartTime - audioCtx.currentTime > 15) {
+                        await new Promise(r => setTimeout(r, 1000));
+                        continue;
+                    }
+                    const read = await fetchAndStitchChunk(currentByte, currentByte + chunkSize);
+                    if (read === 0) break;
+                    currentByte += read;
                 }
-
-                const read = await fetchAndStitchChunk(currentByte, currentByte + chunkSize);
-                if (read === 0) break; 
-                currentByte += read;
-            }
-        };
-        runPipeline();
-
-    } catch (err) {
-        console.error(" Engine Failure:", err);
-    }
+            };
+            runPipeline();
+        }
+    } catch (err) { console.error("Engine Error", err); }
 }
+
 
 
 
