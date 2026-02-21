@@ -440,61 +440,68 @@ async function loadAndPlayDriveSong(id, info) {
     currentAbortController = new AbortController();
     const signal = currentAbortController.signal;
 
+    // Reset Engine
     if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // iOS Safari Force Start
     if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-    // Hum variables ko bahar rakhenge taaki dono tasks share kar sakein
-    let chunk1Duration = 0;
     let baseTime = audioCtx.currentTime;
+    let d1 = 0; // Chunk 1 duration
 
-    updateLog("Firing Parallel Chunks...");
+    updateLog("Double Fire: Loading...");
+    if (bBar) bBar.style.width = "0%";
 
-    // 🟢 TASK 1: CHUNK 1 (0-1MB)
-    const task1 = fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+    // 🟢 FETCH 1: Click ke turant baad
+    const req1 = fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=0-1048576' },
         signal: signal
-    }).then(res => res.arrayBuffer())
-      .then(ab => audioCtx.decodeAudioData(ab))
-      .then(buf => {
-          chunk1Duration = buf.duration;
-          const src = audioCtx.createBufferSource();
-          src.buffer = buf;
-          src.connect(audioCtx.destination);
-          src.start(baseTime);
-          window.activeSources.push(src);
-          updateLog("Chunk 1 Playing...");
-          if (bBar) bBar.style.width = "40%";
-          updatePlayIcons(true);
-          return buf.duration;
-      });
+    }).then(r => r.arrayBuffer());
 
-    // 🟢 TASK 2: CHUNK 2 (1MB-2MB) - ISSE BINA WAIT KIYE FIRE KAR DIYA
-    const task2 = fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+    // 🟢 FETCH 2: Bina wait kiye, Click ke 1ms baad
+    const req2 = fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
         headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=1048577-2097152' },
         signal: signal
-    }).then(res => res.arrayBuffer())
-      .then(ab => audioCtx.decodeAudioData(ab))
-      .then(async (buf) => {
-          // Yahan humein bas ye ensure karna hai ki Task 1 decode ho chuka ho timing ke liye
-          const d1 = await task1; 
-          if (!signal.aborted) {
-              const src = audioCtx.createBufferSource();
-              src.buffer = buf;
-              src.connect(audioCtx.destination);
-              // Chunk 1 ke theek baad schedule
-              src.start(baseTime + d1); 
-              window.activeSources.push(src);
-              updateLog("Chunk 2 Synced (50s+ Ready)");
-              if (bBar) bBar.style.width = "80%";
-          }
-      });
+    }).then(r => r.arrayBuffer());
 
-    // Dono ko parallel handle karo
-    Promise.all([task1, task2]).catch(e => {
-        if (e.name !== 'AbortError') updateLog("Parallel Fail: " + e.message);
-    });
+    // Processing Chunk 1
+    req1.then(ab => audioCtx.decodeAudioData(ab)).then(buf => {
+        if (signal.aborted) return;
+        d1 = buf.duration;
+        const src = audioCtx.createBufferSource();
+        src.buffer = buf;
+        src.connect(audioCtx.destination);
+        src.start(baseTime);
+        window.activeSources.push(src);
+        
+        updateLog("Chunk 1 Playing...");
+        if (bBar) bBar.style.width = "40%";
+        updatePlayIcons(true);
+    }).catch(e => updateLog("C1 Error: " + e.message));
+
+    // Processing Chunk 2 (Parallel)
+    req2.then(ab => audioCtx.decodeAudioData(ab)).then(buf => {
+        if (signal.aborted) return;
+        
+        // Wait loop: Jab tak d1 set na ho jaye (Timing sync)
+        const checkAndStart = () => {
+            if (d1 > 0) {
+                const src = audioCtx.createBufferSource();
+                src.buffer = buf;
+                src.connect(audioCtx.destination);
+                src.start(baseTime + d1);
+                window.activeSources.push(src);
+                updateLog("Chunk 2 Synced!");
+                if (bBar) bBar.style.width = "80%";
+            } else {
+                setTimeout(checkAndStart, 100); // 100ms baad fir check karo
+            }
+        };
+        checkAndStart();
+    }).catch(e => updateLog("C2 Error: " + e.message));
 }
+
 
 
 
