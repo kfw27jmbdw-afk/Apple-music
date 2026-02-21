@@ -432,19 +432,15 @@ async function fetchMusicMeta(id, query) {
 
 
 async function loadAndPlayDriveSong(id, info) {
-    // 1. GHOST EXORCIST: Purane gaane ke saare nodes aur context khatam karo
-    if (typeof activeSources !== 'undefined') {
-        activeSources.forEach(source => {
-            try { source.stop(); } catch(e) {}
-        });
-        activeSources = [];
+    // 1. GHOST KILLER: Purane gaane ke nodes khatam karo
+    if (window.activeSources) {
+        window.activeSources.forEach(source => { try { source.stop(); } catch(e) {} });
+        window.activeSources = [];
     } else {
         window.activeSources = []; 
     }
 
-    if (audioCtx) {
-        try { await audioCtx.close(); } catch(e) {}
-    }
+    if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
 
     // 2. NEW ENGINE START
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -452,13 +448,16 @@ async function loadAndPlayDriveSong(id, info) {
     let currentByte = 0;
     const chunkSize = 1024 * 512; // 512KB (~15 sec)
 
-    // UI Updates
+    // UI Reset (Buffer bar ko 0 se shuru karo)
+    const bufferBar = document.getElementById('buffer-bar');
+    if (bufferBar) bufferBar.style.width = "0%";
+    
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('player-artist').innerText = info.artist;
     document.getElementById('song-image').src = info.artwork;
     if(typeof maximizePlayer === "function") maximizePlayer();
 
-    // 🟢 THE STITCHER FUNCTION (YouTube Style Buffer Included)
+    // 🟢 THE STITCHER: Isme buffer line ka calculation fixed hai
     async function fetchAndStitchChunk(start, end) {
         try {
             const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
@@ -470,12 +469,15 @@ async function loadAndPlayDriveSong(id, info) {
 
             if (!response.ok) return 0;
 
-            // Buffer Bar (YouTube Line) Update
+            // ---  BUFFER LINE CALCULATION ---
             const contentRange = response.headers.get('content-range');
             if (contentRange) {
                 const totalSize = parseInt(contentRange.split('/')[1]);
-                const bufferBar = document.getElementById('buffer-bar');
-                if (bufferBar) bufferBar.style.width = `${(end / totalSize) * 100}%`;
+                const loadedProgress = (end / totalSize) * 100;
+                // Buffer bar ko update karo (YouTube style)
+                if (bufferBar) {
+                    bufferBar.style.width = `${Math.min(loadedProgress, 100)}%`;
+                }
             }
 
             const arrayBuffer = await response.arrayBuffer();
@@ -488,7 +490,7 @@ async function loadAndPlayDriveSong(id, info) {
             const startTime = Math.max(audioCtx.currentTime, nextStartTime);
             source.start(startTime);
             
-            activeSources.push(source); // Ghost protection list
+            window.activeSources.push(source); 
             nextStartTime = startTime + audioBuffer.duration;
             
             return arrayBuffer.byteLength;
@@ -498,7 +500,6 @@ async function loadAndPlayDriveSong(id, info) {
         }
     }
 
-    // 🟢 EXECUTION: STAGE 1 & 2
     try {
         // Stage 1: Instant Start
         const bytesRead = await fetchAndStitchChunk(0, chunkSize);
@@ -508,40 +509,25 @@ async function loadAndPlayDriveSong(id, info) {
             if (typeof triggerHardwareKick === "function") triggerHardwareKick();
         }
 
-        // Stage 2: Recursive Pipeline (Continuous Loading)
+        // Stage 2: Background Pipeline (Isse gaana 10s baad nahi rukega)
         const runPipeline = async () => {
             while (true) {
-                // Agar 20 second se zyada ka gaana load ho chuka hai, toh thoda wait karo
+                // Buffer management: Agar 20s ka data hai toh wait karo
                 if (nextStartTime - audioCtx.currentTime > 20) {
                     await new Promise(r => setTimeout(r, 1000));
                     continue;
                 }
 
                 const read = await fetchAndStitchChunk(currentByte, currentByte + chunkSize);
-                if (read === 0) {
-                    console.log(" V24: Full Song Stitched Successfully.");
-                    break; 
-                }
+                if (read === 0) break; 
                 currentByte += read;
             }
         };
         runPipeline();
 
     } catch (err) {
-        console.error(" Playback Engine Failed:", err);
+        console.error(" Engine Failure:", err);
     }
-
-    // Smart Injector (Playlist Sync)
-    const driveSongEntry = {
-        "name": info.title, "artist": info.artist, "url": "STREAM_V24",
-        "img": info.artwork, "isDrive": true, "driveId": id
-    };
-    let existingIndex = playlist.findIndex(s => s.driveId === id);
-    if (existingIndex === -1) {
-        playlist.unshift(driveSongEntry);
-        savePlaylistToDisk();
-    }
-    if (typeof renderPlaylist === 'function') renderPlaylist();
 }
 
 
