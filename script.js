@@ -431,32 +431,28 @@ async function fetchMusicMeta(id, query) {
 
 
 
-let currentAbortController = null; // Global variable top pe dalo
+let currentAbortController = null;
 
 async function loadAndPlayDriveSong(id, info) {
-    // 1. TURANT PURANI LOADING BAND KARO (Ghost Killer)
-    if (currentAbortController) {
-        currentAbortController.abort(); 
-        console.log(" V24: Previous song loading KILLED.");
-    }
+    // 1. GHOST KILLER: Purani loading aur audio ko jad se khatam karo
+    if (currentAbortController) currentAbortController.abort();
     currentAbortController = new AbortController();
     const signal = currentAbortController.signal;
 
-    // 2. DROPBOX/LOCAL STOP
     const audioTag = document.getElementById('main-audio');
     if (audioTag) { audioTag.pause(); audioTag.src = ""; }
 
-    // 3. AUDIO CONTEXT RESET
     if (window.activeSources) {
         window.activeSources.forEach(s => { try { s.stop(); } catch(e) {} });
         window.activeSources = [];
     }
     if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
 
+    // 2. NEW ENGINE INIT
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     nextStartTime = audioCtx.currentTime;
     let currentByte = 0;
-    const chunkSize = 1024 * 512; 
+    const chunkSize = 1024 * 1024; // 🟢 1MB chunks (Faster and more stable)
 
     // UI Reset
     const bufferBar = document.getElementById('buffer-bar');
@@ -464,28 +460,27 @@ async function loadAndPlayDriveSong(id, info) {
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('song-image').src = info.artwork;
     
-    // Mini Player Reveal
     const mini = document.getElementById('mini-player');
     if (mini) { mini.style.display = 'flex'; mini.style.opacity = '1'; }
 
-    // 🟢 STITCHER WITH SIGNAL (Loading Control)
+    // 🟢 THE STITCHER (Fixed Buffer Calculation)
     async function fetchAndStitchChunk(start, end) {
         try {
             const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-                headers: { 
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Range': `bytes=${start}-${end}` 
-                },
-                signal: signal // Ye line purani loading rokti hai
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=${start}-${end}` },
+                signal: signal
             });
 
             if (!response.ok) return 0;
 
+            // 🟢 RED LINE SYNC: YouTube style buffer bar update
             const contentRange = response.headers.get('content-range');
             if (contentRange && bufferBar) {
                 const totalSize = parseInt(contentRange.split('/')[1]);
+                // Hum 'end' tak ka percentage dikhayenge
                 const progress = (end / totalSize) * 100;
                 bufferBar.style.width = `${Math.min(progress, 100)}%`;
+                console.log(` Engine: Buffer at ${Math.round(progress)}%`);
             }
 
             const arrayBuffer = await response.arrayBuffer();
@@ -495,9 +490,8 @@ async function loadAndPlayDriveSong(id, info) {
             source.buffer = audioBuffer;
             source.connect(audioCtx.destination);
 
-            // Audio Sync Fix: 11 second wala gap bharne ke liye
-            const now = audioCtx.currentTime;
-            const startTime = Math.max(now, nextStartTime);
+            // Audio synchronization logic
+            const startTime = Math.max(audioCtx.currentTime, nextStartTime);
             source.start(startTime);
             
             window.activeSources.push(source); 
@@ -505,35 +499,39 @@ async function loadAndPlayDriveSong(id, info) {
             
             return arrayBuffer.byteLength;
         } catch (e) {
-            if (e.name === 'AbortError') console.log(" Fetch Aborted");
+            if (e.name !== 'AbortError') console.error(" Engine Chunk Error:", e);
             return 0;
         }
     }
 
-    // Pipeline Execution
+    // 3. PIPELINE EXECUTION (Anti-Lag Loop)
     try {
-        const firstRead = await fetchAndStitchChunk(0, chunkSize);
-        if (firstRead > 0) {
-            currentByte = firstRead + 1;
+        // Stage 1: Fast Start
+        const bytesRead = await fetchAndStitchChunk(currentByte, currentByte + chunkSize);
+        if (bytesRead > 0) {
+            currentByte += bytesRead; // 🟢 Sahi increment logic
             updatePlayIcons(true);
             
-            // Loop for next chunks
+            // Stage 2: Recursive loading
             const runPipeline = async () => {
                 while (!signal.aborted) {
-                    // Agar agla chunk load hone mein time hai toh wait karo
+                    // 🟢 PRE-BUFFER: 15s bacha ho tabhi agla chunk uthao
                     if (nextStartTime - audioCtx.currentTime > 15) {
-                        await new Promise(r => setTimeout(r, 1000));
+                        await new Promise(r => setTimeout(r, 800));
                         continue;
                     }
+                    
                     const read = await fetchAndStitchChunk(currentByte, currentByte + chunkSize);
-                    if (read === 0) break;
-                    currentByte += read;
+                    if (read <= 0) break; 
+                    currentByte += read; // 🟢 Next chunk start position
                 }
+                console.log(" Engine: Song fully loaded.");
             };
             runPipeline();
         }
     } catch (err) { console.error("Engine Error", err); }
 }
+
 
 
 
