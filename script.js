@@ -503,34 +503,49 @@ async function loadAndPlayDriveSong(id, info) {
             return 0;
         }
     }
+    // ... (Upar ka audioCtx setup aur fetchAndStitchChunk function wahi rehne de)
 
-    // 3. PIPELINE EXECUTION (Anti-Lag Loop)
+    // 🟢 IS PURAY BLOCK KO REPLACE KARO (From Try to Catch)
     try {
-        // Stage 1: Fast Start
-        const bytesRead = await fetchAndStitchChunk(currentByte, currentByte + chunkSize);
-        if (bytesRead > 0) {
-            currentByte += bytesRead; // 🟢 Sahi increment logic
+        // 1. Pehla chunk (0 to 1MB) turant load karo
+        const firstRead = await fetchAndStitchChunk(0, chunkSize);
+        
+        if (firstRead > 0) {
+            currentByte = firstRead + 1; 
             updatePlayIcons(true);
             
-            // Stage 2: Recursive loading
+            // 2. AGGRESSIVE PIPELINE: Ye background mein check karta rahega
             const runPipeline = async () => {
+                console.log(" Engine: Pipeline Started...");
+                
                 while (!signal.aborted) {
-                    // 🟢 PRE-BUFFER: 15s bacha ho tabhi agla chunk uthao
-                    if (nextStartTime - audioCtx.currentTime > 15) {
-                        await new Promise(r => setTimeout(r, 800));
-                        continue;
-                    }
+                    // Buffer Check: Agar bacha hua gaana 10 sec se kam hai
+                    const bufferLeft = nextStartTime - audioCtx.currentTime;
                     
-                    const read = await fetchAndStitchChunk(currentByte, currentByte + chunkSize);
-                    if (read <= 0) break; 
-                    currentByte += read; // 🟢 Next chunk start position
+                    if (bufferLeft < 10) { 
+                        console.log(` Engine: Buffer low (${Math.round(bufferLeft)}s). Fetching next chunk...`);
+                        
+                        const read = await fetchAndStitchChunk(currentByte, currentByte + chunkSize);
+                        
+                        if (read <= 0) {
+                            console.log(" Engine: End of file reached.");
+                            break;
+                        }
+                        currentByte += read; 
+                    }
+
+                    // Har 1 second mein check karo
+                    await new Promise(r => setTimeout(r, 1000));
                 }
-                console.log(" Engine: Song fully loaded.");
             };
-            runPipeline();
+
+            runPipeline(); // Background mein shuru karo
         }
-    } catch (err) { console.error("Engine Error", err); }
-}
+    } catch (err) {
+        console.error(" Engine Fatal Error:", err);
+    }
+} // Yeh function ka aakhri bracket hai
+
 
 
 
@@ -2372,3 +2387,4 @@ setInterval(() => {
         }
     }
 }, 500);
+
