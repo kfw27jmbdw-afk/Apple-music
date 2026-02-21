@@ -434,117 +434,78 @@ async function fetchMusicMeta(id, query) {
 let currentAbortController = null;
 
 async function loadAndPlayDriveSong(id, info) {
-    // 1. GHOST KILLER: Purani loading aur audio ko jad se khatam karo
+    const logger = document.getElementById('debug-log');
+    const bBar = document.getElementById('buffer-bar');
+    const updateLog = (msg) => { if(logger) logger.innerText = " " + msg; };
+
+    // 1. GHOST KILLER: Purani loading khatam
     if (currentAbortController) currentAbortController.abort();
     currentAbortController = new AbortController();
     const signal = currentAbortController.signal;
 
-    const audioTag = document.getElementById('main-audio');
-    if (audioTag) { audioTag.pause(); audioTag.src = ""; }
-
-    if (window.activeSources) {
-        window.activeSources.forEach(s => { try { s.stop(); } catch(e) {} });
-        window.activeSources = [];
-    }
+    // Reset Audio Engine
     if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
-
-    // 2. NEW ENGINE INIT
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
     nextStartTime = audioCtx.currentTime;
-    let currentByte = 0;
-    const chunkSize = 1024 * 1024; // 🟢 1MB chunks (Faster and more stable)
+    if (bBar) bBar.style.width = "0%";
 
-    // UI Reset
-    const bufferBar = document.getElementById('buffer-bar');
-    if (bufferBar) bufferBar.style.width = "0%";
-    document.getElementById('player-title').innerText = info.title;
-    document.getElementById('song-image').src = info.artwork;
-    
-    const mini = document.getElementById('mini-player');
-    if (mini) { mini.style.display = 'flex'; mini.style.opacity = '1'; }
+    updateLog("Firing Double Request...");
 
-    // 🟢 THE STITCHER (Fixed Buffer Calculation)
-    async function fetchAndStitchChunk(start, end) {
+    // 🟢 CHUNK 1: 1MB (Primary)
+    const task1 = async () => {
+        updateLog("Fetching Chunk 1 (1MB)...");
+        const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=0-1048576' },
+            signal: signal
+        });
+        const ab = await res.arrayBuffer();
+        const buf = await audioCtx.decodeAudioData(ab);
+        const src = audioCtx.createBufferSource();
+        src.buffer = buf;
+        src.connect(audioCtx.destination);
+        src.start(nextStartTime);
+        window.activeSources.push(src);
+        nextStartTime += buf.duration;
+        
+        updateLog("Chunk 1 Playing...");
+        if (bBar) bBar.style.width = "40%";
+        updatePlayIcons(true);
+    };
+
+    // 🟢 CHUNK 2: 500KB (Background - Triggered immediately)
+    const task2 = async () => {
         try {
-            const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-                headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=${start}-${end}` },
+            updateLog("Chunk 2 (500KB) loading in BG...");
+            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=1048577-1572864' },
                 signal: signal
             });
-
-            if (!response.ok) return 0;
-
-            // 🟢 RED LINE SYNC: YouTube style buffer bar update
-            const contentRange = response.headers.get('content-range');
-            if (contentRange && bufferBar) {
-                const totalSize = parseInt(contentRange.split('/')[1]);
-                // Hum 'end' tak ka percentage dikhayenge
-                const progress = (end / totalSize) * 100;
-                bufferBar.style.width = `${Math.min(progress, 100)}%`;
-                console.log(` Engine: Buffer at ${Math.round(progress)}%`);
+            const ab = await res.arrayBuffer();
+            const buf = await audioCtx.decodeAudioData(ab);
+            
+            if (!signal.aborted) {
+                const src = audioCtx.createBufferSource();
+                src.buffer = buf;
+                src.connect(audioCtx.destination);
+                // Yeh Chunk 1 ke khatam hote hi bajna chahiye
+                src.start(nextStartTime); 
+                window.activeSources.push(src);
+                updateLog("Chunk 2 Synced & Ready!");
+                if (bBar) bBar.style.width = "70%";
             }
-
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-
-            const source = audioCtx.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioCtx.destination);
-
-            // Audio synchronization logic
-            const startTime = Math.max(audioCtx.currentTime, nextStartTime);
-            source.start(startTime);
-            
-            window.activeSources.push(source); 
-            nextStartTime = startTime + audioBuffer.duration;
-            
-            return arrayBuffer.byteLength;
         } catch (e) {
-            if (e.name !== 'AbortError') console.error(" Engine Chunk Error:", e);
-            return 0;
+            if (e.name !== 'AbortError') updateLog("Chunk 2 Fail: " + e.message);
         }
-    }
-    // ... (Upar ka audioCtx setup aur fetchAndStitchChunk function wahi rehne de)
+    };
 
-    // 🟢 IS PURAY BLOCK KO REPLACE KARO (From Try to Catch)
-    try {
-        // 1. Pehla chunk (0 to 1MB) turant load karo
-        const firstRead = await fetchAndStitchChunk(0, chunkSize);
-        
-        if (firstRead > 0) {
-            currentByte = firstRead + 1; 
-            updatePlayIcons(true);
-            
-            // 2. AGGRESSIVE PIPELINE: Ye background mein check karta rahega
-            const runPipeline = async () => {
-                console.log(" Engine: Pipeline Started...");
-                
-                while (!signal.aborted) {
-                    // Buffer Check: Agar bacha hua gaana 10 sec se kam hai
-                    const bufferLeft = nextStartTime - audioCtx.currentTime;
-                    
-                    if (bufferLeft < 10) { 
-                        console.log(` Engine: Buffer low (${Math.round(bufferLeft)}s). Fetching next chunk...`);
-                        
-                        const read = await fetchAndStitchChunk(currentByte, currentByte + chunkSize);
-                        
-                        if (read <= 0) {
-                            console.log(" Engine: End of file reached.");
-                            break;
-                        }
-                        currentByte += read; 
-                    }
+    // 🚀 DONO EK SAATH FIRE KARO
+    task1().then(() => {
+        task2();
+    });
+}
 
-                    // Har 1 second mein check karo
-                    await new Promise(r => setTimeout(r, 1000));
-                }
-            };
-
-            runPipeline(); // Background mein shuru karo
-        }
-    } catch (err) {
-        console.error(" Engine Fatal Error:", err);
-    }
-} // Yeh function ka aakhri bracket hai
 
 
 
