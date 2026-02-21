@@ -432,33 +432,33 @@ async function fetchMusicMeta(id, query) {
 
 
 async function loadAndPlayDriveSong(id, info) {
-    // 1. Reset & Setup Context
-    // Purana context band karo agar chal raha hai
-    if (audioCtx) {
-        try { audioCtx.close(); } catch(e) {}
+    // 1. GHOST EXORCIST: Purane gaane ke saare nodes aur context khatam karo
+    if (typeof activeSources !== 'undefined') {
+        activeSources.forEach(source => {
+            try { source.stop(); } catch(e) {}
+        });
+        activeSources = [];
+    } else {
+        window.activeSources = []; 
     }
-    
-    // Naya Context shuru karo
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    audioChain = []; // Scheduled chunks track karne ke liye
-    nextStartTime = audioCtx.currentTime;
-    currentByte = 0;
-    const chunkSize = 1024 * 512; // 512KB (~15 sec chunks)
 
-    // 2. UI Updates (Instant Response)
+    if (audioCtx) {
+        try { await audioCtx.close(); } catch(e) {}
+    }
+
+    // 2. NEW ENGINE START
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    nextStartTime = audioCtx.currentTime;
+    let currentByte = 0;
+    const chunkSize = 1024 * 512; // 512KB (~15 sec)
+
+    // UI Updates
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('player-artist').innerText = info.artist;
     document.getElementById('song-image').src = info.artwork;
-    
-    document.getElementById('mini-title').innerText = info.title;
-    document.getElementById('mini-artist').innerText = info.artist;
-    document.getElementById('mini-img').src = info.artwork;
+    if(typeof maximizePlayer === "function") maximizePlayer();
 
-    // Mini Player show karo agar hidden hai
-    const mini = document.getElementById('mini-player');
-    if(mini) { mini.style.display = 'flex'; mini.style.opacity = '1'; }
-
-    // 3. The Stitcher Logic
+    // 🟢 THE STITCHER FUNCTION (YouTube Style Buffer Included)
     async function fetchAndStitchChunk(start, end) {
         try {
             const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
@@ -468,26 +468,28 @@ async function loadAndPlayDriveSong(id, info) {
                 }
             });
 
-            if (!response.ok) throw new Error("Chunk Fetch Failed");
+            if (!response.ok) return 0;
+
+            // Buffer Bar (YouTube Line) Update
+            const contentRange = response.headers.get('content-range');
+            if (contentRange) {
+                const totalSize = parseInt(contentRange.split('/')[1]);
+                const bufferBar = document.getElementById('buffer-bar');
+                if (bufferBar) bufferBar.style.width = `${(end / totalSize) * 100}%`;
+            }
 
             const arrayBuffer = await response.arrayBuffer();
-            // Decode karke audio buffer banao
             const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
-            // Audio Source taiyaar karo
             const source = audioCtx.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(audioCtx.destination);
 
-            // 🟢 THE PERFECT SYNC: Exact timing par schedule karo
             const startTime = Math.max(audioCtx.currentTime, nextStartTime);
             source.start(startTime);
             
-            // Agla chunk kahan se shuru hoga
+            activeSources.push(source); // Ghost protection list
             nextStartTime = startTime + audioBuffer.duration;
-            
-            // Chain mein save karo taaki future mein control kar sakein
-            audioChain.push({source, duration: audioBuffer.duration});
             
             return arrayBuffer.byteLength;
         } catch (e) {
@@ -496,21 +498,20 @@ async function loadAndPlayDriveSong(id, info) {
         }
     }
 
+    // 🟢 EXECUTION: STAGE 1 & 2
     try {
-        // --- STAGE 1: FIRST STRIKE (Instant Play) ---
-        console.log(" V24: Fetching Stage 1...");
+        // Stage 1: Instant Start
         const bytesRead = await fetchAndStitchChunk(0, chunkSize);
-        currentByte = bytesRead + 1;
+        if (bytesRead > 0) {
+            currentByte = bytesRead + 1;
+            updatePlayIcons(true);
+            if (typeof triggerHardwareKick === "function") triggerHardwareKick();
+        }
 
-        // Play icons aur hardware kick trigger karo
-        updatePlayIcons(true);
-        if(typeof triggerHardwareKick === "function") triggerHardwareKick();
-        if(typeof maximizePlayer === "function") maximizePlayer();
-
-        // --- STAGE 2: CONTINUOUS PIPELINE (Recursive) ---
+        // Stage 2: Recursive Pipeline (Continuous Loading)
         const runPipeline = async () => {
             while (true) {
-                // Buffer Management: 20 second aage ka buffer kaafi hai
+                // Agar 20 second se zyada ka gaana load ho chuka hai, toh thoda wait karo
                 if (nextStartTime - audioCtx.currentTime > 20) {
                     await new Promise(r => setTimeout(r, 1000));
                     continue;
@@ -518,34 +519,31 @@ async function loadAndPlayDriveSong(id, info) {
 
                 const read = await fetchAndStitchChunk(currentByte, currentByte + chunkSize);
                 if (read === 0) {
-                    console.log(" V24: Full Song Streamed & Stitched.");
+                    console.log(" V24: Full Song Stitched Successfully.");
                     break; 
                 }
                 currentByte += read;
             }
         };
-
         runPipeline();
 
-        // 4. SMART INJECTOR: Playlist sync
-        const driveSongEntry = {
-            "name": info.title, "artist": info.artist, "url": "WEB_AUDIO_STREAM",
-            "img": info.artwork, "isDrive": true, "driveId": id
-        };
-
-        let existingIndex = playlist.findIndex(s => s.driveId === id);
-        if (existingIndex === -1) {
-            playlist.unshift(driveSongEntry);
-            if (!userLibrary.songs.includes(0)) userLibrary.songs.unshift(0);
-            saveLibraryToDisk();
-            saveToPermanentLibrary(id, info);
-        }
-        if (typeof renderPlaylist === 'function') renderPlaylist();
-
     } catch (err) {
-        console.error(" Dual-Stage Fetch Failed:", err);
+        console.error(" Playback Engine Failed:", err);
     }
+
+    // Smart Injector (Playlist Sync)
+    const driveSongEntry = {
+        "name": info.title, "artist": info.artist, "url": "STREAM_V24",
+        "img": info.artwork, "isDrive": true, "driveId": id
+    };
+    let existingIndex = playlist.findIndex(s => s.driveId === id);
+    if (existingIndex === -1) {
+        playlist.unshift(driveSongEntry);
+        savePlaylistToDisk();
+    }
+    if (typeof renderPlaylist === 'function') renderPlaylist();
 }
+
 
 
 //seek bar ko btao gana kitna bda hai
