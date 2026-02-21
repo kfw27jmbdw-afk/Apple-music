@@ -469,15 +469,18 @@ async function loadAndPlayDriveSong(id, info) {
 
             if (!response.ok) return 0;
 
-            // ---  BUFFER LINE CALCULATION ---
+            // 🟢 RED BUFFER BAR CALCULATION (Visual Sync)
             const contentRange = response.headers.get('content-range');
-            if (contentRange) {
+            const bufferBar = document.getElementById('buffer-bar');
+            
+            if (contentRange && bufferBar) {
+                // Formula: (Current Byte / Total Bytes) * 100
                 const totalSize = parseInt(contentRange.split('/')[1]);
-                const loadedProgress = (end / totalSize) * 100;
-                // Buffer bar ko update karo (YouTube style)
-                if (bufferBar) {
-                    bufferBar.style.width = `${Math.min(loadedProgress, 100)}%`;
-                }
+                const progress = (end / totalSize) * 100;
+                
+                // Update the Red Bar
+                bufferBar.style.width = `${Math.min(progress, 100)}%`;
+                console.log(` Buffering: ${Math.round(progress)}%`);
             }
 
             const arrayBuffer = await response.arrayBuffer();
@@ -499,6 +502,7 @@ async function loadAndPlayDriveSong(id, info) {
             return 0;
         }
     }
+
 
     try {
         // Stage 1: Instant Start
