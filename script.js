@@ -434,92 +434,82 @@ let currentAbortController = null;
 
 async function loadAndPlayDriveSong(id, info) {
     const logger = document.getElementById('debug-log');
-    const bBar = document.getElementById('buffer-bar');
     const updateLog = (msg) => { if(logger) logger.innerText = " " + msg; };
 
-    // 1. CLEAR PREVIOUS ENGINE
     if (currentAbortController) currentAbortController.abort();
     currentAbortController = new AbortController();
     const { signal } = currentAbortController;
 
-    updateLog("Analyzing Song...");
+    updateLog("Initializing Stream...");
 
     try {
-        if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
-        window.AudioContext = window.AudioContext || window.webkitAudioContext;
-        audioCtx = new AudioContext();
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        // 1. MediaSource Setup (The pipe)
+        const mediaSource = new MediaSource();
+        const audio = new Audio(); // Hum direct HTML5 Audio use karenge for better streaming
+        audio.src = URL.createObjectURL(mediaSource);
+        
+        // Audio UI integration
+        window.currentAudioElement = audio; 
 
-        // 2. GET TOTAL FILE SIZE
-        const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-            headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=0-0' },
-            signal: signal
+        mediaSource.addEventListener('sourceopen', async () => {
+            const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg'); // MP3 ke liye
+            
+            updateLog("Fetching Metadata...");
+            
+            // Size nikalne ka alternative tarika (Bina Range 0-0 ke)
+            const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=size&access_token=${accessToken}`, { signal });
+            const metadata = await response.json();
+            const totalSize = parseInt(metadata.size);
+
+            if (!totalSize) {
+                updateLog("Error: Size fallback failed");
+                return;
+            }
+
+            updateLog(`Streaming ${Math.round(totalSize/1024/1024)}MB...`);
+
+            // 2. Parallel Chunk Fetching
+            const chunkSize = 1024 * 1024; // 1MB
+            let loadedChunks = 0;
+            const totalExpected = Math.ceil(totalSize / chunkSize);
+
+            const downloadAndAppend = async (start, end, index) => {
+                try {
+                    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+                        headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=${start}-${end}` },
+                        signal: signal
+                    });
+                    const data = await res.arrayBuffer();
+                    
+                    // Yahan hota hai "Stitch and Load"
+                    // Hum SourceBuffer ke ready hone ka wait karke data append karte hain
+                    const appendData = () => {
+                        if (!sourceBuffer.updating && mediaSource.readyState === 'open') {
+                            sourceBuffer.appendBuffer(data);
+                            loadedChunks++;
+                            if (index === 0) audio.play(); // Pehla chunk milte hi play!
+                            updateLog(`Loaded ${loadedChunks}/${totalExpected} chunks`);
+                        } else {
+                            setTimeout(appendData, 100);
+                        }
+                    };
+                    appendData();
+                } catch (e) { console.error("Chunk Error", e); }
+            };
+
+            // Saare chunks ek saath fire karo (Parallel)
+            for (let i = 0; i < totalExpected; i++) {
+                const start = i * chunkSize;
+                const end = Math.min(start + chunkSize - 1, totalSize - 1);
+                downloadAndAppend(start, end, i);
+            }
         });
-        
-        const contentRange = metaRes.headers.get('content-range');
-        const totalSize = contentRange ? parseInt(contentRange.split('/')[1]) : 0;
-        
-        if (!totalSize) throw new Error("File size missing");
-
-        updateLog(`Total: ${Math.round(totalSize/1024/1024)}MB. Fetching Chunks...`);
-        if (bBar) bBar.style.width = "10%";
-
-        // 3. GENERATE DYNAMIC CHUNKS
-        const fetchTasks = [];
-        const firstChunkSize = 512 * 1024; // 1st Block: 512KB
-        const standardChunkSize = 1024 * 1024; // Baki: 1MB
-
-        // Chunk 1 (Special Small Size)
-        fetchTasks.push(
-            fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-                headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=0-${Math.min(firstChunkSize, totalSize) - 1}` },
-                signal: signal
-            }).then(res => res.arrayBuffer())
-        );
-
-        // Baki Chunks (Loop starting after 1st chunk)
-        for (let start = firstChunkSize; start < totalSize; start += standardChunkSize) {
-            const end = Math.min(start + standardChunkSize - 1, totalSize - 1);
-            fetchTasks.push(
-                fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=${start}-${end}` },
-                    signal: signal
-                }).then(res => res.arrayBuffer())
-            );
-        }
-
-        // 4. PARALLEL DOWNLOAD & STITCH
-        const chunks = await Promise.all(fetchTasks);
-        updateLog("Assembling & Decoding...");
-        if (bBar) bBar.style.width = "70%";
-
-        const combinedBuffer = new Uint8Array(totalSize);
-        let offset = 0;
-        chunks.forEach(chunk => {
-            combinedBuffer.set(new Uint8Array(chunk), offset);
-            offset += chunk.byteLength;
-        });
-
-        // 5. DECODE AUDIO DATA
-        const finalAudioBuf = await audioCtx.decodeAudioData(combinedBuffer.buffer);
-        
-        const src = audioCtx.createBufferSource();
-        src.buffer = finalAudioBuf;
-        src.connect(audioCtx.destination);
-        src.start(0);
-        
-        window.activeSources.push(src);
-        updateLog(" Playing Full Song");
-        if (bBar) bBar.style.width = "100%";
-        updatePlayIcons(true);
 
     } catch (err) {
-        if (err.name !== 'AbortError') {
-            updateLog("Error: " + err.message);
-            console.error(err);
-        }
+        updateLog("Stream Error: " + err.message);
     }
 }
+
 
 
 
