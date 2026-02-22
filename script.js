@@ -437,11 +437,12 @@ async function loadAndPlayDriveSong(id, info) {
     const bBar = document.getElementById('buffer-bar');
     const updateLog = (msg) => { if(logger) logger.innerText = " " + msg; };
 
+    // 1. CLEAR PREVIOUS ENGINE
     if (currentAbortController) currentAbortController.abort();
     currentAbortController = new AbortController();
     const { signal } = currentAbortController;
 
-    updateLog("Preparing Full Stitch...");
+    updateLog("Analyzing Song...");
 
     try {
         if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
@@ -449,39 +450,57 @@ async function loadAndPlayDriveSong(id, info) {
         audioCtx = new AudioContext();
         if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-        // 🟢 1. MULTI-CHUNK FETCH (Parallel)
-        const fetchChunk = (range) => fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-            headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=${range}` },
+        // 2. GET TOTAL FILE SIZE
+        const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': 'bytes=0-0' },
             signal: signal
-        }).then(res => res.arrayBuffer());
-
-        updateLog("Downloading Multi-Parts...");
-
-        // Hum 5 chunks (Approx 5MB = 2.5 min) ek sath mang rahe hain
-        // Agar gaana aur bada hai toh hum is list ko badha sakte hain
-        const chunks = await Promise.all([
-            fetchChunk("0-1048576"),         // 0-1MB
-            fetchChunk("1048577-2097152"),   // 1-2MB
-            fetchChunk("2097153-3145728"),   // 2-3MB
-            fetchChunk("3145729-4194304"),   // 3-4MB
-            fetchChunk("4194305-5242880")    // 4-5MB
-        ]);
-
-        updateLog("Assembling Song Data...");
-
-        // 🟢 2. SMART STITCHING (Total Size Calculation)
-        const totalLength = chunks.reduce((acc, curr) => acc + curr.byteLength, 0);
-        const combinedBuffer = new Uint8Array(totalLength);
+        });
         
+        const contentRange = metaRes.headers.get('content-range');
+        const totalSize = contentRange ? parseInt(contentRange.split('/')[1]) : 0;
+        
+        if (!totalSize) throw new Error("File size missing");
+
+        updateLog(`Total: ${Math.round(totalSize/1024/1024)}MB. Fetching Chunks...`);
+        if (bBar) bBar.style.width = "10%";
+
+        // 3. GENERATE DYNAMIC CHUNKS
+        const fetchTasks = [];
+        const firstChunkSize = 512 * 1024; // 1st Block: 512KB
+        const standardChunkSize = 1024 * 1024; // Baki: 1MB
+
+        // Chunk 1 (Special Small Size)
+        fetchTasks.push(
+            fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=0-${Math.min(firstChunkSize, totalSize) - 1}` },
+                signal: signal
+            }).then(res => res.arrayBuffer())
+        );
+
+        // Baki Chunks (Loop starting after 1st chunk)
+        for (let start = firstChunkSize; start < totalSize; start += standardChunkSize) {
+            const end = Math.min(start + standardChunkSize - 1, totalSize - 1);
+            fetchTasks.push(
+                fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=${start}-${end}` },
+                    signal: signal
+                }).then(res => res.arrayBuffer())
+            );
+        }
+
+        // 4. PARALLEL DOWNLOAD & STITCH
+        const chunks = await Promise.all(fetchTasks);
+        updateLog("Assembling & Decoding...");
+        if (bBar) bBar.style.width = "70%";
+
+        const combinedBuffer = new Uint8Array(totalSize);
         let offset = 0;
         chunks.forEach(chunk => {
             combinedBuffer.set(new Uint8Array(chunk), offset);
             offset += chunk.byteLength;
         });
 
-        updateLog("Decoding Full Stream...");
-
-        // 🟢 3. DECODE & PLAY
+        // 5. DECODE AUDIO DATA
         const finalAudioBuf = await audioCtx.decodeAudioData(combinedBuffer.buffer);
         
         const src = audioCtx.createBufferSource();
@@ -490,14 +509,18 @@ async function loadAndPlayDriveSong(id, info) {
         src.start(0);
         
         window.activeSources.push(src);
-        updateLog(" Playing: Full Song Loaded");
+        updateLog(" Playing Full Song");
         if (bBar) bBar.style.width = "100%";
         updatePlayIcons(true);
 
     } catch (err) {
-        if (err.name !== 'AbortError') updateLog("Stitch Fail: " + err.message);
+        if (err.name !== 'AbortError') {
+            updateLog("Error: " + err.message);
+            console.error(err);
+        }
     }
 }
+
 
 
 
