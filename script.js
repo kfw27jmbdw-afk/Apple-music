@@ -440,80 +440,79 @@ async function loadAndPlayDriveSong(id, info) {
     currentAbortController = new AbortController();
     const { signal } = currentAbortController;
 
-    updateLog("Initializing Stream...");
+    updateLog("Pre-allocating Buffer...");
 
     try {
-        // 1. MediaSource Setup (The pipe)
-        const mediaSource = new MediaSource();
-        const audio = new Audio(); // Hum direct HTML5 Audio use karenge for better streaming
-        audio.src = URL.createObjectURL(mediaSource);
-        
-        // Audio UI integration
-        window.currentAudioElement = audio; 
+        if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
+        window.AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-        mediaSource.addEventListener('sourceopen', async () => {
-            const sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg'); // MP3 ke liye
-            
-            updateLog("Fetching Metadata...");
-            
-            // Size nikalne ka alternative tarika (Bina Range 0-0 ke)
-            const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=size&access_token=${accessToken}`, { signal });
-            const metadata = await response.json();
-            const totalSize = parseInt(metadata.size);
+        // 1. GET SIZE (Drive Metadata API - No Range Error)
+        const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=size&access_token=${accessToken}`, { signal });
+        const metadata = await metaRes.json();
+        const totalSize = parseInt(metadata.size);
 
-            if (!totalSize) {
-                updateLog("Error: Size fallback failed");
-                return;
+        if (!totalSize) throw new Error("Size missing");
+
+        // 2. PRE-ALLOCATE MEMORY (The empty container)
+        const fullData = new Uint8Array(totalSize);
+        let firstChunkDone = false;
+
+        const chunkSize = 1024 * 1024; // 1MB Blocks
+        const totalChunks = Math.ceil(totalSize / chunkSize);
+
+        // 3. THE STITCH & LOAD LOGIC
+        const fetchAndInsert = async (start, end, index) => {
+            try {
+                const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=${start}-${end}` },
+                    signal: signal
+                });
+                const arrBuf = await res.arrayBuffer();
+                
+                // --- STITCH ON THE FLY ---
+                fullData.set(new Uint8Array(arrBuf), start);
+                
+                updateLog(`Slot ${index+1}/${totalChunks} Filled...`);
+
+                // 4. QUICK PLAY: Agar pehla chunk (ya pehle 2) aa gaye, toh decode karke bajao
+                // Hum poore buffer ko decode karenge, par download piche chalta rahega
+                if (!firstChunkDone && (index === 0 || index === 1)) {
+                    // Hum ek "Trial Decode" karenge sirf bajane ke liye
+                    decodeAndPlay(fullData.buffer); 
+                    firstChunkDone = true; 
+                }
+            } catch (e) { console.error("Slot Error", e); }
+        };
+
+        const decodeAndPlay = async (buffer) => {
+            try {
+                // Safari workaround: pure buffer ko decode karo
+                const audioBuffer = await audioCtx.decodeAudioData(buffer.slice(0)); 
+                const src = audioCtx.createBufferSource();
+                src.buffer = audioBuffer;
+                src.connect(audioCtx.destination);
+                src.start(0);
+                window.activeSources.push(src);
+                updateLog(" Playing (Stitching BG)...");
+            } catch (e) {
+                // Agar decoding fail hui (matlab abhi aur data chahiye), toh wait karenge
+                console.log("Decoding waiting for more data...");
             }
+        };
 
-            updateLog(`Streaming ${Math.round(totalSize/1024/1024)}MB...`);
-
-            // 2. Parallel Chunk Fetching
-            const chunkSize = 1024 * 1024; // 1MB
-            let loadedChunks = 0;
-            const totalExpected = Math.ceil(totalSize / chunkSize);
-
-            const downloadAndAppend = async (start, end, index) => {
-                try {
-                    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-                        headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=${start}-${end}` },
-                        signal: signal
-                    });
-                    const data = await res.arrayBuffer();
-                    
-                    // Yahan hota hai "Stitch and Load"
-                    // Hum SourceBuffer ke ready hone ka wait karke data append karte hain
-                    const appendData = () => {
-                        if (!sourceBuffer.updating && mediaSource.readyState === 'open') {
-                            sourceBuffer.appendBuffer(data);
-                            loadedChunks++;
-                            if (index === 0) audio.play(); // Pehla chunk milte hi play!
-                            updateLog(`Loaded ${loadedChunks}/${totalExpected} chunks`);
-                        } else {
-                            setTimeout(appendData, 100);
-                        }
-                    };
-                    appendData();
-                } catch (e) { console.error("Chunk Error", e); }
-            };
-
-            // Saare chunks ek saath fire karo (Parallel)
-            for (let i = 0; i < totalExpected; i++) {
-                const start = i * chunkSize;
-                const end = Math.min(start + chunkSize - 1, totalSize - 1);
-                downloadAndAppend(start, end, i);
-            }
-        });
+        // 5. FIRE ALL SLOTS (Parallel)
+        for (let i = 0; i < totalChunks; i++) {
+            const start = i * chunkSize;
+            const end = Math.min(start + chunkSize - 1, totalSize - 1);
+            fetchAndInsert(start, end, i);
+        }
 
     } catch (err) {
-        updateLog("Stream Error: " + err.message);
+        updateLog("Error: " + err.message);
     }
 }
-
-
-
-
-
 
 
 //seek bar ko btao gana kitna bda hai
