@@ -13,13 +13,6 @@ const DRIVE_FOLDER_ID = '1TA2Vsuk1vXbyaf1Vxn5CXBGViybHjY03'; // Tera target musi
 let tokenClient;
 let accessToken = null;
 let currentMenuIndex = null; // Sirf yahan rahega, 1811 se delete kar dena!
-// 🟢 NEW: WEB AUDIO ENGINE GLOBALS
-let audioCtx = null;
-let audioChain = []; 
-let nextStartTime = 0;
-let totalDuration = 0; 
-let startTimeOffset = 0; 
-
 
 // --- SETTINGS MODAL FUNCTIONS ---
 
@@ -390,7 +383,7 @@ async function fetchMusicMetaForFolder(id, query) {
 // ==========================================
 async function fetchMusicMeta(id, query) {
     try {
-        // 🟢 STEP 1: Query cleaning (iTunes accuracy ke liye)
+        // Sirf pehle 2 words lo taaki iTunes confuse na ho
         let shortQuery = query.split(' ').slice(0, 2).join(' ');
         
         const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(shortQuery)}&entity=song&limit=1`);
@@ -407,129 +400,85 @@ async function fetchMusicMeta(id, query) {
             songInfo.title = track.trackName;
             songInfo.artist = track.artistName;
             songInfo.artwork = track.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
-
-            // 🟢 STEP 2: DURATION SYNC (Seek-bar ka fuel)
-            // iTunes milliseconds deta hai, humein seconds chahiye
-            if (track.trackTimeMillis) {
-                totalDuration = track.trackTimeMillis / 1000;
-                console.log(` Meta Sync: Duration set to ${totalDuration}s`);
-            }
-        } else {
-            // Agar iTunes pe na mile toh default duration (e.g. 4 min) taaki seek-bar crash na ho
-            totalDuration = 240; 
         }
-
-        // 🟢 STEP 3: TRIGGER NEW ENGINE
         loadAndPlayDriveSong(id, songInfo);
-
     } catch (error) {
-        console.error(" iTunes Metadata Error:", error);
-        totalDuration = 240; // Fallback
+        console.error("iTunes Metadata Error:", error);
         loadAndPlayDriveSong(id, {title: query, artist: "Unknown", artwork: ""});
     }
 }
 
-// Function ke bahar top par
-let currentAbortController = null; 
 
 async function loadAndPlayDriveSong(id, info) {
-    const logger = document.getElementById('debug-log');
-    const updateLog = (msg) => { if(logger) logger.innerText = " " + msg; };
-
-    // 1. Ghost Killer: Purani loading aur audio band karo
-    if (currentAbortController) currentAbortController.abort();
-    currentAbortController = new AbortController();
-    const { signal } = currentAbortController;
-
-    if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
-    window.AudioContext = window.AudioContext || window.webkitAudioContext;
-    audioCtx = new AudioContext();
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
-
-    updateLog("Analyzing Song...");
+    const audio = document.getElementById('main-audio');
+    
+    // 1. UI Update (Player Screen)
+    document.getElementById('player-title').innerText = info.title;
+    document.getElementById('player-artist').innerText = info.artist;
+    document.getElementById('song-image').src = info.artwork;
+    
+    document.getElementById('mini-title').innerText = info.title;
+    document.getElementById('mini-artist').innerText = info.artist;
+    document.getElementById('mini-img').src = info.artwork;
 
     try {
-        // 2. Drive Metadata se size nikalna (Range 0-0 fix)
-        const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=size&access_token=${accessToken}`, { signal });
-        const metadata = await metaRes.json();
-        const totalSize = parseInt(metadata.size);
-
-        if (!totalSize) throw new Error("Could not get song size");
-
-        // 3. Auto-Calculate Chunks (1MB per chunk)
-        const chunkSize = 1024 * 1024; 
-        const totalChunks = Math.ceil(totalSize / chunkSize);
-        updateLog(`Preparing ${totalChunks} parallel chunks...`);
-
-        // 4. Parallel Loading Logic
-        const fetchTasks = [];
-        for (let i = 0; i < totalChunks; i++) {
-            const start = i * chunkSize;
-            const end = Math.min(start + chunkSize - 1, totalSize - 1);
-            
-            // Har chunk ko parallel fetch list mein daalo
-            fetchTasks.push(
-                fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=${start}-${end}` },
-                    signal: signal
-                }).then(res => {
-                    if (!res.ok) throw new Error(`Chunk ${i} failed`);
-                    return res.arrayBuffer();
-                })
-            );
-        }
-
-        // 5. Wait for ALL (Yahan saare ek saath load honge)
-        const chunksData = await Promise.all(fetchTasks);
-        updateLog("Stitching & Decoding...");
-
-        // 6. Final Stitching
-        const combinedBuffer = new Uint8Array(totalSize);
-        let offset = 0;
-        chunksData.forEach(chunk => {
-            combinedBuffer.set(new Uint8Array(chunk), offset);
-            offset += chunk.byteLength;
+        // 2. Drive se gaana fetch karna
+        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
         });
 
-        // 7. Decode and Play
-        const audioBuffer = await audioCtx.decodeAudioData(combinedBuffer.buffer);
-        const src = audioCtx.createBufferSource();
-        src.buffer = audioBuffer;
-        src.connect(audioCtx.destination);
-        src.start(0);
-        
-        window.activeSources.push(src);
-        updateLog(" Playing Full Song");
-        updatePlayIcons(true);
+        if (!response.ok) throw new Error("Drive access denied");
 
-    } catch (err) {
-        if (err.name === 'AbortError') {
-            updateLog("Loading Cancelled.");
-        } else {
-            updateLog("Fatal Error: " + err.message);
-            console.error(err);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        
+        audio.src = blobUrl;
+        audio.load();
+        audio.play();
+
+        // 3.  SMART INJECTOR: Gaane ko main playlist mein daalna zaroori hai
+        const driveSongEntry = {
+            "name": info.title,
+            "artist": info.artist,
+            "url": blobUrl, // Current session link
+            "img": info.artwork,
+            "isDrive": true,
+            "driveId": id
+        };
+
+        // Check if already in playlist array
+        let existingIndex = playlist.findIndex(s => s.driveId === id);
+        
+        if (existingIndex === -1) {
+            // Naya gaana playlist ki shuruat mein add karo
+            playlist.unshift(driveSongEntry);
+            existingIndex = 0; // Ab ye 0 index par hai
+            
+            // userLibrary.songs mein iska index (0) save karo
+            if (!userLibrary.songs.includes(existingIndex)) {
+                userLibrary.songs.unshift(existingIndex);
+                saveLibraryToDisk();
+            }
+            
+            // LocalStorage mein metadata save karo (Refresh ke liye)
+            saveToPermanentLibrary(id, info);
         }
+
+        // 4. UI Refresh
+        // Sabse pehle main playlist refresh karo
+        if (typeof renderPlaylist === 'function') renderPlaylist();
+        
+        // Phir library content refresh karo
+        if (typeof renderLibraryContent === 'function') {
+            renderLibraryContent('all');
+        }
+
+        if(typeof maximizePlayer === "function") maximizePlayer();
+
+    } catch (error) {
+        console.error("Playback Error:", error);
     }
 }
-
-
-
-//seek bar ko btao gana kitna bda hai
-setInterval(() => {
-    if (audioCtx && audioCtx.state === 'running') {
-        // Kitna samay beet gaya (currentTime)
-        const elapsed = audioCtx.currentTime; 
-        const seekBar = document.getElementById('seek-bar');
-        const currentText = document.getElementById('current');
-        
-        // Agar iTunes se duration mil chuki hai toh hilaao
-        if (seekBar && totalDuration) {
-            const progress = (elapsed / totalDuration) * 100;
-            seekBar.value = progress;
-            if (currentText) currentText.innerText = formatTime(elapsed);
-        }
-    }
-}, 500);
 
 
 // Memory save function
@@ -835,19 +784,16 @@ async function loadSong(index) {
     audio.onended = () => nextSong();
 }
 
-function togglePlay() {
-    if (!audioCtx) return;
-
-    if (audioCtx.state === 'running') {
-        audioCtx.suspend(); 
-        updatePlayIcons(false);
-    } else if (audioCtx.state === 'suspended') {
-        audioCtx.resume(); 
-        updatePlayIcons(true);
-        if(typeof triggerHardwareKick === "function") triggerHardwareKick();
-    }
+function togglePlay() { 
+    if(!audio) return;
+    if(audio.paused) { 
+        audio.play(); 
+        updatePlayIcons(true); 
+    } else { 
+        audio.pause(); 
+        updatePlayIcons(false); 
+    } 
 }
-
 
 
 
@@ -2328,26 +2274,3 @@ function parseLRC(lrcContent) {
     });
 }
 // --- LYRICS ENGINE END ---
-
-
-// Har 500ms mein seek bar aur time ko update karega
-setInterval(() => {
-    if (audioCtx && audioCtx.state === 'running') {
-        const seekBar = document.getElementById('seek-bar');
-        const currentText = document.getElementById('current');
-        const durationText = document.getElementById('duration');
-
-        // Web Audio API ka current time
-        const elapsed = audioCtx.currentTime;
-
-        if (seekBar && totalDuration) {
-            // Seek bar ki position set karo (0 se 100)
-            seekBar.value = (elapsed / totalDuration) * 100;
-            
-            // Time text update karo
-            if (currentText) currentText.innerText = formatTime(elapsed);
-            if (durationText) durationText.innerText = formatTime(totalDuration);
-        }
-    }
-}, 500);
-
