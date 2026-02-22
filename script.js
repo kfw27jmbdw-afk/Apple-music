@@ -436,82 +436,82 @@ async function loadAndPlayDriveSong(id, info) {
     const logger = document.getElementById('debug-log');
     const updateLog = (msg) => { if(logger) logger.innerText = " " + msg; };
 
+    // 1. Ghost Killer: Purani loading aur audio band karo
     if (currentAbortController) currentAbortController.abort();
     currentAbortController = new AbortController();
     const { signal } = currentAbortController;
 
-    updateLog("Resetting Engine...");
+    if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
+    window.AudioContext = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+    updateLog("Analyzing Song...");
 
     try {
-        if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
-        window.AudioContext = window.AudioContext || window.webkitAudioContext;
-        audioCtx = new AudioContext();
-        
-        // 1. GET SIZE (Fixed Metadata API)
+        // 2. Drive Metadata se size nikalna (Range 0-0 fix)
         const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=size&access_token=${accessToken}`, { signal });
         const metadata = await metaRes.json();
         const totalSize = parseInt(metadata.size);
 
-        if (!totalSize) throw new Error("Size error");
+        if (!totalSize) throw new Error("Could not get song size");
 
-        const chunkSize = 1024 * 1024; // 1MB Blocks
+        // 3. Auto-Calculate Chunks (1MB per chunk)
+        const chunkSize = 1024 * 1024; 
         const totalChunks = Math.ceil(totalSize / chunkSize);
-        const fullData = new Uint8Array(totalSize);
-        let filledCount = 0;
+        updateLog(`Preparing ${totalChunks} parallel chunks...`);
 
-        updateLog(`Slots: 0/${totalChunks} Filled...`);
-
-        // 2. PARALLEL FETCH WITH RETRY
-        const fetchSlot = async (start, end, index) => {
-            let success = false;
-            let attempts = 0;
-            
-            while (!success && attempts < 3) { // 3 baar try karega agar fail hua
-                try {
-                    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
-                        headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=${start}-${end}` },
-                        signal: signal
-                    });
-                    
-                    if (!res.ok) throw new Error("Net Fail");
-                    
-                    const arrBuf = await res.arrayBuffer();
-                    fullData.set(new Uint8Array(arrBuf), start);
-                    
-                    filledCount++;
-                    updateLog(`Slot ${filledCount}/${totalChunks} Filled...`);
-                    success = true;
-
-                    // 3. FINAL DECODE: Jab saare slots bhar jayein
-                    if (filledCount === totalChunks) {
-                        updateLog("Final Decoding...");
-                        const audioBuf = await audioCtx.decodeAudioData(fullData.buffer.slice(0));
-                        const src = audioCtx.createBufferSource();
-                        src.buffer = audioBuffer;
-                        src.connect(audioCtx.destination);
-                        src.start(0);
-                        window.activeSources.push(src);
-                        updateLog(" Playing Now!");
-                        updatePlayIcons(true);
-                    }
-                } catch (e) {
-                    attempts++;
-                    if (attempts === 3) updateLog(`Slot ${index+1} Failed!`);
-                }
-            }
-        };
-
-        // Fire all slots
+        // 4. Parallel Loading Logic
+        const fetchTasks = [];
         for (let i = 0; i < totalChunks; i++) {
             const start = i * chunkSize;
             const end = Math.min(start + chunkSize - 1, totalSize - 1);
-            fetchSlot(start, end, i);
+            
+            // Har chunk ko parallel fetch list mein daalo
+            fetchTasks.push(
+                fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Range': `bytes=${start}-${end}` },
+                    signal: signal
+                }).then(res => {
+                    if (!res.ok) throw new Error(`Chunk ${i} failed`);
+                    return res.arrayBuffer();
+                })
+            );
         }
 
+        // 5. Wait for ALL (Yahan saare ek saath load honge)
+        const chunksData = await Promise.all(fetchTasks);
+        updateLog("Stitching & Decoding...");
+
+        // 6. Final Stitching
+        const combinedBuffer = new Uint8Array(totalSize);
+        let offset = 0;
+        chunksData.forEach(chunk => {
+            combinedBuffer.set(new Uint8Array(chunk), offset);
+            offset += chunk.byteLength;
+        });
+
+        // 7. Decode and Play
+        const audioBuffer = await audioCtx.decodeAudioData(combinedBuffer.buffer);
+        const src = audioCtx.createBufferSource();
+        src.buffer = audioBuffer;
+        src.connect(audioCtx.destination);
+        src.start(0);
+        
+        window.activeSources.push(src);
+        updateLog(" Playing Full Song");
+        updatePlayIcons(true);
+
     } catch (err) {
-        updateLog("Error: " + err.message);
+        if (err.name === 'AbortError') {
+            updateLog("Loading Cancelled.");
+        } else {
+            updateLog("Fatal Error: " + err.message);
+            console.error(err);
+        }
     }
 }
+
 
 
 //seek bar ko btao gana kitna bda hai
