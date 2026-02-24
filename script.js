@@ -13,7 +13,7 @@ const DRIVE_FOLDER_ID = '1TA2Vsuk1vXbyaf1Vxn5CXBGViybHjY03'; // Tera target musi
 // Nature Engine Variables
 let myLibrary = JSON.parse(localStorage.getItem('myLibrary')) || [];
 let songNatureScores = JSON.parse(localStorage.getItem('songNatureScores')) || {};
-const LASTFM_API_KEY = 'YOUR_LASTFM_API_KEY'; // Yahan apni API key dalo
+const LASTFM_API_KEY = 'd15c4f64e9923f4d82b2fdf009dbc785'; // Yahan apni API key dalo
 
 
 let tokenClient;
@@ -163,20 +163,39 @@ async function syncDriveLibrary() {
     } catch (e) { console.error("Sync Error", e); }
 }
 
-// 2. NATURE ENGINE LOGIC
+//  UPDATED NATURE ENGINE LOGIC (Keep this above Hybrid Search)
 async function getNextNatureSong(currentTitle) {
+    console.log(" AI is analyzing: " + currentTitle);
+
+    // Agar API Key nahi hai toh seedha random logic par jao
+    if (!LASTFM_API_KEY || LASTFM_API_KEY === 'YOUR_LASTFM_API_KEY') {
+        return myLibrary[Math.floor(Math.random() * myLibrary.length)];
+    }
+
     try {
         const res = await fetch(`https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&track=${encodeURIComponent(currentTitle)}&api_key=${LASTFM_API_KEY}&format=json`);
         const data = await res.json();
-        const sims = data.similartracks.track || [];
         
-        // Find match in hidden library
-        let match = myLibrary.find(s => sims.some(sim => s.name.toLowerCase().includes(sim.name.toLowerCase())));
+        const sims = data.similartracks?.track || [];
         
-        // Fallback: Agar match nahi mila toh library se koi bhi "Stitched" ya random uthao
-        return match || myLibrary[Math.floor(Math.random() * myLibrary.length)];
-    } catch (e) { return myLibrary[Math.floor(Math.random() * myLibrary.length)]; }
+        // Match logic: Mere 1000 hidden songs mein se dhoondo
+        let match = myLibrary.find(s => 
+            sims.some(sim => s.name.toLowerCase().includes(sim.name.toLowerCase()))
+        );
+        
+        if (match) {
+            console.log(" Nature Match Found: " + match.name);
+            return match;
+        }
+
+        // Fallback: Agar internet par match nahi mila toh random hidden song
+        return myLibrary[Math.floor(Math.random() * myLibrary.length)];
+    } catch (e) { 
+        console.error("Nature Engine Error:", e);
+        return myLibrary[Math.floor(Math.random() * myLibrary.length)]; 
+    }
 }
+
 
 
 // ==========================================
@@ -453,12 +472,11 @@ async function fetchMusicMeta(id, query) {
 }
 
 
+/* =================  1. UPDATED: LOAD AND PLAY DRIVE SONG (The Heart) ================= */
 async function loadAndPlayDriveSong(id, info) {
     const audio = document.getElementById('main-audio');
-    const logger = document.getElementById('debug-log');
-    const updateLog = (msg) => { if(logger) logger.innerText = " " + msg; };
-
-    // 1. UI Update (Immediate response)
+    
+    // 1. UI RESET & UPDATE (Lyrics + Metadata)
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('player-artist').innerText = info.artist;
     document.getElementById('song-image').src = info.artwork || defaultImg;
@@ -467,8 +485,12 @@ async function loadAndPlayDriveSong(id, info) {
     document.getElementById('mini-artist').innerText = info.artist;
     document.getElementById('mini-img').src = info.artwork || defaultImg;
 
+    // Trigger Adaptive Color & Lyrics for the NEW song
+    updatePlayerAdaptiveColor(info.artwork || defaultImg);
+    if (typeof fetchSyncedLyrics === "function") fetchSyncedLyrics(info.artist, info.title);
+    updatePlayingUI();
+
     try {
-        // 2. Fetch & Play current song
         const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
@@ -479,44 +501,78 @@ async function loadAndPlayDriveSong(id, info) {
         audio.src = URL.createObjectURL(blob);
         audio.play();
         updatePlayIcons(true);
-        if(typeof maximizePlayer === "function") maximizePlayer();
 
-        // 3.  BRAIN ACTIVATION: Agla gaana pehle hi decide kar lo
-        updateLog("AI learning your vibe...");
+        // 2. PRE-FETCH NEXT SUGGESTION (AI stays active)
+        console.log(" AI is analyzing your next vibe...");
         const nextSmartMeta = await getNextNatureSong(info.title);
 
-        // 4. AUTO-NEXT (Nature Based)
-        audio.onended = async () => {
-            updateLog("Picking next matched song...");
-            
-            // Agle gaane ka iTunes "Thappa" (Metadata) fetch karo
-            const itRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(nextSmartMeta.name)}&entity=song&limit=1`);
-            const itData = await itRes.json();
-            
-            let nextInfo = {
-                title: nextSmartMeta.name,
-                artist: "AI Suggested",
-                artwork: defaultImg
-            };
-
-            if (itData.results && itData.results.length > 0) {
-                const track = itData.results[0];
-                nextInfo = {
-                    title: track.trackName,
-                    artist: track.artistName,
-                    artwork: track.artworkUrl100.replace('100x100', '600x600')
-                };
-            }
-
-            // Loop: Agla smart gaana bajao
-            loadAndPlayDriveSong(nextSmartMeta.id, nextInfo);
-        };
+        // 3. AUTO-NEXT & MANUAL NEXT BINDING
+        // Jab gana khatam ho ya hum manually NEXT dabayein
+        audio.onended = () => playNextSmart(nextSmartMeta);
+        
+        // Manual Next Button Override
+        const nextBtn = document.getElementById('next-btn'); // Make sure your HTML has this ID
+        if(nextBtn) {
+            nextBtn.onclick = () => playNextSmart(nextSmartMeta);
+        }
 
     } catch (error) {
         console.error("Playback Error:", error);
-        updateLog("Error playing vibe.");
     }
 }
+
+/* =================  2. SMART HELPER: PLAY NEXT AI SONG ================= */
+async function playNextSmart(nextSmartMeta) {
+    console.log(" Picking AI Suggested track...");
+    
+    // iTunes fetch for the suggested song
+    const itRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(nextSmartMeta.name)}&entity=song&limit=1`);
+    const itData = await itRes.json();
+    
+    let nextInfo = {
+        title: nextSmartMeta.name,
+        artist: "AI Suggested",
+        artwork: defaultImg
+    };
+
+    if (itData.results && itData.results.length > 0) {
+        const track = itData.results[0];
+        nextInfo = {
+            title: track.trackName,
+            artist: track.artistName,
+            artwork: track.artworkUrl100.replace('100x100', '600x600')
+        };
+    }
+    
+    // Recursive call: Agla gana bhi Nature Engine se hi bajega
+    loadAndPlayDriveSong(nextSmartMeta.id, nextInfo);
+}
+
+/* =================  3. SEARCH FIX: METADATA PASSING ================= */
+// Isse tumhare search row ka metadata play function mein sahi jayega
+async function fetchMusicMeta(id, query) {
+    try {
+        let shortQuery = query.split(' ').slice(0, 3).join(' '); // 3 words for better match
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(shortQuery)}&entity=song&limit=1`);
+        const data = await res.json();
+        
+        let songInfo = { title: query, artist: "Unknown Artist", artwork: defaultImg };
+
+        if (data.results && data.results.length > 0) {
+            const track = data.results[0];
+            songInfo = {
+                title: track.trackName,
+                artist: track.artistName,
+                artwork: track.artworkUrl100.replace('100x100', '600x600')
+            };
+        }
+        // Correct metadata being passed here
+        loadAndPlayDriveSong(id, songInfo);
+    } catch (error) {
+        loadAndPlayDriveSong(id, {title: query, artist: "Cloud", artwork: defaultImg});
+    }
+}
+
 
 
 
