@@ -518,6 +518,7 @@ async function loadAndPlayDriveSong(id, info, isNature = false) {
 
 
 /* =================  2. SMART HELPER: PLAY NEXT AI SONG ================= */
+/* =================  2. SMART HELPER: PLAY NEXT AI SONG ================= */
 async function playNextSmart(nextSmartMeta) {
     console.log("%c Nature Engine: Picking AI Suggested track...", "color: #1DB954; font-weight: bold;");
     
@@ -543,6 +544,7 @@ async function playNextSmart(nextSmartMeta) {
     //  CHANGE HERE: 'true' pass kiya taaki Green Leaf/Shuffle icon dikhe
     loadAndPlayDriveSong(nextSmartMeta.id, nextInfo, true);
 }
+
 
 
 /* =================  3. SEARCH FIX: METADATA PASSING ================= */
