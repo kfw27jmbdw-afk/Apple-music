@@ -516,6 +516,7 @@ async function loadAndPlayDriveSong(id, info, isNature = false) {
 }
 
 
+
 /* =================  2. SMART HELPER: PLAY NEXT AI SONG ================= */
 async function playNextSmart(nextSmartMeta) {
     console.log("%c Nature Engine: Picking AI Suggested track...", "color: #1DB954; font-weight: bold;");
