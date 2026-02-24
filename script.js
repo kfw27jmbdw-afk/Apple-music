@@ -10,6 +10,12 @@ let CLIENT_ID = localStorage.getItem('user_client_id') || '';
 const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
 const DRIVE_FOLDER_ID = '1TA2Vsuk1vXbyaf1Vxn5CXBGViybHjY03'; // Tera target music folder
 
+// Nature Engine Variables
+let myLibrary = JSON.parse(localStorage.getItem('myLibrary')) || [];
+let songNatureScores = JSON.parse(localStorage.getItem('songNatureScores')) || {};
+const LASTFM_API_KEY = 'YOUR_LASTFM_API_KEY'; // Yahan apni API key dalo
+
+
 let tokenClient;
 let accessToken = null;
 let currentMenuIndex = null; // Sirf yahan rahega, 1811 se delete kar dena!
@@ -104,14 +110,22 @@ function gisLoaded() {
             // Token save karlo session ke liye
             localStorage.setItem('drive_token', accessToken);
             
+            //  NATURE ENGINE: Login hote hi background mein 1000 gaane sync karo
+            syncDriveLibrary();
+            
             // Login hote hi agar picker khulna tha toh khol do
             createPicker('file');
         },
     });
 
     const savedToken = localStorage.getItem('drive_token');
-    if (savedToken) accessToken = savedToken;
+    if (savedToken) {
+        accessToken = savedToken;
+        //  NATURE ENGINE: Refresh par agar token hai, toh sync chala do
+        syncDriveLibrary();
+    }
 }
+
 
 function handleAuthClick() {
     // 🟢 Validation: Bina keys ke aage nahi badhne dena
@@ -133,6 +147,36 @@ function handleAuthClick() {
     }
 }
 
+
+//SYNC DRIVE LIBRARY
+// 1. SILENT SYNC (1000 Songs)
+async function syncDriveLibrary() {
+    if (!accessToken) return;
+    try {
+        const res = await fetch(`https://www.googleapis.com/drive/v3/files?q='${DRIVE_FOLDER_ID}'+in+parents+and+trashed=false&fields=files(id,name,size)&pageSize=1000`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        const data = await res.json();
+        myLibrary = data.files.map(f => ({ id: f.id, name: f.name.replace(/\.[^/.]+$/, ""), stamped: false }));
+        localStorage.setItem('myLibrary', JSON.stringify(myLibrary));
+        console.log(` Library Synced: ${myLibrary.length} songs hidden.`);
+    } catch (e) { console.error("Sync Error", e); }
+}
+
+// 2. NATURE ENGINE LOGIC
+async function getNextNatureSong(currentTitle) {
+    try {
+        const res = await fetch(`https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&track=${encodeURIComponent(currentTitle)}&api_key=${LASTFM_API_KEY}&format=json`);
+        const data = await res.json();
+        const sims = data.similartracks.track || [];
+        
+        // Find match in hidden library
+        let match = myLibrary.find(s => sims.some(sim => s.name.toLowerCase().includes(sim.name.toLowerCase())));
+        
+        // Fallback: Agar match nahi mila toh library se koi bhi "Stitched" ya random uthao
+        return match || myLibrary[Math.floor(Math.random() * myLibrary.length)];
+    } catch (e) { return myLibrary[Math.floor(Math.random() * myLibrary.length)]; }
+}
 
 
 // ==========================================
@@ -411,18 +455,20 @@ async function fetchMusicMeta(id, query) {
 
 async function loadAndPlayDriveSong(id, info) {
     const audio = document.getElementById('main-audio');
-    
-    // 1. UI Update (Player Screen)
+    const logger = document.getElementById('debug-log');
+    const updateLog = (msg) => { if(logger) logger.innerText = " " + msg; };
+
+    // 1. UI Update (Immediate response)
     document.getElementById('player-title').innerText = info.title;
     document.getElementById('player-artist').innerText = info.artist;
-    document.getElementById('song-image').src = info.artwork;
+    document.getElementById('song-image').src = info.artwork || defaultImg;
     
     document.getElementById('mini-title').innerText = info.title;
     document.getElementById('mini-artist').innerText = info.artist;
-    document.getElementById('mini-img').src = info.artwork;
+    document.getElementById('mini-img').src = info.artwork || defaultImg;
 
     try {
-        // 2. Drive se gaana fetch karna
+        // 2. Fetch & Play current song
         const response = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`, {
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
@@ -430,55 +476,48 @@ async function loadAndPlayDriveSong(id, info) {
         if (!response.ok) throw new Error("Drive access denied");
 
         const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        
-        audio.src = blobUrl;
-        audio.load();
+        audio.src = URL.createObjectURL(blob);
         audio.play();
-
-        // 3.  SMART INJECTOR: Gaane ko main playlist mein daalna zaroori hai
-        const driveSongEntry = {
-            "name": info.title,
-            "artist": info.artist,
-            "url": blobUrl, // Current session link
-            "img": info.artwork,
-            "isDrive": true,
-            "driveId": id
-        };
-
-        // Check if already in playlist array
-        let existingIndex = playlist.findIndex(s => s.driveId === id);
-        
-        if (existingIndex === -1) {
-            // Naya gaana playlist ki shuruat mein add karo
-            playlist.unshift(driveSongEntry);
-            existingIndex = 0; // Ab ye 0 index par hai
-            
-            // userLibrary.songs mein iska index (0) save karo
-            if (!userLibrary.songs.includes(existingIndex)) {
-                userLibrary.songs.unshift(existingIndex);
-                saveLibraryToDisk();
-            }
-            
-            // LocalStorage mein metadata save karo (Refresh ke liye)
-            saveToPermanentLibrary(id, info);
-        }
-
-        // 4. UI Refresh
-        // Sabse pehle main playlist refresh karo
-        if (typeof renderPlaylist === 'function') renderPlaylist();
-        
-        // Phir library content refresh karo
-        if (typeof renderLibraryContent === 'function') {
-            renderLibraryContent('all');
-        }
-
+        updatePlayIcons(true);
         if(typeof maximizePlayer === "function") maximizePlayer();
+
+        // 3.  BRAIN ACTIVATION: Agla gaana pehle hi decide kar lo
+        updateLog("AI learning your vibe...");
+        const nextSmartMeta = await getNextNatureSong(info.title);
+
+        // 4. AUTO-NEXT (Nature Based)
+        audio.onended = async () => {
+            updateLog("Picking next matched song...");
+            
+            // Agle gaane ka iTunes "Thappa" (Metadata) fetch karo
+            const itRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(nextSmartMeta.name)}&entity=song&limit=1`);
+            const itData = await itRes.json();
+            
+            let nextInfo = {
+                title: nextSmartMeta.name,
+                artist: "AI Suggested",
+                artwork: defaultImg
+            };
+
+            if (itData.results && itData.results.length > 0) {
+                const track = itData.results[0];
+                nextInfo = {
+                    title: track.trackName,
+                    artist: track.artistName,
+                    artwork: track.artworkUrl100.replace('100x100', '600x600')
+                };
+            }
+
+            // Loop: Agla smart gaana bajao
+            loadAndPlayDriveSong(nextSmartMeta.id, nextInfo);
+        };
 
     } catch (error) {
         console.error("Playback Error:", error);
+        updateLog("Error playing vibe.");
     }
 }
+
 
 
 // Memory save function
@@ -668,33 +707,32 @@ function maximizePlayer() {
 
 
 /* =================  CORE PLAYER LOGIC (RELOAD & LAG FIX) ================= */
+/* =================  CORE PLAYER LOGIC (RELOAD & NATURE ENGINE FIX) ================= */
 async function loadSong(index) {
     currentIndex = index;
     const s = playlist[index];
     if(!s || !audio) return;
 
-    // --- FAST SWITCH: Purana bhoot (audio) turant bhagao ---
+    // --- FAST SWITCH: Purana audio turant khatam ---
     audio.pause();
     audio.src = ""; 
     updatePlayIcons(false);
 
-    // 1. UI Updates (Instant response)
+    // 1. UI Updates (Instant Response)
     document.getElementById('player-title').innerText = s.name;
     document.getElementById('player-artist').innerText = s.artist;
     document.getElementById('mini-title').innerText = s.name;
     document.getElementById('mini-artist').innerText = s.artist;
     
-    //  LYRICS RESET & TRIGGER: Purane lyrics clear karo aur naye fetch karo
-    currentLyrics = []; // Data clear
+    //  Lyrics Reset & Trigger
+    currentLyrics = []; 
     const scroller = document.getElementById('lyrics-scroller');
-    if (scroller) scroller.innerHTML = ''; // UI clear
+    if (scroller) scroller.innerHTML = ''; 
     
     if (typeof fetchSyncedLyrics === "function") {
         fetchSyncedLyrics(s.artist, s.name);
     }
 
-
-    
     const finalImg = s.img || defaultImg;
     if(mainImg) mainImg.src = finalImg;
     const miniImg = document.getElementById('mini-img');
@@ -711,35 +749,28 @@ async function loadSong(index) {
         mini.style.opacity = '1';
     }
 
-    // 2. Audio Loading Logic
+    // 2.  AUDIO LOADING LOGIC (Hybrid Switch)
     try {
-        // --- GOOGLE DRIVE LOGIC (With Re-auth Fix) ---
+        // --- GOOGLE DRIVE LOGIC (Handover to Nature Engine) ---
         if (s.isDrive && s.driveId) {
-            console.log(" Fetching Drive song...");
+            console.log(" Drive song detected. Handing over to Nature Engine...");
             
-            const response = await fetch(`https://www.googleapis.com/drive/v3/files/${s.driveId}?alt=media`, {
-                headers: { 'Authorization': `Bearer ${accessToken}` }
-            });
-
-            // 🟢 RELOAD/EXPIRE FIX: Agar token purana hai (401 error)
-            if (response.status === 401) {
-                console.warn("Token expired, calling handleAuthClick...");
-                accessToken = null;
-                localStorage.removeItem('drive_token');
-                handleAuthClick(); // Ye login popup khol dega
+            // Re-auth Check
+            if (!accessToken) {
+                console.warn("Token missing, calling handleAuthClick...");
+                handleAuthClick();
                 return;
             }
 
-            if (!response.ok) throw new Error("Drive access denied");
+            const songInfo = {
+                title: s.name,
+                artist: s.artist,
+                artwork: finalImg
+            };
 
-            const blob = await response.blob();
-            const newBlobUrl = URL.createObjectURL(blob);
-            
-            audio.src = newBlobUrl;
-            audio.load();
-            audio.play().then(() => updatePlayIcons(true));
-            audio.onended = () => nextSong();
-            return; 
+            // Nature Engine wala special function call karo
+            loadAndPlayDriveSong(s.driveId, songInfo);
+            return; // Yahan se exit, loadAndPlayDriveSong aage ka handle karega
         }
 
         // --- LOCAL STORAGE LOGIC (IndexedDB) ---
@@ -774,16 +805,17 @@ async function loadSong(index) {
         audio.src = decodedURL;
         audio.load();
         audio.play().then(() => updatePlayIcons(true)).catch(() => updatePlayIcons(false));
+        
+        // Dropbox ke liye normal next song sequence
+        audio.onended = () => nextSong();
 
     } catch (e) {
         console.error("Playback Error:", e);
-        if (s.isDrive) handleAuthClick(); 
         updatePlayIcons(false);
     }
-
-    audio.onended = () => nextSong();
 }
 
+/* =================  TOGGLE PLAY/PAUSE ================= */
 function togglePlay() { 
     if(!audio) return;
     if(audio.paused) { 
@@ -794,6 +826,7 @@ function togglePlay() {
         updatePlayIcons(false); 
     } 
 }
+
 
 
 
@@ -1835,22 +1868,52 @@ function showFullRecentList() {
 
 
 /* =================  FINAL INITIALIZATION FIX ================= */
-window.addEventListener('load', async () => { 
-    // 1. Home screen ko default set karo
+window.addEventListener('load', async () => {
+    // 1. UI RESET
     document.querySelectorAll('.tab-content').forEach(screen => screen.style.display = 'none');
     document.getElementById('home-screen').style.display = 'block';
     
-    // 2. Navigation items mein Home highlight karo
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-    document.getElementById('tab-home').classList.add('active');
+    const homeTab = document.getElementById('tab-home');
+    if(homeTab) homeTab.classList.add('active');
 
-    // 3. Pehle playlist load hone ka wait karo
-    await renderPlaylist(); 
+    // 2. LOAD PERMANENT LIBRARY (Dropbox + Drive Unique Check)
+    const savedDrive = JSON.parse(localStorage.getItem('my_drive_songs')) || [];
+    
+    // Sabse pehle current playlist ke saare names ka ek set bana lo (For Dropbox songs)
+    let existingNames = new Set(playlist.map(p => p.name.toLowerCase().trim()));
 
-    // 4. Ab Home Screen render karo (Taki playlist empty na mile)
-    renderHomeScreen(); 
+    savedDrive.forEach(s => {
+        // Agar gaane ka naam pehle se playlist mein nahi hai (Dropbox songs included), tabhi add karo
+        if(!existingNames.has(s.title.toLowerCase().trim())) {
+            const driveEntry = { 
+                "name": s.title, 
+                "artist": s.artist, 
+                "url": "", 
+                "img": s.image, 
+                "isDrive": true, 
+                "driveId": s.id 
+            };
+            playlist.push(driveEntry);
+            existingNames.add(s.title.toLowerCase().trim());
 
-    // 5. Full Player aur Mini Player ko shuruat mein hide rakho
+            const newIdx = playlist.length - 1;
+            if(!userLibrary.songs.includes(newIdx)) userLibrary.songs.push(newIdx);
+        }
+    });
+
+    // 3.  NATURE ENGINE SYNC (Ye piche 1000 Drive songs load karega)
+    if (accessToken) {
+        console.log(" Access Token Found: Syncing hidden Drive songs...");
+        syncDriveLibrary(); 
+    }
+
+    // 4. FINAL RENDERING
+    await renderPlaylist();       
+    renderHomeScreen();           
+    renderLibraryContent('all');  
+
+    // 5. PLAYER HIDE
     if(playerScreen) {
         playerScreen.style.display = 'none';
         playerScreen.classList.add('minimized');
@@ -1858,6 +1921,7 @@ window.addEventListener('load', async () => {
     const mini = document.getElementById('mini-player');
     if(mini) mini.style.display = 'none'; 
 });
+
 
 
 window.addEventListener('online', () => renderPlaylist());
@@ -2148,20 +2212,7 @@ window.onclick = function(event) {
         hideImportMenu();
     }
 }
-// Page load hote hi saved gaane wapas library array mein daalo
-// Initialization logic
-window.addEventListener('load', () => {
-    const savedDrive = JSON.parse(localStorage.getItem('my_drive_songs')) || [];
-    savedDrive.forEach(s => {
-        const driveEntry = { "name": s.title, "artist": s.artist, "url": "", "img": s.image, "isDrive": true, "driveId": s.id };
-        if(!playlist.some(p => p.driveId === s.id)) {
-            playlist.push(driveEntry);
-            const newIdx = playlist.length - 1;
-            if(!userLibrary.songs.includes(newIdx)) userLibrary.songs.push(newIdx);
-        }
-    });
-    renderLibraryContent('all');
-});
+
 // ==========================================
 // 5. CONTEXT MENU & DELETE LOGIC (NEW)
 // ==========================================
