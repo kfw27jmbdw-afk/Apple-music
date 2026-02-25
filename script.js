@@ -766,6 +766,8 @@ function maximizePlayer() {
 /* =================  CORE PLAYER LOGIC (RELOAD & NATURE ENGINE FIX) ================= */
 async function loadSong(index) {
     currentIndex = index;
+    // loadSong ke andar index save karo
+localStorage.setItem('last_played_index', index);
     const s = playlist[index];
     if(!s || !audio) return;
 
@@ -1924,6 +1926,7 @@ function showFullRecentList() {
 
 
 /* =================  FINAL INITIALIZATION FIX ================= */
+/* =================  FINAL INITIALIZATION FIX (WITH RECOVERY) ================= */
 window.addEventListener('load', async () => {
     // 1. UI RESET
     document.querySelectorAll('.tab-content').forEach(screen => screen.style.display = 'none');
@@ -1933,32 +1936,25 @@ window.addEventListener('load', async () => {
     const homeTab = document.getElementById('tab-home');
     if(homeTab) homeTab.classList.add('active');
 
-    // 2. LOAD PERMANENT LIBRARY (Dropbox + Drive Unique Check)
+    // 2. LOAD PERMANENT LIBRARY
     const savedDrive = JSON.parse(localStorage.getItem('my_drive_songs')) || [];
-    
-    // Sabse pehle current playlist ke saare names ka ek set bana lo (For Dropbox songs)
     let existingNames = new Set(playlist.map(p => p.name.toLowerCase().trim()));
 
     savedDrive.forEach(s => {
-        // Agar gaane ka naam pehle se playlist mein nahi hai (Dropbox songs included), tabhi add karo
         if(!existingNames.has(s.title.toLowerCase().trim())) {
             const driveEntry = { 
                 "name": s.title, 
-                "artist": s.artist, 
-                "url": "", 
-                "img": s.image, 
-                "isDrive": true, 
-                "driveId": s.id 
+                "artist": s.artist, "url": "", 
+                "img": s.image, "isDrive": true, "driveId": s.id 
             };
             playlist.push(driveEntry);
             existingNames.add(s.title.toLowerCase().trim());
-
             const newIdx = playlist.length - 1;
             if(!userLibrary.songs.includes(newIdx)) userLibrary.songs.push(newIdx);
         }
     });
 
-    // 3.  NATURE ENGINE SYNC (Ye piche 1000 Drive songs load karega)
+    // 3.  NATURE ENGINE SYNC
     if (accessToken) {
         console.log(" Access Token Found: Syncing hidden Drive songs...");
         syncDriveLibrary(); 
@@ -1969,15 +1965,44 @@ window.addEventListener('load', async () => {
     renderHomeScreen();           
     renderLibraryContent('all');  
 
-    // 5. PLAYER HIDE
+    // 5. PLAYER HIDE (Initial State)
     if(playerScreen) {
         playerScreen.style.display = 'none';
         playerScreen.classList.add('minimized');
     }
     const mini = document.getElementById('mini-player');
     if(mini) mini.style.display = 'none'; 
-});
 
+    //  STEP 2: PERSISTENT PLAYER RECOVERY (Yahan dalo)
+    const lastIndex = localStorage.getItem('last_played_index');
+    if (lastIndex !== null) {
+        const idx = parseInt(lastIndex);
+        const s = playlist[idx];
+        
+        if (s) {
+            currentIndex = idx;
+            // UI ko update karo
+            document.getElementById('player-title').innerText = s.name;
+            document.getElementById('player-artist').innerText = s.artist;
+            document.getElementById('mini-title').innerText = s.name;
+            document.getElementById('mini-artist').innerText = s.artist;
+            
+            const img = s.img || defaultImg;
+            document.getElementById('song-image').src = img;
+            document.getElementById('mini-img').src = img;
+
+            // Mini Player ko "Show" karo
+            if(mini) {
+                mini.style.display = 'flex';
+                mini.classList.remove('hidden');
+                mini.style.opacity = '1';
+            }
+            
+            updatePlayingUI();
+            console.log(" Persistent Recovery: Loaded " + s.name);
+        }
+    }
+});
 
 
 window.addEventListener('online', () => renderPlaylist());
