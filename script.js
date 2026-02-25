@@ -601,8 +601,18 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-// Variables sirf EK baar declare honge pure code mein
+
 const audio = document.getElementById('main-audio');
+
+// ---  STEP 2: TIME CACHE SAVE (Yahan dalo) ---
+// Ye har second browser ko batata rahega ki gana kahan tak pahuncha hai
+if (audio) {
+    audio.addEventListener('timeupdate', () => {
+        if (audio.currentTime > 0) {
+            localStorage.setItem('last_played_time', audio.currentTime);
+        }
+    });
+}
 const playerScreen = document.getElementById('player-screen');
 const mainImg = document.getElementById('song-image'); 
 const defaultImg = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300";
@@ -766,10 +776,13 @@ function maximizePlayer() {
 /* =================  CORE PLAYER LOGIC (RELOAD & NATURE ENGINE FIX) ================= */
 async function loadSong(index) {
     currentIndex = index;
-    // loadSong ke andar index save karo
-localStorage.setItem('last_played_index', index);
     const s = playlist[index];
     if(!s || !audio) return;
+
+    //  UPDATE: Sab kuch save karo taaki refresh ke baad pehchan sakein
+    localStorage.setItem('last_played_index', index);
+    localStorage.setItem('last_played_source', s.isDrive ? 'drive' : 'normal');
+    if(s.isDrive) localStorage.setItem('last_drive_id', s.driveId);
 
     // --- FAST SWITCH: Purana audio turant khatam ---
     audio.pause();
@@ -1973,15 +1986,18 @@ window.addEventListener('load', async () => {
     const mini = document.getElementById('mini-player');
     if(mini) mini.style.display = 'none'; 
 
-    //  STEP 2: PERSISTENT PLAYER RECOVERY (Yahan dalo)
+    // ---  FINAL PERSISTENT RECOVERY (Drive + Dropbox + Time Cache) ---
     const lastIndex = localStorage.getItem('last_played_index');
+    const lastTime = localStorage.getItem('last_played_time');
+    const lastSource = localStorage.getItem('last_played_source');
+
     if (lastIndex !== null) {
         const idx = parseInt(lastIndex);
         const s = playlist[idx];
         
         if (s) {
             currentIndex = idx;
-            // UI ko update karo
+            // 1. UI Setup (Title, Artist, Images)
             document.getElementById('player-title').innerText = s.name;
             document.getElementById('player-artist').innerText = s.artist;
             document.getElementById('mini-title').innerText = s.name;
@@ -1991,24 +2007,57 @@ window.addEventListener('load', async () => {
             document.getElementById('song-image').src = img;
             document.getElementById('mini-img').src = img;
 
-            // Mini Player ko "Show" karo
+            // 2.  AUDIO SOURCE & TIME RESUME
+            if (lastSource === 'drive') {
+                // Drive songs need re-fetching on play due to token, UI is prepped
+                console.log(" Drive song cached. Ready to fetch on Play.");
+            } else if (s.url) {
+                // Dropbox/Local/Web songs link immediately
+                let decodedURL;
+                if (s.url.startsWith("http") || s.url.startsWith("music/")) {
+                    decodedURL = s.url;
+                } else {
+                    let base64String = s.url.trim();
+                    while (base64String.length % 4 !== 0) { base64String += '='; }
+                    decodedURL = atob(base64String);
+                }
+                audio.src = decodedURL;
+                
+                // Seek to last saved position when metadata loads
+                if (lastTime) {
+                    audio.onloadedmetadata = () => {
+                        audio.currentTime = parseFloat(lastTime);
+                    };
+                }
+            }
+
+            // 3.  SYNC UI & BACKGROUND
             if(mini) {
                 mini.style.display = 'flex';
                 mini.classList.remove('hidden');
                 mini.style.opacity = '1';
             }
             
+            // Background adaptive color aur lyrics trigger karo
+            updatePlayerAdaptiveColor(img);
+            if (typeof fetchSyncedLyrics === "function") fetchSyncedLyrics(s.artist, s.name);
             updatePlayingUI();
-            console.log(" Persistent Recovery: Loaded " + s.name);
+            
+            console.log(` App Resumed: ${s.name} at ${formatTime(lastTime || 0)}`);
         }
     }
-});
+}); // <--- Yahan Load Event khatam ho raha hai
 
 
 window.addEventListener('online', () => renderPlaylist());
 window.addEventListener('offline', () => renderPlaylist());
 
-function formatTime(s) { let m = Math.floor(s / 60), sc = Math.floor(s % 60); return `${m}:${sc < 10 ? '0' + sc : sc}`; }
+function formatTime(s) { 
+    if(!s) return "0:00";
+    let m = Math.floor(s / 60), sc = Math.floor(s % 60); 
+    return `${m}:${sc < 10 ? '0' + sc : sc}`; 
+}
+
 
 /* ================= FEATURE: ADD TO PLAYLIST LOGIC ================= */
 
