@@ -262,13 +262,16 @@
                 <i class="fas fa-folder-plus"></i> <span>Drive Folder</span>
             </div>
             
-            <div class="action-item">
-                <i class="fas fa-images"></i> <span>Photo Library</span>
+                      <div class="action-item" onclick="openCloudPanel(); hideImportMenu();" style="border-top: 1px solid #333;">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="#3448C5" style="margin-right: 12px; vertical-align: middle; display: inline-block;">
+                    <path d="M17.5,19c-3.037,0-5.5-2.463-5.5-5.5c0-0.07,0.003-0.14,0.007-0.209C10.662,12.781,9.088,12,7.312,12 C4.378,12,2,14.378,2,17.312C2,20.247,4.378,22,7.312,22h10.188C19.986,22,22,19.986,22,17.5S19.986,13,17.5,13 c-0.174,0-0.344,0.011-0.51,0.032C16.48,10.62,14.453,9,12,9c-2.31,0-4.24,1.436-5.013,3.465C7.113,12.488,7.212,12.5,7.312,12.5 c2.115,0,3.957,1.192,4.896,2.949C12.338,15.346,12.417,15.253,12.5,15.166C13.438,14.131,14.881,13.5,16.5,13.5 c2.485,0,4.5,2.015,4.5,4.5S18.985,22.5,16.5,22.5H16.5z"/>
+                </svg>
+                <span>Cloudinary Library</span>
             </div>
         </div>
-
     </div>
 </div>
+
 <div id="settings-modal" class="overlay" style="display:none; z-index: 50000 !important;">
     <div class="modal-content" style="background: rgba(28, 28, 30, 0.95); backdrop-filter: blur(25px); border: 0.5px solid rgba(255,255,255,0.1); border-radius: 25px;">
         <div class="modal-header" style="text-align: center;">
@@ -289,15 +292,41 @@
             </div>
         </div>
 
-        <div class="modal-footer" style="display: flex; gap: 12px; margin-top: 25px;">
+              <div class="modal-footer" style="display: flex; gap: 12px; margin-top: 25px;">
             <button class="btn-outline" onclick="closeSettings()" style="flex: 1; border-radius: 15px; border: 1px solid #444; padding: 12px;">Cancel</button>
             <button class="btn-green" onclick="saveSettings()" style="flex: 1; background: #ff3b30; border-radius: 15px; border: none; padding: 12px; font-weight: bold;">Save & Sync</button>
         </div>
     </div>
 </div>
 
+<div id="cloud-panel" style="position: fixed; bottom: -100%; left: 0; width: 100%; height: 75vh; background: rgba(28, 28, 30, 0.98); backdrop-filter: blur(25px); border-radius: 30px 30px 0 0; z-index: 99999; transition: bottom 0.5s cubic-bezier(0.25, 1, 0.5, 1); padding: 25px; color: white; box-shadow: 0 -10px 40px rgba(0,0,0,0.8); box-sizing: border-box;">
+    
+    <div onclick="closeCloudPanel()" style="width: 40px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: 0 auto 25px; cursor: pointer;"></div>
+    
+    <div style="text-align: left; margin-bottom: 25px;">
+        <h2 style="margin: 0; font-size: 24px; font-family: -apple-system, sans-serif;"> Cloud Music</h2>
+        <p style="margin: 5px 0 0; color: #8e8e93; font-size: 14px;">Connected: <span style="color:#3448C5; font-weight: bold;">dh7lsxevl</span></p>
+    </div>
 
-    <script src="script.js"></script>
+    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 20px; margin-bottom: 25px; text-align: center;">
+        <p id="sync-msg" style="margin-bottom: 15px; font-size: 13px; color: #ccc;">Scan your Cloudinary folder to update library.</p>
+        <button onclick="startCloudSync()" style="width: 100%; padding: 15px; background: #3448C5; color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer;">
+            Sync Folder ⚡️
+        </button>
+    </div>
+
+    <div style="overflow-y: auto; height: calc(100% - 220px);">
+        <ul id="cloud-songs-list" style="list-style: none; padding: 0; margin: 0;">
+            <div style="text-align: center; color: #555; margin-top: 40px;">
+                <i class="fas fa-cloud" style="font-size: 40px; opacity: 0.3; margin-bottom: 10px;"></i>
+                <p>No songs synced yet</p>
+            </div>
+        </ul>
+    </div>
+</div>
+
+<div id="panel-overlay" onclick="closeCloudPanel()" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 99998; backdrop-filter: blur(4px);"></div>
+<script src="script.js"></script>
     <script>
         // 1. SMART INTRO CONTROL
         window.addEventListener('load', () => {
