@@ -198,15 +198,53 @@ async function getNextNatureSong(currentTitle) {
 
 
 
-// ==========================================
-//  NEXT STEP: HYBRID SEARCH LOGIC
-// // // ==========================================
-// ==========================================
-//  FINAL HYBRID SEARCH: ITUNES SYNC & DUPLICATE FIX
-// ==========================================
+/* ============================================================
+    APPLE MUSIC ULTIMATE ENGINE (SYNC + SEARCH + PLAY)
+   ============================================================ */
 
+const CLOUD_ACC_NAME = "dh7lsxevl";
+window.cloudMusicCache = []; // Global window object
+
+// 1. AUTO-SYNC: Isse app start hote hi background mein data bhar jayega
+async function startCloudSync() {
+    console.log("⚡️ Cloud Sync Starting...");
+    try {
+        const res = await fetch(`https://res.cloudinary.com/${CLOUD_ACC_NAME}/video/list/music.json?cb=${Date.now()}`);
+        const data = await res.json();
+        const resources = data.resources || [];
+        
+        window.cloudMusicCache = []; 
+
+        for (let file of resources) {
+            let cleanName = file.public_id.split('/').pop().replace(/_/g, ' ')
+                            .replace(/\b(320kbps|bayfub|p0lb2t|mp3|kbps|download)\b/gi, '').trim();
+
+            //  MASTER ENGINE CALL: Ab ye naya logic use karega
+            // null bhej rahe hain taaki sirf metadata return kare, turant play na kare
+            const meta = await fetchMusicMeta(null, cleanName);
+            
+            window.cloudMusicCache.push({
+                name: meta.title || cleanName,
+                artist: meta.artist || "Cloud Drive",
+                // Master Engine 'artwork' keyword use karta hai
+                img: meta.artwork || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=500",
+                url: `https://res.cloudinary.com/${CLOUD_ACC_NAME}/video/upload/v${file.version}/${file.public_id}.${file.format}`,
+                isCloudinary: true
+            });
+        }
+        console.log("✅ Sync Complete! Total Cloud Songs:", window.cloudMusicCache.length);
+        
+        const syncStatus = document.getElementById('sync-msg');
+        if(syncStatus) syncStatus.innerText = ` ${window.cloudMusicCache.length} Tracks Ready`;
+
+    } catch (e) {
+        console.error("❌ Sync Error:", e);
+    }
+}
+
+// 2. HYBRID SEARCH: Yeh hai asli magic jo Library + Cloudinary + Drive scan karta hai
 async function handleHybridSearch() {
-    const rawQuery = document.getElementById('app-search-input').value.trim();
+    const rawQuery = document.getElementById('app-search-input').value.trim().toLowerCase();
     const resultsContainer = document.getElementById('global-search-results');
     
     if (!rawQuery || rawQuery.length < 2) {
@@ -214,89 +252,120 @@ async function handleHybridSearch() {
         return;
     }
 
-    // Pehle tray ko khali karo taaki double results ka koi chance na rahe
-    resultsContainer.innerHTML = '<div id="search-status" style="padding:15px; text-align:center; color:#007aff; font-size:13px; border-bottom:1px solid #333;"> Syncing iTunes & Cloud...</div>';
+    resultsContainer.innerHTML = '<div style="padding:15px; text-align:center; color:#007aff; font-size:12px; font-weight:500;"> Searching Everywhere...</div>';
     resultsContainer.style.display = 'block';
 
     try {
-        // 1. Google Drive Search
-        const driveResponse = await gapi.client.drive.files.list({
-            'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${rawQuery}' and trashed = false`,
-            'fields': 'files(id, name)',
-            'pageSize': 10
-        });
-        const driveFiles = driveResponse.result.files || [];
-
-        // 2. Local Playlist Search
-        const localMatches = playlist.filter(s => 
-            (s.name && s.name.toLowerCase().includes(rawQuery.toLowerCase()))
+        // --- A. SEARCH CLOUDINARY (Instant from window.cloudMusicCache) ---
+        const cloudMatches = (window.cloudMusicCache || []).filter(s => 
+            s.name.toLowerCase().includes(rawQuery) || s.artist.toLowerCase().includes(rawQuery)
         );
 
-        // UI ko clear karo results dikhane se pehle
+        // --- B. SEARCH LOCAL PLAYLIST ---
+        const localMatches = playlist.filter(s => 
+            s.name && s.name.toLowerCase().includes(rawQuery)
+        );
+
+        // --- C. SEARCH GOOGLE DRIVE ---
+        let driveFiles = [];
+        if (typeof gapi !== 'undefined' && gapi.client.drive && accessToken) {
+            const driveRes = await gapi.client.drive.files.list({
+                'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${rawQuery}' and trashed = false`,
+                'fields': 'files(id, name)', 'pageSize': 5
+            });
+            driveFiles = driveRes.result.files || [];
+        }
+
         resultsContainer.innerHTML = ''; 
-        let seenIds = new Set(); // 🟢 DUPLICATE FIX: Isse ek hi song do baar nahi aayega
+        let seenNames = new Set(); // 🟢 DUPLICATE FIX: Ek hi gaana do baar nahi dikhega
 
-        // --- DRIVE RESULTS WITH ITUNES LOOK ---
+        // RENDER: Cloudinary (Pehle dikhao)
+        cloudMatches.forEach(song => {
+            renderSearchRow(song.name, song.artist, song.img, song, 'cloudinary');
+            seenNames.add(song.name.toLowerCase());
+        });
+
+        // RENDER: Local (Agar wo Cloudinary mein pehle se nahi dikhaya gaya)
+        localMatches.forEach(song => {
+            if(!seenNames.has(song.name.toLowerCase())) {
+                renderSearchRow(song.name, song.artist, song.img || defaultImg, playlist.indexOf(song), 'local');
+                seenNames.add(song.name.toLowerCase());
+            }
+        });
+
+        // RENDER: Drive (Master Engine Use Karega)
         for (const file of driveFiles) {
-            if (seenIds.has(file.id)) continue; // Agar id repeat ho rahi hai toh skip karo
-            seenIds.add(file.id);
-
-            let cleanName = file.name.replace(/\.[^/.]+$/, "");
-            
-            // iTunes API fetch (Tray mein hi official metadata dikhane ke liye)
-            try {
-                const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanName)}&entity=song&limit=1`);
-                const itunesData = await itunesRes.json();
-                
-                if (itunesData.results && itunesData.results.length > 0) {
-                    const track = itunesData.results[0];
-                    renderSearchRow(track.trackName, track.artistName, track.artworkUrl100.replace('100x100', '300x300'), file.id, true);
-                } else {
-                    renderSearchRow(cleanName, "Cloud Drive", defaultImg, file.id, true);
-                }
-            } catch (e) {
-                renderSearchRow(cleanName, "Cloud Drive", defaultImg, file.id, true);
+            let clean = file.name.replace(/\.[^/.]+$/, "");
+            if(!seenNames.has(clean.toLowerCase())) {
+                //  STEP 3 MASTER ENGINE CONNECTION (null bhej rahe hain taaki bajaye nahi)
+                const meta = await fetchMusicMeta(null, clean);
+                renderSearchRow(meta.title || clean, "Google Drive", meta.artwork || defaultImg, file.id, 'drive');
             }
         }
 
-        // --- LOCAL RESULTS ---
-        localMatches.forEach(song => {
-            const idx = playlist.indexOf(song);
-            // Local mein id check ki itni zaroorat nahi par safety ke liye yahan bhi handle kar sakte ho
-            renderSearchRow(song.name, song.artist, song.img || defaultImg, idx, false);
-        });
-
-        if (driveFiles.length === 0 && localMatches.length === 0) {
-            resultsContainer.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">No matching songs found.</div>';
+        if (resultsContainer.innerHTML === '') {
+            resultsContainer.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">No results found.</div>';
         }
-
-    } catch (err) {
-        console.error("Search Logic Error:", err);
-    }
+    } catch (err) { console.error("Search Logic Error:", err); }
 }
 
-//  Updated UI Helper: Instant Rendering with Set Protection
-function renderSearchRow(title, artist, img, idOrIndex, isDrive) {
+// 3. UI RENDERER: Badge ke saath tray mein dikhane ke liye
+function renderSearchRow(title, artist, img, data, type) {
     const resultsContainer = document.getElementById('global-search-results');
     const div = document.createElement('div');
     div.className = 'song-item';
-    div.style.borderBottom = "0.5px solid rgba(255,255,255,0.05)";
-
-    const clickAction = isDrive 
-        ? `fetchMusicMeta('${idOrIndex}', '${title.replace(/'/g, "\\'")}')` 
-        : `loadSong(${idOrIndex}); maximizePlayer();`;
+    
+    let action, badge;
+    if (type === 'cloudinary') {
+        action = `playSelectedCloudSong(${JSON.stringify(data).replace(/"/g, '&quot;')})`;
+        badge = '☁️ Cloud';
+    } else if (type === 'drive') {
+        //  MASTER ENGINE CALL: Yeh metadata aur play dono handle karega
+        action = `fetchMusicMeta('${data}', '${title.replace(/'/g, "\\'")}')`;
+        badge = '📁 Drive';
+    } else {
+        badge = '💿 Library';
+        action = `loadSong(${data}); maximizePlayer();`;
+    }
 
     div.innerHTML = `
-        <div class="song-info-container" onclick="${clickAction}; document.getElementById('global-search-results').style.display='none';">
-            <img src="${img}" style="width:48px; height:48px; border-radius:8px; object-fit:cover;">
+        <div class="song-info-container" onclick="${action}; document.getElementById('global-search-results').style.display='none';">
+            <img src="${img}" style="width:48px; height:48px; border-radius:10px; object-fit:cover; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
             <div style="margin-left:12px; overflow:hidden;">
-                <h4 style="font-size:14px; margin:0; color:white; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${title}</h4>
-                <p style="font-size:11px; margin:2px 0 0; color:#8e8e93;">${isDrive ? '☁️ Cloud' : '💿 Library'} • ${artist}</p>
+                <h4 style="font-size:14.5px; margin:0; color:white; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${title}</h4>
+                <p style="font-size:11px; margin:2px 0 0; color:#8e8e93; font-weight:500;">${badge} • ${artist}</p>
             </div>
         </div>
     `;
     resultsContainer.appendChild(div);
 }
+
+// 4. CLOUD PLAYBACK HELPER: Search se gaana turant bajane ke liye
+function playSelectedCloudSong(song) {
+    if(typeof playlist !== 'undefined') {
+        // 1. Gaane ko playlist mein sabse upar dalo
+        playlist.unshift(song);
+        currentSongIndex = 0;
+        
+        // 2. Gaana load karo
+        loadSong(0);
+        
+        // 3.  IGNITION: Force play command
+        if (audio) {
+            audio.play().then(() => {
+                updatePlayIcons(true); // Icon ko pause mein badlo
+            }).catch(e => {
+                console.error("Playback failed, user interaction needed:", e);
+            });
+        }
+
+        // 4. Player screen ko upar lao
+        if(typeof maximizePlayer === 'function') maximizePlayer();
+    }
+}
+
+// IMPORTANT: App load par sync start karo (Sirf ek baar rehna chahiye)
+window.addEventListener('load', startCloudSync);
 
 
 
@@ -354,7 +423,6 @@ async function scanDriveFolder(folderId, folderName) {
     showTempMessage(` Scanning: ${folderName}`);
     
     try {
-        // Drive API v3: Audio files fetch karne ka faster query
         const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+mimeType+contains+'audio/'&fields=files(id,name)&key=${API_KEY}`;
         
         const response = await fetch(url, {
@@ -378,7 +446,6 @@ async function scanDriveFolder(folderId, folderName) {
             return;
         }
 
-        // Filter: Jo playlist mein pehle se nahi hain
         const newFiles = files.filter(f => !playlist.some(p => p.driveId === f.id));
         showTempMessage(` Found ${newFiles.length} new songs!`);
 
@@ -398,76 +465,27 @@ async function scanDriveFolder(folderId, folderName) {
             playlist.unshift(skeletonEntry);
             renderPlaylist(); 
 
-            // Background mein Meta sync
-            fetchMusicMetaForFolder(file.id, cleanName);
+            //  MASTER ENGINE SYNC: Purane fetchMusicMetaForFolder ki jagah
+            // Hum null bhej rahe hain taaki ye sirf metadata laaye, bajaye nahi
+            fetchMusicMeta(null, cleanName).then(metaData => {
+                let song = playlist.find(s => s.driveId === file.id);
+                if(song) {
+                    song.name = metaData.title;
+                    song.artist = metaData.artist;
+                    song.img = metaData.artwork; // Master Engine 'artwork' use karta hai
+                    delete song.isGhost;
+                    savePlaylistToDisk();
+                    renderPlaylist();
+                }
+            });
             
-            // 1 second delay (iTunes block se bachne ke liye)
+            // 1 second delay taaki iTunes block na kare
             await new Promise(r => setTimeout(r, 1000)); 
         }
 
     } catch (err) {
         console.error("Folder Scan Error:", err);
-        showTempMessage("Drive Scan Failed: Check API Key");
-    }
-}
-
-async function fetchMusicMetaForFolder(id, query) {
-    try {
-        // Sirf pehle 2 words lo taaki match accurate ho
-        let shortQuery = query.split(/[\s-_]+/).slice(0, 2).join(' ');
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(shortQuery)}&entity=song&limit=1`);
-        const data = await res.json();
-        
-        let song = playlist.find(s => s.driveId === id);
-        if(!song) return;
-
-        if (data.results && data.results.length > 0) {
-            const track = data.results[0];
-            song.name = track.trackName;
-            song.artist = track.artistName;
-            song.img = track.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
-        } else {
-            song.artist = "Unknown Artist";
-            song.img = defaultImg;
-        }
-        
-        delete song.isGhost;
-        savePlaylistToDisk();
-        renderPlaylist();
-    } catch (e) {
-        console.error("iTunes Sync Error:", e);
-    }
-}
-
-
-
-// ==========================================
-// 4. ITUNES METADATA & PLAYBACK
-// ==========================================
-async function fetchMusicMeta(id, query) {
-    try {
-        // Sirf pehle 2 words lo taaki iTunes confuse na ho
-        let shortQuery = query.split(' ').slice(0, 2).join(' ');
-        
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(shortQuery)}&entity=song&limit=1`);
-        const data = await res.json();
-        
-        let songInfo = {
-            title: query,
-            artist: "Unknown Artist",
-            artwork: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/08/11/d2/0811d273-9ed4-3394-0488-7334d1abcc7f/source/600x600bb.jpg"
-        };
-
-        if (data.results && data.results.length > 0) {
-            const track = data.results[0];
-            songInfo.title = track.trackName;
-            songInfo.artist = track.artistName;
-            songInfo.artwork = track.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
-        }
-        loadAndPlayDriveSong(id, songInfo);
-    } catch (error) {
-        console.error("iTunes Metadata Error:", error);
-        loadAndPlayDriveSong(id, {title: query, artist: "Unknown", artwork: ""});
+        showTempMessage("Drive Scan Failed");
     }
 }
 
@@ -548,31 +566,48 @@ async function playNextSmart(nextSmartMeta) {
     loadAndPlayDriveSong(nextSmartMeta.id, nextInfo);
 }
 
-/* =================  3. SEARCH FIX: METADATA PASSING ================= */
-// Isse tumhare search row ka metadata play function mein sahi jayega
+/* ============================================================
+    MASTER METADATA ENGINE (SINGLE SOURCE OF TRUTH)
+   ============================================================ */
+
 async function fetchMusicMeta(id, query) {
     try {
-        let shortQuery = query.split(' ').slice(0, 3).join(' '); // 3 words for better match
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(shortQuery)}&entity=song&limit=1`);
+        // Bhai, iTunes match ke liye hum pehle 3 words le rahe hain (Best Balance)
+        let cleanQuery = query.split(/[\s-_]+/).slice(0, 3).join(' ');
+        
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanQuery)}&entity=song&limit=1`);
         const data = await res.json();
         
-        let songInfo = { title: query, artist: "Unknown Artist", artwork: defaultImg };
+        // Default settings agar iTunes par kuch na mile
+        let songInfo = {
+            title: query,
+            artist: "Cloud Source",
+            artwork: defaultImg
+        };
 
         if (data.results && data.results.length > 0) {
             const track = data.results[0];
             songInfo = {
                 title: track.trackName,
                 artist: track.artistName,
-                artwork: track.artworkUrl100.replace('100x100', '600x600')
+                artwork: track.artworkUrl100.replace('100x100', '600x600') // High Quality Cover
             };
         }
-        // Correct metadata being passed here
-        loadAndPlayDriveSong(id, songInfo);
+
+        //  ACTION: Ab ye decide karega ki gaana kaise bajana hai
+        // Agar ID hai (Drive), toh loadAndPlayDriveSong call hoga
+        if (id) {
+            loadAndPlayDriveSong(id, songInfo);
+        } else {
+            // Agar bina ID ke call hua hai, toh sirf metadata return karega
+            return songInfo;
+        }
+
     } catch (error) {
-        loadAndPlayDriveSong(id, {title: query, artist: "Cloud", artwork: defaultImg});
+        console.error("Master Meta Error:", error);
+        if (id) loadAndPlayDriveSong(id, {title: query, artist: "Cloud", artwork: defaultImg});
     }
 }
-
 
 
 
@@ -961,23 +996,6 @@ async function renderPlaylist() {
         updatePlayingUI();
     }
 }
-
-
-
-function updatePlayIcons(isPlaying) {
-    const iconClass = isPlaying ? 'fa-pause' : 'fa-play';
-    const pBtn = document.getElementById('play-btn');
-    const mBtn = document.getElementById('mini-play-btn');
-    if(pBtn) pBtn.className = `fas ${iconClass}`;
-    if(mBtn) mBtn.className = `fas ${iconClass}`;
-
-    // Saare animation bars ko control karo (Browse aur Playlist dono)
-    document.querySelectorAll('.playing-animation').forEach(anim => {
-        if(isPlaying) anim.classList.remove('paused');
-        else anim.classList.add('paused');
-    });
-}
-
 
 
 
@@ -2381,3 +2399,74 @@ function parseLRC(lrcContent) {
     });
 }
 // --- LYRICS ENGINE END ---
+
+
+
+/* ============================================================
+    APPLE MUSIC CLOUD DRIVE (TOTAL SYSTEM)
+   ============================================================ */
+
+const CLOUD_NAME = "dh7lsxevl";
+const CLOUD_DRIVE_KEY = "646399182392767"; 
+
+// 1. PANEL CONTROLS (Open/Close)
+function openCloudPanel() {
+    const panel = document.getElementById('cloud-panel');
+    const overlay = document.getElementById('panel-overlay');
+    if(panel && overlay) {
+        panel.style.bottom = "0";
+        overlay.style.display = "block";
+    }
+}
+
+function closeCloudPanel() {
+    const panel = document.getElementById('cloud-panel');
+    const overlay = document.getElementById('panel-overlay');
+    if(panel && overlay) {
+        panel.style.bottom = "-100%";
+        overlay.style.display = "none";
+    }
+}
+
+
+// 4. UI RENDERER (Apple Style)
+function renderCloudItem(song) {
+    const list = document.getElementById('cloud-songs-list');
+    const li = document.createElement('li');
+    li.style = "display: flex; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 18px; margin-bottom: 12px; cursor: pointer; transition: 0.3s; border: 1px solid rgba(255,255,255,0.05);";
+    
+    li.innerHTML = `
+        <img src="${song.img}" style="width: 55px; height: 55px; border-radius: 12px; margin-right: 15px; object-fit: cover;">
+        <div style="flex: 1; text-align: left;">
+            <div style="font-weight: 600; font-size: 14px; color: white;">${song.name}</div>
+            <div style="font-size: 11px; color: #8e8e93;">${song.artist}</div>
+        </div>
+        <div style="background: #3448C5; width: 30px; height: 30px; border-radius: 50%; display: flex; justify-content: center; align-items: center;">
+            <i class="fas fa-play" style="font-size: 10px; color: white;"></i>
+        </div>
+    `;
+
+    li.onclick = () => {
+        if(typeof playlist !== 'undefined') {
+            playlist.unshift(song); 
+            currentSongIndex = 0;
+            loadSong(currentSongIndex);
+            if(typeof togglePlay === 'function' && !isPlaying) togglePlay();
+            closeCloudPanel();
+        }
+    };
+
+    list.appendChild(li);
+}
+/* ============================================================ */
+
+
+
+
+
+
+
+
+
+
+
