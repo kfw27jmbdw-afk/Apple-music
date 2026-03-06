@@ -203,11 +203,10 @@ async function getNextNatureSong(currentTitle) {
    ============================================================ */
 
 const CLOUD_ACC_NAME = "dh7lsxevl";
-window.cloudMusicCache = []; // Global window object
+window.cloudMusicCache = []; 
 
-// 1. AUTO-SYNC: Isse app start hote hi background mein data bhar jayega
 async function startCloudSync() {
-    console.log("⚡️ Cloud Sync Starting...");
+    console.log("⚡️ Cloud Sync Starting (Deep Scan Mode)...");
     try {
         const res = await fetch(`https://res.cloudinary.com/${CLOUD_ACC_NAME}/video/list/music.json?cb=${Date.now()}`);
         const data = await res.json();
@@ -216,23 +215,26 @@ async function startCloudSync() {
         window.cloudMusicCache = []; 
 
         for (let file of resources) {
-            let cleanName = file.public_id.split('/').pop().replace(/_/g, ' ')
-                            .replace(/\b(320kbps|bayfub|p0lb2t|mp3|kbps|download)\b/gi, '').trim();
+            let rawName = file.public_id.split('/').pop();
 
-            //  MASTER ENGINE CALL: Ab ye naya logic use karega
-            // null bhej rahe hain taaki sirf metadata return kare, turant play na kare
+            // Suffix Cleaner: _shshue jaise kachre ko hatane ke liye
+            let cleanName = rawName.replace(/_[a-z0-9]{6,8}$/i, '') 
+                            .replace(/_/g, ' ')
+                            .replace(/\b(320kbps|bayfub|p0lb2t|mp3|kbps|download)\b/gi, '')
+                            .trim();
+
+            //  MASTER ENGINE CALL: Ab ye upar wale 4-word logic ko use karega
             const meta = await fetchMusicMeta(null, cleanName);
             
             window.cloudMusicCache.push({
                 name: meta.title || cleanName,
                 artist: meta.artist || "Cloud Drive",
-                // Master Engine 'artwork' keyword use karta hai
                 img: meta.artwork || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=500",
                 url: `https://res.cloudinary.com/${CLOUD_ACC_NAME}/video/upload/v${file.version}/${file.public_id}.${file.format}`,
                 isCloudinary: true
             });
         }
-        console.log("✅ Sync Complete! Total Cloud Songs:", window.cloudMusicCache.length);
+        console.log("✅ Sync Complete! Total Accurate Tracks:", window.cloudMusicCache.length);
         
         const syncStatus = document.getElementById('sync-msg');
         if(syncStatus) syncStatus.innerText = ` ${window.cloudMusicCache.length} Tracks Ready`;
@@ -242,127 +244,157 @@ async function startCloudSync() {
     }
 }
 
-// 2. HYBRID SEARCH: Yeh hai asli magic jo Library + Cloudinary + Drive scan karta hai
+
+
 async function handleHybridSearch() {
-    const rawQuery = document.getElementById('app-search-input').value.trim().toLowerCase();
-    const resultsContainer = document.getElementById('global-search-results');
+    const rawQuery = document.getElementById('app-search-input').value.trim();
+    const tray = document.getElementById('global-search-results');
     
-    if (!rawQuery || rawQuery.length < 2) {
-        resultsContainer.style.display = 'none';
+    if (!rawQuery || rawQuery.length < 1) {
+        tray.style.display = 'none';
+        const subNavs = document.querySelectorAll('.library-sub-nav');
+        subNavs.forEach(nav => nav.style.setProperty('display', 'flex', 'important'));
         return;
     }
 
-    resultsContainer.innerHTML = '<div style="padding:15px; text-align:center; color:#007aff; font-size:12px; font-weight:500;"> Searching Everywhere...</div>';
-    resultsContainer.style.display = 'block';
+    // 1. FULL PAGE TRAY SETUP
+    tray.style.cssText = `
+        display: block !important;
+        position: fixed !important;
+        top: 0 !important; left: 0 !important;
+        width: 100vw !important; height: 100vh !important;
+        background: #000 !important;
+        z-index: 10000 !important;
+        overflow-y: auto !important;
+        padding: 20px 0 160px 0 !important;
+    `;
+
+    // 2. DYNAMIC HEADER INJECTION
+    // Hum yahan "Search results for..." wala header pehle hi daal rahe hain
+    tray.innerHTML = `
+        <div style="padding: 60px 20px 20px 20px;">
+            <p style="color: #8e8e93; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Search results for</p>
+            <h1 style="color: white; font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -1px;">"${rawQuery}"</h1>
+        </div>
+        <div id="search-items-container">
+            <div style="padding:20px; text-align:center; color:#8e8e93; font-size:13px;"> Searching...</div>
+        </div>
+    `;
+
+    const resultsContainer = document.getElementById('search-items-container');
+    const subNavs = document.querySelectorAll('.library-sub-nav');
+    subNavs.forEach(nav => nav.style.setProperty('display', 'none', 'important'));
 
     try {
-        // --- A. SEARCH CLOUDINARY (Instant from window.cloudMusicCache) ---
+        let seenNames = new Set();
+        let matchesFound = false;
+        let queryLower = rawQuery.toLowerCase();
+
+        // SEARCH LOGIC
         const cloudMatches = (window.cloudMusicCache || []).filter(s => 
-            s.name.toLowerCase().includes(rawQuery) || s.artist.toLowerCase().includes(rawQuery)
+            s.name.toLowerCase().includes(queryLower) || (s.artist && s.artist.toLowerCase().includes(queryLower))
         );
+        
+        resultsContainer.innerHTML = ''; // Loading hatao
 
-        // --- B. SEARCH LOCAL PLAYLIST ---
-        const localMatches = playlist.filter(s => 
-            s.name && s.name.toLowerCase().includes(rawQuery)
-        );
+        // RENDER CLOUD
+        cloudMatches.forEach(song => {
+            renderSearchRow(song.name, song.artist, song.img, song, 'cloudinary', resultsContainer);
+            seenNames.add(song.name.toLowerCase());
+            matchesFound = true;
+        });
 
-        // --- C. SEARCH GOOGLE DRIVE ---
-        let driveFiles = [];
+        // DRIVE SEARCH (If applicable)
         if (typeof gapi !== 'undefined' && gapi.client.drive && accessToken) {
             const driveRes = await gapi.client.drive.files.list({
                 'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${rawQuery}' and trashed = false`,
                 'fields': 'files(id, name)', 'pageSize': 5
             });
-            driveFiles = driveRes.result.files || [];
-        }
-
-        resultsContainer.innerHTML = ''; 
-        let seenNames = new Set(); // 🟢 DUPLICATE FIX: Ek hi gaana do baar nahi dikhega
-
-        // RENDER: Cloudinary (Pehle dikhao)
-        cloudMatches.forEach(song => {
-            renderSearchRow(song.name, song.artist, song.img, song, 'cloudinary');
-            seenNames.add(song.name.toLowerCase());
-        });
-
-        // RENDER: Local (Agar wo Cloudinary mein pehle se nahi dikhaya gaya)
-        localMatches.forEach(song => {
-            if(!seenNames.has(song.name.toLowerCase())) {
-                renderSearchRow(song.name, song.artist, song.img || defaultImg, playlist.indexOf(song), 'local');
-                seenNames.add(song.name.toLowerCase());
-            }
-        });
-
-        // RENDER: Drive (Master Engine Use Karega)
-        for (const file of driveFiles) {
-            let clean = file.name.replace(/\.[^/.]+$/, "");
-            if(!seenNames.has(clean.toLowerCase())) {
-                //  STEP 3 MASTER ENGINE CONNECTION (null bhej rahe hain taaki bajaye nahi)
-                const meta = await fetchMusicMeta(null, clean);
-                renderSearchRow(meta.title || clean, "Google Drive", meta.artwork || defaultImg, file.id, 'drive');
+            for (const file of (driveRes.result.files || [])) {
+                let clean = file.name.replace(/\.[^/.]+$/, "");
+                if(!seenNames.has(clean.toLowerCase())) {
+                    const meta = await fetchMusicMeta(null, clean);
+                    renderSearchRow(meta.title || clean, "Google Drive", meta.artwork || defaultImg, file.id, 'drive', resultsContainer);
+                    matchesFound = true;
+                }
             }
         }
 
-        if (resultsContainer.innerHTML === '') {
-            resultsContainer.innerHTML = '<div style="padding:20px; text-align:center; color:gray;">No results found.</div>';
+        if (!matchesFound) {
+            resultsContainer.innerHTML = `<p style="text-align:center; padding:40px; color:#666; font-size:14px;">No results for "${rawQuery}"</p>`;
         }
-    } catch (err) { console.error("Search Logic Error:", err); }
+    } catch (err) { console.error(err); }
 }
 
-// 3. UI RENDERER: Badge ke saath tray mein dikhane ke liye
-function renderSearchRow(title, artist, img, data, type) {
-    const resultsContainer = document.getElementById('global-search-results');
+
+//  UI RENDERER (Clean Row Style)
+function renderSearchRow(title, artist, img, data, type, target) {
     const div = document.createElement('div');
-    div.className = 'song-item';
+    div.className = 'song-item'; 
+    // Margin aur Padding Library se match karne ke liye
+    div.style.cssText = "display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; width: 100%; box-sizing: border-box;";
     
-    let action, badge;
+    let action, badge, indexForMenu;
     if (type === 'cloudinary') {
         action = `playSelectedCloudSong(${JSON.stringify(data).replace(/"/g, '&quot;')})`;
         badge = '☁️ Cloud';
+        indexForMenu = 0; 
     } else if (type === 'drive') {
-        //  MASTER ENGINE CALL: Yeh metadata aur play dono handle karega
         action = `fetchMusicMeta('${data}', '${title.replace(/'/g, "\\'")}')`;
         badge = '📁 Drive';
+        indexForMenu = data;
     } else {
         badge = '💿 Library';
         action = `loadSong(${data}); maximizePlayer();`;
+        indexForMenu = data;
     }
 
-    div.innerHTML = `
-        <div class="song-info-container" onclick="${action}; document.getElementById('global-search-results').style.display='none';">
-            <img src="${img}" style="width:48px; height:48px; border-radius:10px; object-fit:cover; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-            <div style="margin-left:12px; overflow:hidden;">
-                <h4 style="font-size:14.5px; margin:0; color:white; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${title}</h4>
-                <p style="font-size:11px; margin:2px 0 0; color:#8e8e93; font-weight:500;">${badge} • ${artist}</p>
+        div.innerHTML = `
+        <div class="song-info-container" onclick="${action}" style="display: flex !important; align-items: center !important; flex: 1 !important; padding: 0px 10px !important; cursor: pointer;">
+            <img src="${img}" style="width: 48px !important; height: 48px !important; border-radius: 6px !important; object-fit: cover !important; flex-shrink: 0 !important;">
+            
+            <div style="margin-left: 14px !important; display: flex !important; flex-direction: column !important; justify-content: center !important; overflow: hidden !important; flex: 1 !important;">
+                <h4 style="font-size: 15px !important; margin: 0 !important; color: white !important; white-space: nowrap !important; text-overflow: ellipsis !important; overflow: hidden !important; font-weight: 500 !important; line-height: 1.2 !important;">${title}</h4>
+                <p style="font-size: 12px !important; margin: 3px 0 0 !important; color: #8e8e93 !important; white-space: nowrap !important; text-overflow: ellipsis !important; overflow: hidden !important;">${badge} • ${artist}</p>
             </div>
         </div>
+
+        <div class="song-menu-btn" onclick="event.stopPropagation(); openSongMenu(event, ${indexForMenu})" style="padding: 10px 16px !important; display: flex !important; align-items: center !important; cursor: pointer;">
+            <i class="fas fa-ellipsis-v" style="color: #8e8e93 !important; font-size: 14px !important;"></i>
+        </div>
     `;
-    resultsContainer.appendChild(div);
+    target.appendChild(div);
 }
 
-// 4. CLOUD PLAYBACK HELPER: Search se gaana turant bajane ke liye
+
+// 4. CLOUD PLAYBACK HELPER: Search se Cloud gaana bajane ke liye
 function playSelectedCloudSong(song) {
     if(typeof playlist !== 'undefined') {
-        // 1. Gaane ko playlist mein sabse upar dalo
+        // Gaane ko playlist mein sabse upar dalo
         playlist.unshift(song);
-        currentSongIndex = 0;
         
-        // 2. Gaana load karo
+        // Agar aapka variable 'currentIndex' hai toh ise 0 karo
+        if(typeof currentIndex !== 'undefined') currentIndex = 0;
+        
+        // Gaana load karo
         loadSong(0);
         
-        // 3.  IGNITION: Force play command
-        if (audio) {
+        // Force Play logic
+        if (typeof audio !== 'undefined') {
             audio.play().then(() => {
-                updatePlayIcons(true); // Icon ko pause mein badlo
-            }).catch(e => {
-                console.error("Playback failed, user interaction needed:", e);
-            });
+                if(typeof updatePlayIcons === 'function') updatePlayIcons(true);
+            }).catch(e => console.log("Playback started after interaction"));
         }
-
-        // 4. Player screen ko upar lao
+        
+        // Player ko full screen par lao
         if(typeof maximizePlayer === 'function') maximizePlayer();
+        
+        // Search view ko band karo
+        const tray = document.getElementById('global-search-results');
+        if(tray) tray.style.display = 'none';
     }
 }
+
 
 // IMPORTANT: App load par sync start karo (Sirf ek baar rehna chahiye)
 window.addEventListener('load', startCloudSync);
@@ -407,12 +439,15 @@ function createPicker(mode = 'file') {
 
 async function pickerCallback(data) {
     if (data.action === google.picker.Action.PICKED) {
-        // Loop chalaya hai taaki agar user multiselect kare toh sab load hon
+        // Multi-select handling
         for (const doc of data.docs) {
             if (doc.mimeType === "application/vnd.google-apps.folder") {
                 scanDriveFolder(doc.id, doc.name);
             } else {
-                let cleanName = doc.name.replace(/\.[^/.]+$/, "");
+                //  Master Cleaning for Single File
+                let cleanName = doc.name.replace(/\.[^/.]+$/, "").replace(/_/g, ' ').trim();
+                
+                // Direct Play from Picker (Passing ID so it plays immediately)
                 fetchMusicMeta(doc.id, cleanName);
             }
         }
@@ -420,7 +455,7 @@ async function pickerCallback(data) {
 }
 
 async function scanDriveFolder(folderId, folderName) {
-    showTempMessage(` Scanning: ${folderName}`);
+    showTempMessage(` Deep Scanning: ${folderName}`);
     
     try {
         const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents+and+mimeType+contains+'audio/'&fields=files(id,name)&key=${API_KEY}`;
@@ -442,20 +477,21 @@ async function scanDriveFolder(folderId, folderName) {
 
         const files = data.files;
         if (!files || files.length === 0) {
-            showTempMessage("Bhai, folder khali hai!");
+            showTempMessage("Folder khali hai, bhai!");
             return;
         }
 
         const newFiles = files.filter(f => !playlist.some(p => p.driveId === f.id));
-        showTempMessage(` Found ${newFiles.length} new songs!`);
+        showTempMessage(` Found ${newFiles.length} new tracks!`);
 
         for (const file of newFiles) {
-            let cleanName = file.name.replace(/\.[^/.]+$/, "");
+            //  4-WORD PREP: Underscores hatao aur clean name nikalo
+            let cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/_/g, ' ').trim();
             
-            // 🟢 Skeleton Entry (UI Refresh)
+            // 🟢 Skeleton Entry (Loading View)
             const skeletonEntry = {
                 name: cleanName,
-                artist: "Matching on iTunes...",
+                artist: " Matching on iTunes...",
                 img: "https://upload.wikimedia.org/wikipedia/commons/b/b1/Loading_icon.gif",
                 isDrive: true,
                 driveId: file.id,
@@ -465,22 +501,24 @@ async function scanDriveFolder(folderId, folderName) {
             playlist.unshift(skeletonEntry);
             renderPlaylist(); 
 
-            //  MASTER ENGINE SYNC: Purane fetchMusicMetaForFolder ki jagah
-            // Hum null bhej rahe hain taaki ye sirf metadata laaye, bajaye nahi
+            //  MASTER ENGINE SYNC (4-Word Deep Scan Mode)
+            // Hum null bhej rahe hain taaki ye sirf metadata laaye, turant bajaye nahi
             fetchMusicMeta(null, cleanName).then(metaData => {
                 let song = playlist.find(s => s.driveId === file.id);
                 if(song) {
+                    // iTunes se mila hua perfect thappa
                     song.name = metaData.title;
                     song.artist = metaData.artist;
-                    song.img = metaData.artwork; // Master Engine 'artwork' use karta hai
+                    song.img = metaData.artwork || defaultImg; 
                     delete song.isGhost;
+                    
                     savePlaylistToDisk();
                     renderPlaylist();
                 }
             });
             
-            // 1 second delay taaki iTunes block na kare
-            await new Promise(r => setTimeout(r, 1000)); 
+            //  API THROTTLING: iTunes ko 1.2s ka saans lene do taaki woh block na kare
+            await new Promise(r => setTimeout(r, 1200)); 
         }
 
     } catch (err) {
@@ -488,6 +526,7 @@ async function scanDriveFolder(folderId, folderName) {
         showTempMessage("Drive Scan Failed");
     }
 }
+
 
 
 /* =================  1. UPDATED: LOAD AND PLAY DRIVE SONG (The Heart) ================= */
@@ -543,44 +582,44 @@ async function loadAndPlayDriveSong(id, info) {
 async function playNextSmart(nextSmartMeta) {
     console.log(" Picking AI Suggested track...");
     
-    // iTunes fetch for the suggested song
-    const itRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(nextSmartMeta.name)}&entity=song&limit=1`);
-    const itData = await itRes.json();
+    // Alag se fetch karne ke bajaye humara Master Engine use karo 4-word accuracy ke liye
+    const nextInfo = await fetchMusicMeta(null, nextSmartMeta.name);
     
-    let nextInfo = {
-        title: nextSmartMeta.name,
-        artist: "AI Suggested",
-        artwork: defaultImg
-    };
-
-    if (itData.results && itData.results.length > 0) {
-        const track = itData.results[0];
-        nextInfo = {
-            title: track.trackName,
-            artist: track.artistName,
-            artwork: track.artworkUrl100.replace('100x100', '600x600')
-        };
-    }
+    // Agar iTunes fail ho jaye toh AI ka default data use karo
+    if (!nextInfo.artwork) nextInfo.artwork = defaultImg;
     
-    // Recursive call: Agla gana bhi Nature Engine se hi bajega
     loadAndPlayDriveSong(nextSmartMeta.id, nextInfo);
 }
 
 /* ============================================================
-    MASTER METADATA ENGINE (SINGLE SOURCE OF TRUTH)
+    MASTER METADATA ENGINE (STRICT 4-WORD DEEP SCAN)
    ============================================================ */
 
 async function fetchMusicMeta(id, query) {
     try {
-        // Bhai, iTunes match ke liye hum pehle 3 words le rahe hain (Best Balance)
-        let cleanQuery = query.split(/[\s-_]+/).slice(0, 3).join(' ');
+        // 1. ADVANCED CLEANER: Cloudinary suffix aur underscores ko saaf karna
+        let baseClean = query
+            .replace(/(_[a-z0-9]{5,8})$/i, '') //  Removes Cloudinary _shshue suffix
+            .replace(/_/g, ' ')               // Underscore to Space
+            .replace(/[()\[\]\-:_]/g, ' ')     // Extra symbols hatao
+            .replace(/\b(320kbps|mp3|kbps|download|full|video|song)\b/gi, '') // Junk words hatao
+            .trim();
+
+        // 2. STRICT 4-WORD EXTRACTION: 
+        // Accuracy ke liye hum strictly pehle 4 words hi bhejenge (VIBE GURU RANDHAWA etc.)
+        let wordsArray = baseClean.split(/\s+/).filter(word => word.length > 0);
+        let cleanQuery = wordsArray.slice(0, 4).join(' '); 
         
+        //  DEBUG: Console mein dekho kya search ho raha hai
+        console.log("🔍 iTunes Deep Scan Mode:", cleanQuery);
+
+        // 3. iTUNES API: High priority search
         const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanQuery)}&entity=song&limit=1`);
         const data = await res.json();
         
-        // Default settings agar iTunes par kuch na mile
+        // Default settings (Agar iTunes par kuch na mile)
         let songInfo = {
-            title: query,
+            title: baseClean, // Kachra saaf karne ke baad wala query name
             artist: "Cloud Source",
             artwork: defaultImg
         };
@@ -590,22 +629,25 @@ async function fetchMusicMeta(id, query) {
             songInfo = {
                 title: track.trackName,
                 artist: track.artistName,
-                artwork: track.artworkUrl100.replace('100x100', '600x600') // High Quality Cover
+                // HQ Art: 1000x1000 pixels (Bilkul tere chhote project jaisa)
+                artwork: track.artworkUrl100.replace('100x100bb.jpg', '1000x1000bb.jpg')
             };
         }
 
-        //  ACTION: Ab ye decide karega ki gaana kaise bajana hai
-        // Agar ID hai (Drive), toh loadAndPlayDriveSong call hoga
+        // 4. SMART ACTION: Play vs Sync
         if (id) {
+            // Agar ID hai (Drive/Picker), toh turant bajao
             loadAndPlayDriveSong(id, songInfo);
         } else {
-            // Agar bina ID ke call hua hai, toh sirf metadata return karega
+            // Agar ID nahi hai (Sync/Results), toh metadata return karo
             return songInfo;
         }
 
     } catch (error) {
         console.error("Master Meta Error:", error);
-        if (id) loadAndPlayDriveSong(id, {title: query, artist: "Cloud", artwork: defaultImg});
+        // Error fallback
+        if (id) loadAndPlayDriveSong(id, {title: query, artist: "Cloud Source", artwork: defaultImg});
+        return { title: query, artist: "Cloud Source", artwork: defaultImg };
     }
 }
 
@@ -1501,10 +1543,24 @@ function openSearchStack() {
 function closeSearchStack() {
     const sStack = document.getElementById('search-stack');
     const tStack = document.getElementById('tab-stack');
+    const tray = document.getElementById('global-search-results'); //  Target Tray
+
     if (sStack) sStack.style.display = 'none';
     if (tStack) tStack.style.display = 'flex';
+    
+    //  MAGIC LINE: Search band hote hi results bhi gayab
+    if (tray) {
+        tray.style.display = 'none';
+        tray.innerHTML = ''; // Memory saaf karne ke liye
+    }
+
+    // Input field ko bhi clear kar do taaki agli baar fresh search ho
+    const searchInput = document.getElementById('app-search-input');
+    if (searchInput) searchInput.value = '';
+
     searchOpen = false;
 }
+
 /* ================= FEATURE: CLICK ANYWHERE TO CLOSE ================= */
 document.addEventListener('click', (e) => {
     // 1. Search Stack Logic
