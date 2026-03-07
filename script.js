@@ -206,7 +206,7 @@ const CLOUD_ACC_NAME = "dh7lsxevl";
 window.cloudMusicCache = []; 
 
 async function startCloudSync() {
-    console.log("⚡️ Cloud Sync Starting (Deep Scan Mode)...");
+    console.log("⚡️ Cloud Sync: Loading full folder into Playlist...");
     try {
         const res = await fetch(`https://res.cloudinary.com/${CLOUD_ACC_NAME}/video/list/music.json?cb=${Date.now()}`);
         const data = await res.json();
@@ -216,33 +216,45 @@ async function startCloudSync() {
 
         for (let file of resources) {
             let rawName = file.public_id.split('/').pop();
-
-            // Suffix Cleaner: _shshue jaise kachre ko hatane ke liye
+            
+            // 1. Suffix Cleaner: _shshue wagera saaf karne ke liye
             let cleanName = rawName.replace(/_[a-z0-9]{6,8}$/i, '') 
                             .replace(/_/g, ' ')
                             .replace(/\b(320kbps|bayfub|p0lb2t|mp3|kbps|download)\b/gi, '')
                             .trim();
 
-            //  MASTER ENGINE CALL: Ab ye upar wale 4-word logic ko use karega
+            // 2. 4-Word Deep Scan for Accuracy
             const meta = await fetchMusicMeta(null, cleanName);
             
-            window.cloudMusicCache.push({
+            const cloudEntry = {
                 name: meta.title || cleanName,
                 artist: meta.artist || "Cloud Drive",
-                img: meta.artwork || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=500",
+                img: meta.artwork || defaultImg,
                 url: `https://res.cloudinary.com/${CLOUD_ACC_NAME}/video/upload/v${file.version}/${file.public_id}.${file.format}`,
                 isCloudinary: true
-            });
+            };
+
+            // 3. Cache mein dalo (Search Tray ke liye)
+            window.cloudMusicCache.push(cloudEntry);
+
+            // 4. THE MAGIC: Playlist mein Inject karo (Auto-Play ke liye)
+            // 'some' check karta hai ki gaana pehle se list mein toh nahi hai (Duplicate handle)
+            if (!playlist.some(p => p.url === cloudEntry.url)) {
+                playlist.push(cloudEntry);
+            }
         }
-        console.log("✅ Sync Complete! Total Accurate Tracks:", window.cloudMusicCache.length);
+
+        console.log("✅ Cloud Sync Complete! All songs are now in your Playlist.");
         
-        const syncStatus = document.getElementById('sync-msg');
-        if(syncStatus) syncStatus.innerText = ` ${window.cloudMusicCache.length} Tracks Ready`;
+        // 5. UI Refresh: Taaki "All Songs" list mein gaane turant dikh jayein
+        renderPlaylist(); 
+        if(typeof renderHomeScreen === "function") renderHomeScreen();
 
     } catch (e) {
-        console.error("❌ Sync Error:", e);
+        console.error("❌ Cloud Injection Error:", e);
     }
 }
+
 
 
 
@@ -1531,35 +1543,163 @@ function switchTab(tabName) {
     }
 }
 
+/* ============================================================
+    MASTER SEARCH ENGINE: FULL IMMERSIVE & AUTO-KEYBOARD
+   ============================================================ */
+
+// 1. OPEN SEARCH: Instant Blackout + Force Keyboard Pop
 function openSearchStack() {
     const tabStack = document.getElementById('tab-stack');
     const searchStack = document.getElementById('search-stack');
+    const tray = document.getElementById('global-search-results');
+    const input = document.getElementById('app-search-input');
+    
+    //  STEP A: IMMEDIATE FOCUS (Keyboard pop-up ke liye sabse upar)
+    if(input) {
+        input.focus();
+        input.click(); // Mobile browsers ko extra click signal chahiye hota hai
+    }
+
+    // STEP B: UI Feedback (Bar ko top par bhejo)
+    document.body.classList.add('search-active');
+    
+    // STEP C: FULL SCREEN BLACKOUT
+    if (tray) {
+        tray.style.display = 'block';
+        tray.style.cssText = `
+            display: block !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            background: #000 !important; 
+            z-index: 10000 !important; /* Mini player (20001) iske upar rahega */
+            overflow-y: auto !important;
+            padding: 80px 0 160px 0 !important;
+        `;
+        tray.innerHTML = '<div style="padding:100px 40px; text-align:center; color:#444; font-size:15px; font-weight:500;"> Search for your favorite music...</div>';
+    }
+
     if(tabStack) tabStack.style.display = 'none';
-    if(searchStack) { searchStack.style.display = 'flex'; searchStack.style.opacity = '1'; }
+    if(searchStack) {
+        searchStack.style.display = 'flex';
+        searchStack.style.opacity = '1';
+        searchStack.style.zIndex = '11000'; // Bar tray ke upar but player ke niche
+    }
+    
     searchOpen = true;
-    setTimeout(() => { const input = document.getElementById('app-search-input'); if(input) input.focus(); }, 150);
+
+    // STEP D: SECOND ATTEMPT FOCUS (Safe for iOS/Android delays)
+    setTimeout(() => { 
+        if(input) input.focus(); 
+    }, 50);
 }
 
+// 2. HYBRID SEARCH LOGIC: Real-time results matching
+async function handleHybridSearch() {
+    const rawQuery = document.getElementById('app-search-input').value.trim();
+    const tray = document.getElementById('global-search-results');
+    
+    // Agar text mita diya toh screen black hi rakho
+    if (!rawQuery || rawQuery.length < 1) {
+        if(tray) tray.innerHTML = '<div style="padding:100px 40px; text-align:center; color:#444; font-size:15px; font-weight:500;"> Search for your favorite music...</div>';
+        return;
+    }
+
+    // Results Header
+    tray.innerHTML = `
+        <div style="padding: 20px 25px 10px 25px;">
+            <p style="color: #8e8e93; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Search results for</p>
+            <h1 style="color: white; font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -1px;">"${rawQuery}"</h1>
+        </div>
+        <div id="search-items-container"></div>
+    `;
+
+    const resultsContainer = document.getElementById('search-items-container');
+    let seenNames = new Set();
+    let matchesFound = false;
+    let queryLower = rawQuery.toLowerCase();
+
+    // A. Search Cloud Cache
+    const cloudMatches = (window.cloudMusicCache || []).filter(s => 
+        s.name.toLowerCase().includes(queryLower) || (s.artist && s.artist.toLowerCase().includes(queryLower))
+    );
+
+    cloudMatches.forEach(song => {
+        renderSearchRow(song.name, song.artist, song.img, song, 'cloudinary', resultsContainer);
+        seenNames.add(song.name.toLowerCase());
+        matchesFound = true;
+    });
+
+    // B. Search Google Drive
+    if (typeof gapi !== 'undefined' && gapi.client.drive && accessToken) {
+        try {
+            const driveRes = await gapi.client.drive.files.list({
+                'q': `'${DRIVE_FOLDER_ID}' in parents and name contains '${rawQuery}' and trashed = false`,
+                'fields': 'files(id, name)', 'pageSize': 6
+            });
+            for (const file of (driveRes.result.files || [])) {
+                let clean = file.name.replace(/\.[^/.]+$/, "");
+                if(!seenNames.has(clean.toLowerCase())) {
+                    const meta = await fetchMusicMeta(null, clean);
+                    renderSearchRow(meta.title || clean, "Google Drive", meta.artwork || defaultImg, file.id, 'drive', resultsContainer);
+                    matchesFound = true;
+                }
+            }
+        } catch (e) { console.error("Drive Search Error", e); }
+    }
+
+    if (!matchesFound) {
+        resultsContainer.innerHTML = `<div style="text-align:center; padding:100px 40px; color:#666;">No results for "${rawQuery}"</div>`;
+    }
+}
+
+// 3. FINISH SEARCH: Jab keyboard ka "Enter/Return" dabaye
+function finishSearch() {
+    const sStack = document.getElementById('search-stack');
+    const tStack = document.getElementById('tab-stack');
+    const input = document.getElementById('app-search-input');
+
+    if(input) input.blur(); //  KEYBOARD DOWN
+
+    document.body.classList.remove('search-active');
+    if (sStack) sStack.style.display = 'none';
+    if (tStack) tStack.style.display = 'flex';
+
+    searchOpen = false;
+    // Tray black hi rahega taaki results dikhein
+}
+
+// 4. CLOSE SEARCH: Everything reset to normal (Exit Search)
 function closeSearchStack() {
     const sStack = document.getElementById('search-stack');
     const tStack = document.getElementById('tab-stack');
-    const tray = document.getElementById('global-search-results'); //  Target Tray
+    const tray = document.getElementById('global-search-results');
+    const input = document.getElementById('app-search-input');
 
+    document.body.classList.remove('search-active');
     if (sStack) sStack.style.display = 'none';
     if (tStack) tStack.style.display = 'flex';
     
-    //  MAGIC LINE: Search band hote hi results bhi gayab
     if (tray) {
         tray.style.display = 'none';
-        tray.innerHTML = ''; // Memory saaf karne ke liye
+        tray.innerHTML = ''; 
     }
 
-    // Input field ko bhi clear kar do taaki agli baar fresh search ho
-    const searchInput = document.getElementById('app-search-input');
-    if (searchInput) searchInput.value = '';
-
+    if (input) input.value = '';
     searchOpen = false;
 }
+
+// 5. EVENT LISTENERS
+document.getElementById('app-search-input').addEventListener('input', handleHybridSearch);
+document.getElementById('app-search-input').addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+        finishSearch(); // Bar Vanish & Keyboard Hide
+    }
+});
+
+
 
 /* ================= FEATURE: CLICK ANYWHERE TO CLOSE ================= */
 document.addEventListener('click', (e) => {
@@ -1822,59 +1962,6 @@ function renderSongList(indices, container, msg) {
 }
 
 
-
-function openSongMenu(e, index) {
-    e.stopPropagation(); selectedMenuIndex = index;
-    const menu = document.getElementById('song-options-menu');
-    menu.style.display = 'block'; menu.style.left = (e.clientX - 150) + "px"; menu.style.top = e.clientY + "px";
-}
-
-async function updateMediaSession(s) {
-    if (!('mediaSession' in navigator)) return;
-
-    // 1. Branding wala Artwork generate karne ka function
-    const getBrandedImg = (imgSrc) => {
-        return new Promise((resolve) => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
-            img.crossOrigin = "Anonymous";
-            img.src = imgSrc;
-
-            img.onload = () => {
-                canvas.width = 1000; // High quality size
-                canvas.height = 1000;
-
-                // Main Cover Image draw karo
-                ctx.drawImage(img, 0, 0, 1000, 1000);
-
-                // 2.  Music Branding Style
-                ctx.fillStyle = "rgba(0,0,0,0.5)"; // Thoda dark overlay corner mein
-                ctx.roundRect(750, 40, 210, 60, 30); // Logo background
-                ctx.fill();
-
-                ctx.fillStyle = "white";
-                ctx.font = "bold 40px -apple-system, sans-serif";
-                ctx.fillText(" Music", 780, 82); // Logo Text
-
-                resolve(canvas.toDataURL("image/jpeg", 0.8));
-            };
-            img.onerror = () => resolve(imgSrc); // Fallback agar image fail ho
-        });
-    };
-
-    // 3. Lock Screen par metadata set karo
-    const brandedCover = await getBrandedImg(s.img || defaultImg);
-
-    navigator.mediaSession.metadata = new MediaMetadata({
-        title: s.name,
-        artist: s.artist,
-        album: " Music", // Album name ki jagah branding
-        artwork: [
-            { src: brandedCover, sizes: '512x512', type: 'image/jpeg' }
-        ]
-    });
-}
 
 /* =================  HOME ENGINE INITIALIZATION ================= */
 
@@ -2343,55 +2430,131 @@ window.onclick = function(event) {
     }
 }
 
-// ==========================================
-// 5. CONTEXT MENU & DELETE LOGIC (NEW)
-// ==========================================
+/* ============================================================
+    MASTER CONTEXT MENU SYSTEM (FULL BLOCK)
+   ============================================================ */
+
+// 1. MAIN MENU OPENER
 function openSongMenu(e, index) {
-    e.stopPropagation(); // Gaana play hone se roko
-    currentMenuIndex = index; // Index save kiya delete ke liye
-    
+    e.stopPropagation(); 
+    selectedMenuIndex = index; 
+    currentMenuIndex = index; 
+
     const menu = document.getElementById('song-options-menu');
-    menu.style.display = 'block';
-    
-    // Apple Style Positioning: Jahan click kiya wahan glass menu dikhega
+    if (!menu) return;
+
     const x = e.clientX || (e.touches && e.touches[0].clientX);
     const y = e.clientY || (e.touches && e.touches[0].clientY);
     
+    menu.style.display = 'block';
     menu.style.top = `${y}px`;
-    menu.style.left = `${x - 160}px`; // Menu thoda left shift
+    menu.style.left = `${x - 160}px`;
+
+    menu.innerHTML = `
+        <div class="menu-item" onclick="handleMenuAddPlaylist()">
+            <i class="fas fa-plus"></i> Add to Playlist
+        </div>
+        <div class="menu-item" onclick="document.getElementById('cover-upload').click(); document.getElementById('song-options-menu').style.display='none';">
+            <i class="fas fa-image"></i> Change Cover Image
+        </div>
+        <div class="menu-item" onclick="handleDownload()">
+            <i class="fas fa-download"></i> Download Offline
+        </div>
+        <div class="menu-item" onclick="handleDeleteSong()" style="color: #ff453a; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 5px; padding-top: 10px;">
+            <i class="fas fa-trash"></i> Remove from Library
+        </div>
+    `;
+
+    const song = playlist[index];
+    if (song) updateMediaSession(song);
 }
 
+// 2. DELETE ENGINE
 async function handleDeleteSong() {
-    if (currentMenuIndex === null) return;
+    document.getElementById('song-options-menu').style.display = 'none';
+    if (currentMenuIndex === null || currentMenuIndex === undefined) return;
     
     const song = playlist[currentMenuIndex];
-    const confirmDelete = confirm(`Bhai, "${song.name}" ko library se nikal du?`);
-    
-    if (confirmDelete) {
-        // 1. Agar LOCAL gaana hai toh IndexedDB (Tijori) se uda do
+    if (confirm(`Bhai, "${song.name}" ko library se nikal du?`)) {
         if (song.isLocal && song.localId) {
             const transaction = musicDB.transaction(["localSongs"], "readwrite");
             transaction.objectStore("localSongs").delete(song.localId);
         }
-        
-        // 2. Agar DRIVE gaana hai toh permanent history se uda do
         if (song.isDrive) {
             let savedSongs = JSON.parse(localStorage.getItem('my_drive_songs')) || [];
             savedSongs = savedSongs.filter(s => s.id !== song.driveId);
             localStorage.setItem('my_drive_songs', JSON.stringify(savedSongs));
         }
-
-        // 3. Array se remove karo 
         playlist.splice(currentMenuIndex, 1);
-
-        // 4. Sab jagah update maro (Metadata + UI)
         savePlaylistToDisk();
         renderPlaylist();
-        
-        // 5. Menu band karo
-        document.getElementById('song-options-menu').style.display = 'none';
+        if(typeof renderHomeScreen === "function") renderHomeScreen();
         showTempMessage(" Removed from Library");
+        currentMenuIndex = null;
     }
+}
+
+// 3. CHANGE COVER ENGINE (Gallery Upload)
+const coverUploadInput = document.getElementById('cover-upload');
+if(coverUploadInput) {
+    coverUploadInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        // currentMenuIndex ka use kar rahe hain taaki usi gaane ka cover badle jiska menu khula tha
+        let targetIndex = (selectedMenuIndex !== null) ? selectedMenuIndex : currentIndex;
+
+        if (file && playlist[targetIndex]) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const newImgData = ev.target.result;
+                
+                // Playlist Update
+                playlist[targetIndex].img = newImgData;
+                
+                // Agar yahi gaana abhi baj raha hai, toh Player UI bhi update karo
+                if (targetIndex === currentIndex) {
+                    if(mainImg) mainImg.src = newImgData;
+                    const miniImg = document.getElementById('mini-img');
+                    if(miniImg) miniImg.src = newImgData;
+                    updatePlayerAdaptiveColor(newImgData);
+                }
+
+                savePlaylistToDisk();
+                renderPlaylist();
+                if(typeof renderHomeScreen === "function") renderHomeScreen();
+                showTempMessage(" Cover Updated");
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+}
+
+// 4. LOCK SCREEN BRANDING
+async function updateMediaSession(s) {
+    if (!('mediaSession' in navigator)) return;
+    const getBrandedImg = (imgSrc) => {
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.crossOrigin = "Anonymous";
+            img.src = imgSrc;
+            img.onload = () => {
+                canvas.width = 1000; canvas.height = 1000;
+                ctx.drawImage(img, 0, 0, 1000, 1000);
+                ctx.fillStyle = "rgba(0,0,0,0.5)";
+                ctx.roundRect(750, 40, 210, 60, 30); ctx.fill();
+                ctx.fillStyle = "white"; ctx.font = "bold 40px sans-serif";
+                ctx.fillText(" Music", 780, 82);
+                resolve(canvas.toDataURL("image/jpeg", 0.8));
+            };
+            img.onerror = () => resolve(imgSrc);
+        });
+    };
+    const brandedCover = await getBrandedImg(s.img || defaultImg);
+    navigator.mediaSession.metadata = new MediaMetadata({
+        title: s.name, artist: s.artist, album: " Music",
+        artwork: [{ src: brandedCover, sizes: '512x512', type: 'image/jpeg' }]
+    });
 }
 
 // --- LYRICS ENGINE START ---
