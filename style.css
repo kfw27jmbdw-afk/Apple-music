@@ -1428,4 +1428,51 @@ body,
         opacity: 0;
         transform: translateY(-120%);
     }
-}  
+} 
+
+
+/* ============================================================
+    DYNAMIC SEARCH POSITIONING (TOP JUMP FIX)
+   ============================================================ */
+
+/* Jab Search active ho, tab bar ko niche se utha kar top par chipka do */
+body.search-active #search-stack {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 65px !important; /* Top Head height */
+    background: rgba(0, 0, 0, 0.95) !important; /* Pure Black Glass */
+    backdrop-filter: blur(20px);
+    z-index: 50000 !important; /* Sabse upar */
+    padding: 10px 15px !important;
+    display: flex !important;
+    align-items: center;
+    border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Search Input ko thoda bada aur clean karne ke liye jab wo top par ho */
+body.search-active .search-input-wrapper {
+    background: #1c1c1e !important; /* Apple Grey */
+    height: 40px !important;
+    border-radius: 12px;
+}
+
+/* Search ke waqt niche wali navigation bar ko chhupao (Optional but Clean) */
+body.search-active #tab-stack {
+    display: none !important;
+}
+
+/* Result tray ko top bar ke niche set karo */
+body.search-active #global-search-results {
+    top: 65px !important; /* Header ke theek niche se shuru hoga */
+    bottom: 0 !important;
+    height: auto !important;
+    border-radius: 0 !important; /* Full page look */
+}
+#mini-player {
+    z-index: 20001 !important; /* Isse Mini Player piche nahi chhupage */
+}
+
+
+
