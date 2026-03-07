@@ -161,10 +161,10 @@
                 <i class="fas fa-play-circle"></i>
                 <span>Library</span>
             </div>
-            <div class="nav-item" onclick="openSearchStack()">
-                <i class="fas fa-search"></i>
-                <span>Search</span>
-            </div>
+            <div class="nav-item" onclick="openSearchStack(); document.getElementById('app-search-input').focus();">
+    <i class="fas fa-search"></i>
+    <span>Search</span>
+</div>
         </div>
 
       <div id="search-stack" class="nav-stack" style="display: none; position: relative;">
@@ -358,3 +358,4 @@
     </script>
 </body>
 </html>
+
