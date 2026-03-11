@@ -381,31 +381,26 @@ function renderSearchRow(title, artist, img, data, type, target) {
 
 // 4. CLOUD PLAYBACK HELPER: Search se Cloud gaana bajane ke liye
 function playSelectedCloudSong(song) {
-    if(typeof playlist !== 'undefined') {
-        // Gaane ko playlist mein sabse upar dalo
-        playlist.unshift(song);
-        
-        // Agar aapka variable 'currentIndex' hai toh ise 0 karo
-        if(typeof currentIndex !== 'undefined') currentIndex = 0;
-        
-        // Gaana load karo
-        loadSong(0);
-        
-        // Force Play logic
-        if (typeof audio !== 'undefined') {
-            audio.play().then(() => {
-                if(typeof updatePlayIcons === 'function') updatePlayIcons(true);
-            }).catch(e => console.log("Playback started after interaction"));
-        }
-        
-        // Player ko full screen par lao
-        if(typeof maximizePlayer === 'function') maximizePlayer();
-        
-        // Search view ko band karo
-        const tray = document.getElementById('global-search-results');
-        if(tray) tray.style.display = 'none';
+    // 1. Check karo agar ye pehle se hai
+    let existingIndex = playlist.findIndex(p => p.url === song.url);
+    
+    if (existingIndex === -1) {
+        // 2. Unshift ki jagah PUSH karo (Taki niche wale gaane na hilein)
+        playlist.push(song);
+        currentIndex = playlist.length - 1;
+    } else {
+        currentIndex = existingIndex;
     }
+
+    savePlaylistToDisk();
+    renderPlaylist(); // UI Refresh zaroori hai
+    loadSong(currentIndex);
+    maximizePlayer();
+    
+    const tray = document.getElementById('global-search-results');
+    if(tray) tray.style.display = 'none';
 }
+
 
 
 // IMPORTANT: App load par sync start karo (Sirf ek baar rehna chahiye)
@@ -1101,46 +1096,37 @@ function seekSong() {
 
 
 
+/* ================= STEP 1: MODAL & STORAGE CORE ================= */
 
 /**
- * Nayi Bottom Sheet ke andar Playlists aur options render karne ke liye
+ * Gaane ka menu khulne par ya Player se '+' dabane par modal dikhao
  */
-function renderModalPlaylistsInSheet() {
-    const sheet = document.getElementById('playlist-sheet');
+function handleMenuAddPlaylist() {
+    // 1. Purana menu band karo
+    const songMenu = document.getElementById('song-options-menu');
+    if(songMenu) songMenu.style.display = 'none'; 
+
+    // 2. Index set karo (selectedMenuIndex playlist list se aata hai)
+    currentModalIndex = selectedMenuIndex; 
+    
+    if (currentModalIndex === null) return;
+
     const song = playlist[currentModalIndex];
 
-    // Tera Glass Studio Content
-    sheet.innerHTML = `
-        <div class="sheet-handle"></div>
-        <div class="sheet-header" style="padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-            <h3 style="margin:0; font-size:18px;">${song.name}</h3>
-            <p style="margin:5px 0 0; font-size:13px; color:#8e8e93;">${song.artist}</p>
-        </div>
-        
-        <div class="sheet-options" style="max-height: 400px; overflow-y: auto;">
-            <div class="pl-item" onclick="toggleTick('library')">
-                <i class="fas fa-plus-square"></i> Add to Library
-            </div>
-            <div class="pl-item" onclick="toggleTick('favourite')">
-                <i class="fas fa-heart"></i> Add to Favourite
-            </div>
-            
-            <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin:10px 0;">
-            
-            <div id="sheet-playlists-container">
-                </div>
+    // 3. Modal UI mein gaane ka naam aur artist update karo
+    document.getElementById('modal-song-name').innerText = song.name;
+    document.getElementById('modal-song-artist').innerText = song.artist;
 
-            <div class="pl-item create-new" onclick="showNewPlaylistPrompt()" style="color: #ff3b30;">
-                <i class="fas fa-plus-circle"></i> New Playlist...
-            </div>
-        </div>
-        <div style="height: 40px;"></div>
-    `;
+    // 4. Tick status update karo (Check karo ki library/fav mein pehle se hai ya nahi)
+    updateTickUI('library', userLibrary.songs.includes(currentModalIndex));
+    updateTickUI('favourite', userLibrary.favourites.includes(currentModalIndex));
 
-    // Yahan apni playlists ki list populate karne ka logic call karo
-    renderPlaylistsInSheetContainer();
+    // 5. Playlists ki list Modal ke andar dikhao
+    renderModalPlaylists();
+
+    // 6. Modal ko screen par show karo
+    document.getElementById('action-modal').style.display = 'block';
 }
-
 
 /**
  * Modal ke andar Playlists render karne ka logic
@@ -1289,11 +1275,11 @@ function openPlaylistDetail(playlistName) {
             // 🟢 SAFETY CHECK: Agar gaana undefined hai toh skip karo
             if (!song) return; 
 
-            const div = document.createElement('div');
+                     const div = document.createElement('div');
             div.className = "song-item";
             div.id = `song-item-${idx}`; 
             div.innerHTML = `
-                <div class="song-info-container" onclick="loadSong(${idx}); maximizePlayer(); if(audio) audio.play(); updatePlayIcons(true);">
+                <div class="song-info-container" onclick="loadSong(${idx}); if(audio) audio.play(); updatePlayIcons(true);" style="cursor: pointer;">
                     <img src="${song.img || defaultImg}" style="border-radius: 4px; width: 45px; height: 45px;">
                     <div>
                         <h4 class="song-name-text" style="font-size: 14px; margin-bottom: 2px;">${song.name || 'Unknown'}</h4>
@@ -1307,6 +1293,7 @@ function openPlaylistDetail(playlistName) {
                     </div>
                 </div>`;
             listArea.appendChild(div);
+
         });
     }
     updatePlayingUI();
@@ -1942,8 +1929,7 @@ function renderLibraryContent(view = 'all') {
         Object.keys(userLibrary.playlists).forEach(name => {
             const thumb = userLibrary.playlistThumbs[name] || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=300';
             const div = document.createElement('div');
-            div.
-className = "playlist-card";
+            div.className = "playlist-card";
             div.innerHTML = `<div class="playlist-thumb-container" onclick="openPlaylistDetail('${name}')"><img src="${thumb}"></div><h4>${name}</h4>`;
             container.appendChild(div);
         });
@@ -2227,124 +2213,43 @@ function toggleTick(type, playlistName = null) {
     // Storage mein save karo taaki refresh par na udde
     saveLibraryToDisk();
 }
-//  1. UPDATED HANDLE MENU: Fixed Click & Visibility
-function handleMenuAddPlaylist(e) {
-    if(e) e.stopPropagation(); // Click niche na chala jaye
 
-    // 1. Sabhi purane modals aur menus ko force-hide karo (Blocking hatane ke liye)
-    const blockers = ['song-options-menu', 'action-modal', 'import-menu-overlay', 'settings-modal'];
-    blockers.forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.style.display = 'none';
-    });
+/**
+ * Gaane ka menu khulne par ya Player se '+' dabane par modal dikhao
+ */
+function handleMenuAddPlaylist() {
+    // 1. Agar gaane ki list wala menu khula hai toh use band karo
+    const songMenu = document.getElementById('song-options-menu');
+    if(songMenu) songMenu.style.display = 'none'; 
 
     // 2. Index set karo
     currentModalIndex = selectedMenuIndex; 
+    
     if (currentModalIndex === null || currentModalIndex === undefined) return;
 
-    const sheet = document.getElementById('playlist-sheet');
-    if (sheet) {
-        const song = playlist[currentModalIndex];
-        
-        // 3. HTML Content with Inline Click Fixes
-        sheet.innerHTML = `
-            <div class="sheet-handle" onclick="closePlaylistSheet()" style="width: 40px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: 15px auto; cursor:pointer;"></div>
-            
-            <div style="padding: 10px 20px 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                <h3 style="margin:0; font-size:18px; color:white;">${song.name}</h3>
-                <p style="margin:5px 0 0; font-size:13px; color:#8e8e93;">${song.artist}</p>
-            </div>
+    const song = playlist[currentModalIndex];
 
-            <div style="max-height: 450px; overflow-y: auto; padding: 10px 0;">
-                <div class="pl-item" onclick="event.stopPropagation(); toggleTick('library')">
-                    <i class="fas fa-plus-square"></i> <span>Add to Library</span>
-                </div>
-                <div class="pl-item" onclick="event.stopPropagation(); toggleTick('favourite')">
-                    <i class="fas fa-heart"></i> <span>Add to Favourite</span>
-                </div>
-                
-                <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin:10px 0;">
-                
-                <div id="dynamic-sheet-playlists"></div> 
-                
-                <div class="pl-item" onclick="event.stopPropagation(); showNewPlaylistPrompt()" style="color:#ff3b30;">
-                    <i class="fas fa-plus-circle"></i> <span>New Playlist...</span>
-                </div>
-            </div>
-            <div style="height: 60px;"></div>
-        `;
+    // 3. Modal UI update
+    document.getElementById('modal-song-name').innerText = song.name;
+    document.getElementById('modal-song-artist').innerText = song.artist;
 
-        // 4. Final Show Trigger
-        sheet.style.display = 'block'; // Ensure it's not display:none
-        sheet.style.visibility = 'visible';
-        
-        // Timeout taaki CSS transition slide-up effect dikhaye
-        setTimeout(() => {
-            sheet.classList.add('active');
-        }, 10);
-        
-        renderPlaylistsInSheet();
-    }
+    // 4. Tick status update
+    updateTickUI('library', userLibrary.songs.includes(currentModalIndex));
+    updateTickUI('favourite', userLibrary.favourites.includes(currentModalIndex));
+
+    renderModalPlaylists();
+    document.getElementById('action-modal').style.display = 'block';
 }
 
-//  2. CLOSE FUNCTION (Isey bhi add karlo)
-function closePlaylistSheet() {
-    const sheet = document.getElementById('playlist-sheet');
-    if (sheet) {
-        sheet.classList.remove('active');
-        setTimeout(() => {
-            sheet.style.visibility = 'hidden';
-        }, 400);
-    }
+function updateTickUI(type, status) {
+    const tick = document.getElementById(`tick-${type}`);
+    if(tick) status ? tick.classList.add('active') : tick.classList.remove('active');
 }
 
-
-//  2. SHEET KE ANDAR PLAYLISTS KI LIST DIKHANE KE LIYE
-function renderPlaylistsInSheet() {
-    const container = document.getElementById('dynamic-sheet-playlists');
-    if(!container) return;
-    container.innerHTML = "";
-
-    Object.keys(userLibrary.playlists).forEach(name => {
-        const isAdded = userLibrary.playlists[name].includes(currentModalIndex);
-        const div = document.createElement('div');
-        div.className = "pl-item";
-        div.onclick = () => toggleTick('playlist', name);
-        div.innerHTML = `
-            <i class="fas fa-list-ul"></i>
-            <span style="flex:1">${name}</span>
-            <i class="fas fa-check-circle" style="color:${isAdded ? '#ff3b30' : 'rgba(255,255,255,0.1)'}"></i>
-        `;
-        container.appendChild(div);
-    });
+function handleMenuAddPlaylistFromPlayer() {
+    selectedMenuIndex = currentIndex; 
+    handleMenuAddPlaylist(); 
 }
-// Naye popup ko close karne ka logic
-function closePlaylistSheet() {
-    const sheet = document.getElementById('playlist-sheet');
-    if (sheet) {
-        sheet.classList.remove('active');
-        // Thodi der baad visibility hidden karo taaki transition dikhe
-        setTimeout(() => {
-            sheet.style.visibility = 'hidden';
-        }, 500);
-    }
-}
-
-// Global click listener mein ye jodo
-document.addEventListener('click', (e) => {
-    const sheet = document.getElementById('playlist-sheet');
-    const firstPopup = document.getElementById('song-options-menu');
-    
-    // Agar sheet khuli hai aur click sheet ke bahar hua hai
-    if (sheet && sheet.classList.contains('active') && !sheet.contains(e.target)) {
-        // Check karein ki click "Add to Playlist" button par toh nahi hua
-        // (Warna khulte hi band ho jayega)
-        if (!e.target.closest('.menu-item')) {
-            closePlaylistSheet();
-        }
-    }
-});
-
 
 /**
  * Nayi Playlist banane ka logic
@@ -2770,17 +2675,13 @@ function renderCloudItem(song) {
 }
 /* ============================================================ */
 
-function openPlaylistSheet() {
-    // 1. Pehle center wale chhote popup ko band karo
-    const oldPopup = document.getElementById('song-options-menu');
-    if (oldPopup) oldPopup.style.display = 'none';
 
-    // 2. Ab nayi Bottom Sheet ko niche se slide karo
-    const sheet = document.getElementById('playlist-sheet');
-    if (sheet) {
-        sheet.classList.add('active'); // CSS transition trigger karega
-    }
-}
+
+
+
+
+
+
 
 
 
