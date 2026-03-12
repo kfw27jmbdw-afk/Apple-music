@@ -1,29 +1,3 @@
-/* ============================================================
-    SPOTIFY IMMERSIVE NOTCH FIX (SABSE UPAR DALO)
-   ============================================================ */
-
-/* 1. Base Layer: Isse black background notch ke peeche tak jayega */
-html, body {
-    margin: 0;
-    padding: 0;
-    background-color: #000000 !important; /* Notch area ko black se fill karega */
-    min-height: 100%;
-    /* iOS specific: viewport-fit=cover ko support karne ke liye */
-    min-height: -webkit-fill-available; 
-}
-
-/* 2. Header Adjustment: Content notch ke peeche na chhup jaye */
-.playlist-header, .home-header, .library-header {
-    /* env(safe-area-inset-top) automatically notch ki height calculate kar leta hai */
-    padding-top: calc(15px + env(safe-area-inset-top)) !important;
-    background-color: #000000 !important;
-}
-
-/* 3. Player Screen Fix: Full player bhi notch cover karega */
-#player-screen {
-    padding-top: env(safe-area-inset-top);
-}
-
 :root { 
     --spotify-green: #1DB954; 
     --bg-color: #1e1e1e; 
@@ -286,10 +260,18 @@ body {
 
 /* --- FORM OVERLAY --- */
 .overlay { 
-    display:none; position:fixed; top:0; left:0; width:100%; 
-    height:100%; background:rgba(0,0,0,0.95); z-index:200; 
-    padding:25px; box-sizing: border-box; 
+    display:none; 
+    position:fixed; 
+    inset: 0; 
+    background:rgba(0,0,0,0.7); 
+    z-index: 100; /* Isse naye popup (99999) se bahut peeche rakho */
+    pointer-events: none; /* Sabse important: taaki touch iske paar ja sake */
 }
+/* Jab modal khule (Settings/New Playlist) tabhi click allow karo */
+#playlist-name-modal.active, #settings-modal.active {
+    pointer-events: auto !important;
+}
+
 .overlay input { 
     width: 100%; padding: 14px; margin: 10px 0; 
     background: #222; border: none; color: #fff; 
@@ -732,22 +714,42 @@ body {
 }
 
 /* 1. Modal ko Player Screen ke upar laane ke liye */
+/* ---  UPDATED OVERLAY SYSTEM (CLAUDE + GHOST FIX) --- */
 .overlay { 
     display: none; 
     position: fixed; 
-    top: 0; left: 0; 
-    width: 100%; height: 100%; 
-    background: rgba(0,0,0,0.95); 
-    /* Player 20000 par hai, toh ise 30000 kar rahe hain taaki ye hamesha upar rahe */
+    inset: 0; /* top, left, width, height sab cover ho gaya */
+    background: rgba(0,0,0,0.85); /* Thoda transparent taaki premium lage */
+    
+    /* 1. LAYER PRIORITY: Player (20000) ke upar par Sheet (999999) ke niche */
     z-index: 30000 !important; 
     padding: 25px; 
-    box-sizing: border-box; 
+    box-sizing: border-box;
+
+    /* 2. CLAUDE FIX: Default 'none' rakho taaki invisible hone par clicks na roke */
+    pointer-events: none; 
+    transition: opacity 0.3s ease;
 }
 
-/* 2. Playlist Name Prompt ko bhi upar rakho */
+/* 3. Jab modal active ho (Settings/New Playlist), tab click unlock karo */
+.overlay.active, 
+#playlist-name-modal[style*="display: block"],
+#settings-modal[style*="display: block"] {
+    display: block !important;
+    pointer-events: auto !important; /* Ab yahan clicks kaam karenge */
+}
+
+/* 4. Playlist Name Prompt (Highest Priority for Input) */
 #playlist-name-modal {
     z-index: 30005 !important;
 }
+
+/* ---  PLAYLIST SHEET CLICKS UNLOCK --- */
+.playlist-selection-sheet.active {
+    pointer-events: auto !important; 
+    z-index: 999999999 !important; /* Sheet ko overlay se bhi upar rakho */
+}
+
 
 /* 3. Global Search Tray Fix (Floating Above Player) */
 #global-search-results {
@@ -1374,131 +1376,157 @@ body,
     100% { transform: scale(1) translateY(0); opacity: 1; filter: blur(0); }
 }
 
-/* ---  NEW: PLAYLIST SELECTION BOTTOM SHEET (SEPARATE BLOCK) --- */
+/* ---  PLAYLIST SELECTION: BOTTOM SHEET (FINAL CLICKABLE VERSION) --- */
 .playlist-selection-sheet {
     display: block !important;
     position: fixed;
-    bottom: -100%; /* Shuruat mein niche chhupa rahega */
+    bottom: -100%; /* Starting position below screen */
     left: 8px;
     right: 8px;
     width: auto !important;
-    z-index: 3000000 !important; /* Popup 1 se bhi upar */
+    
+    /* 1. TOP-MOST LAYER: Player (20000) se bhi kafi upar */
+    z-index: 99999999 !important; 
     padding: 0 !important;
+    
+    /* 2. INITIAL INTERACTION: Jab niche ho toh piche touch karne do */
+    pointer-events: none; 
+    visibility: hidden;
     overflow: hidden;
 
-    /* 1. GLASS STUDIO: 0.02 Opacity & 25px Blur (Same as Popup 1) */
+    /* 3. GLASS LOOK: Premium 0.02 Opacity */
     background: rgba(255, 255, 255, 0.02) !important; 
-    backdrop-filter: blur(25px) saturate(180%) !important; 
-    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    backdrop-filter: blur(40px) saturate(180%) !important; 
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
     
-    /* 2. APPLE SHEET DESIGN: Top Corners Round */
     border-radius: 35px 35px 0 0 !important; 
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-bottom: none;
-    box-shadow: 0 -15px 40px rgba(0, 0, 0, 0.6) !important;
+    box-shadow: 0 -15px 50px rgba(0, 0, 0, 0.8) !important;
     
-    /* 3. TRANSITION: Smooth Slide-Up (No Warp) */
-    transition: bottom 0.5s cubic-bezier(0.32, 0.72, 0, 1) !important;
-    visibility: hidden;
+    /* 4. MOTION: Smooth Apple Transition */
+    transition: bottom 0.5s cubic-bezier(0.32, 0.72, 0, 1), visibility 0.4s !important;
 }
 
-/* Jab Sheet Active ho */
+/*  ACTIVATION: Jab JS se 'active' class lagegi */
 .playlist-selection-sheet.active {
     bottom: 0 !important;
     visibility: visible !important;
+    
+    /* 5. CLICK ENABLE: Ab saare clicks isi par lagenge */
+    pointer-events: auto !important; 
+    touch-action: none; /* Scroll conflict rokne ke liye */
 }
 
-/* Drag Handle for the 'Sheet' look */
-.sheet-handle {
-    width: 36px; height: 5px; background: rgba(255, 255, 255, 0.15);
-    border-radius: 10px; margin: 12px auto 8px auto;
-}
-
-/* Playlist Menu Items */
+/* Items inside the sheet */
 .pl-item {
-    padding: 16px 22px !important;
+    padding: 16px 20px !important;
     display: flex !important;
     align-items: center !important;
     gap: 15px !important;
     font-size: 16px !important;
-    color: rgba(255, 255, 255, 0.95) !important;
-    font-weight: 500 !important;
-    cursor: pointer;
+    color: #ffffff !important;
+    cursor: pointer !important;
+    /* Click feedback */
     transition: background 0.2s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .pl-item:active {
     background: rgba(255, 255, 255, 0.1) !important;
 }
 
+.pl-item i {
+    width: 25px;
+    text-align: center;
+    font-size: 18px;
+    color: #ff3b30; /* Apple Red */
+}
 
-/* =================  CLEAN DIRECT CENTER SLIDE ================= */
+/* Sheet Handle Line */
+.sheet-handle {
+    width: 36px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    margin: 12px auto 8px auto;
+}
+
+
 
 /* 1. Lyrics Container */
 #synced-lyrics-view {
-    min-height: 60px !important;    
-    overflow: hidden !important; 
-    display: flex;
-    align-items: center;
-    justify-content: flex-start; 
-    padding-left: 25px;          
-    padding-right: 30px;         
-    background: transparent;
-    position: relative;
-    width: 100%;
+  min-height: 80px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  /* GPU acceleration hint */
+  will-change: transform; 
 }
 
-/* 2. Lyric Line - No Base Transform */
+/* 2. Lyric Line - The High-Refresh Setup */
 .lyric-line {
-    display: none !important;    
-    font-size: 18px;             
-    font-weight: 900;
-    text-align: left;            
-    color: #ffffff;
-    max-width: 90%;              
-    line-height: 1.2;
-    position: absolute;
-    top: 50%;
-    left: 35px;
-
-    opacity: 0;
+  /* Using opacity + visibility prevents the "Layout Shift" stutter */
+  opacity: 0;
+  visibility: hidden;
+  font-size: 18px;
+  font-weight: 900;
+  text-align: left;
+  color: #ffffff;
+  max-width: 90%;
+  line-height: 1.2;
+  position: absolute;
+  top: 50%;
+  left: 35px;
+  
+  /* Force GPU Layer */
+  transform: translate3d(0, 40px, 0); 
+  will-change: transform, opacity;
+  transition: opacity 0.3s ease, visibility 0.3s;
 }
 
-/* 3. Active Line - Smooth Direct Stop */
+/* 3. Active Line - The "Coming From Down" */
 .lyric-line.active {
-    display: block !important;
-    animation: cleanSlideUp 0.05s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+  visibility: visible;
+  opacity: 1;
+  /* Duration slightly longer for high-Hz displays to appreciate the curve */
+  animation: ultraSmoothSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* 4. Exit Line */
+/* 4. Exit Line - The "Work is Done / Go Up" */
 .lyric-line.exit {
-    display: block !important;
-    animation: cleanSlideExit 0.25s ease-in forwards;
+  visibility: visible;
+  animation: ultraSmoothExitUp 0.5s cubic-bezier(0.33, 0, 0.67, 1) forwards;
 }
 
-/* 🔥 KEYFRAMES - No Bounce, No Extra Move */
-
-@keyframes cleanSlideUp {
-    from {
-        opacity: 0;
-        transform: translateY(40px); /* niche */
-    }
-    to {
-        opacity: 1;
-        transform: translateY(-50%); /* direct center */
-    }
+/* 🔥 120fps KEYFRAMES */
+@keyframes ultraSmoothSlideUp {
+  0% {
+    opacity: 0;
+    /* Starting well below the center */
+    transform: translate3d(0, 40px, 0); 
+  }
+  100% {
+    opacity: 1;
+    /* The -50% accounts for the top: 50% positioning */
+    transform: translate3d(0, -50%, 0); 
+  }
 }
 
-@keyframes cleanSlideExit {
-    from {
-        opacity: 1;
-        transform: translateY(-50%);
-    }
-    to {
-        opacity: 0;
-        transform: translateY(-120%);
-    }
-} 
+@keyframes ultraSmoothExitUp {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, -50%, 0);
+  }
+  100% {
+    opacity: 0;
+    /* Moving further up as it finishes */
+    transform: translate3d(0, -120%, 0); 
+  }
+}
 
 
 /* ============================================================
@@ -1563,3 +1591,51 @@ body.search-active #global-search-results {
 #mini-player {
     z-index: 555555 !important;
 }
+
+/* ---  PLAYLIST SELECTION: BOTTOM SHEET (100% WORKING FIX) --- */
+.playlist-selection-sheet {
+    display: block !important;
+    position: fixed;
+    bottom: -100%; 
+    left: 8px;
+    right: 8px;
+    width: auto !important;
+    z-index: 999999999 !important; 
+    padding: 0 !important;
+    overflow: hidden;
+
+    /* Yahan se !important hata diya taaki active class kaam kare */
+    pointer-events: none; 
+    visibility: hidden;
+
+    background: rgba(255, 255, 255, 0.03) !important; 
+    backdrop-filter: blur(40px) saturate(180%) !important; 
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    
+    border-radius: 35px 35px 0 0 !important; 
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.9) !important;
+    transition: bottom 0.5s cubic-bezier(0.32, 0.72, 0, 1), visibility 0.4s !important;
+}
+
+/* Jab Sheet Active ho */
+.playlist-selection-sheet.active {
+    bottom: 0 !important;
+    visibility: visible !important;
+    pointer-events: auto !important; /* Force click on items */
+    touch-action: auto !important;   /* Mobile touch enable */
+}
+
+/* Items inside: Ensure they catch the click */
+.pl-item {
+    padding: 18px 24px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 16px !important;
+    cursor: pointer !important;
+    pointer-events: auto !important; /* Critical */
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+
