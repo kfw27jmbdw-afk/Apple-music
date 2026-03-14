@@ -187,12 +187,12 @@ body {
 
 .banner-container { 
     /* 1. SIZE: 280px se 300px ke beech best lagta hai */
-    width: 340px !important; 
-    height: 340px !important; 
+    width: 330px !important; 
+    height: 330px !important; 
     aspect-ratio: 1/1; 
     
     /* 2. POSITION: Center align aur Top se gap */
-    margin: 60px auto 5px auto !important; /* Top margin badhane se image niche aayegi */
+    margin: 40px auto 5px auto !important; /* Top margin badhane se image niche aayegi */
     
     /* 3. LOOK: Apple style rounding aur shadow */
     overflow: hidden; 
