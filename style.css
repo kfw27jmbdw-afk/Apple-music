@@ -1455,33 +1455,38 @@ body,
 
 
 
+/* =================  CLEAN DIRECT CENTER SLIDE ================= */
+
 /* 1. Lyrics Container */
 #synced-lyrics-view {
-  min-height: 90px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  position: relative;
-  width: 100%;
-  /* GPU acceleration hint */
-  will-change: transform; 
+    min-height: 60px !important;    
+    overflow: hidden !important; 
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; 
+    padding-left: 25px;          
+    padding-right: 30px;         
+    background: transparent;
+    position: relative;
+    width: 100%;
 }
 
-/* 2. Lyric Line - The High-Refresh Setup */
+/* 2. Lyric Line - No Base Transform */
 .lyric-line {
-  /* Using opacity + visibility prevents the "Layout Shift" stutter */
-  opacity: 0;
-  visibility: hidden;
-  font-size: 18px;
-  font-weight: 900;
-  text-align: left;
-  color: #ffffff;
-  max-width: 90%;
-  line-height: 1.2;
-  position: absolute;
-  top: 60%;
-  left: 5px;
-  
+    display: none !important;    
+    font-size: 18px;             
+    font-weight: 900;
+    text-align: left;            
+    color: #ffffff;
+    max-width: 90%;              
+    line-height: 1.2;
+    position: absolute;
+    top: 50%;
+    left: 35px;
+
+    opacity: 0;
+}
+
   /* Force GPU Layer */
   transform: translate3d(0, 40px, 0); 
   will-change: transform, opacity;
