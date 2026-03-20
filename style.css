@@ -1459,34 +1459,31 @@ body,
 
 /* 1. Lyrics Container */
 #synced-lyrics-view {
-    min-height: 60px !important;    
-    overflow: hidden !important; 
-    display: flex;
-    align-items: center;
-    justify-content: flex-start; 
-    padding-left: 25px;          
-    padding-right: 30px;         
-    background: transparent;
-    position: relative;
-    width: 100%;
+  min-height: 80px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  /* GPU acceleration hint */
+  will-change: transform; 
 }
 
-/* 2. Lyric Line - No Base Transform */
+/* 2. Lyric Line - The High-Refresh Setup */
 .lyric-line {
-    display: none !important;    
-    font-size: 18px;             
-    font-weight: 900;
-    text-align: left;            
-    color: #ffffff;
-    max-width: 90%;              
-    line-height: 1.2;
-    position: absolute;
-    top: 50%;
-    left: 35px;
-
-    opacity: 0;
-}
-
+  /* Using opacity + visibility prevents the "Layout Shift" stutter */
+  opacity: 0;
+  visibility: hidden;
+  font-size: 18px;
+  font-weight: 900;
+  text-align: left;
+  color: #ffffff;
+  max-width: 90%;
+  line-height: 1.2;
+  position: absolute;
+  top: 50%;
+  left: 35px;
+  
   /* Force GPU Layer */
   transform: translate3d(0, 40px, 0); 
   will-change: transform, opacity;
@@ -1532,6 +1529,7 @@ body,
     transform: translate3d(0, -120%, 0); 
   }
 }
+
 
 
 /* ============================================================
