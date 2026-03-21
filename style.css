@@ -1482,7 +1482,7 @@ body,
   line-height: 1.2;
   position: absolute;
   top: 50%;
-  left: 40px;
+  left: 5px;
   
   /* Force GPU Layer */
   transform: translate3d(0, 40px, 0); 
