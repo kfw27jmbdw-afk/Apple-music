@@ -205,8 +205,11 @@ async function getNextNatureSong(currentTitle) {
 const CLOUD_ACC_NAME = "dh7lsxevl";
 window.cloudMusicCache = []; 
 
+/* ============================================================
+    APPLE MUSIC CLOUD SYNC (INSTANT - NO API SPAM)
+   ============================================================ */
 async function startCloudSync() {
-    console.log("⚡️ Cloud Sync: Loading full folder into Playlist...");
+    console.log("⚡️ Cloud Sync: Loading list silently...");
     try {
         const res = await fetch(`https://res.cloudinary.com/${CLOUD_ACC_NAME}/video/list/music.json?cb=${Date.now()}`);
         const data = await res.json();
@@ -217,36 +220,30 @@ async function startCloudSync() {
         for (let file of resources) {
             let rawName = file.public_id.split('/').pop();
             
-            // 1. Suffix Cleaner: _shshue wagera saaf karne ke liye
+            // Clean Name
             let cleanName = rawName.replace(/_[a-z0-9]{6,8}$/i, '') 
                             .replace(/_/g, ' ')
                             .replace(/\b(320kbps|bayfub|p0lb2t|mp3|kbps|download)\b/gi, '')
                             .trim();
 
-            // 2. 4-Word Deep Scan for Accuracy
-            const meta = await fetchMusicMeta(null, cleanName);
-            
             const cloudEntry = {
-                name: meta.title || cleanName,
-                artist: meta.artist || "Cloud Drive",
-                img: meta.artwork || defaultImg,
+                name: cleanName,
+                artist: "Cloud Drive",
+                img: defaultImg, // Pehle default photo, stamp sirf click karne par aayega
                 url: `https://res.cloudinary.com/${CLOUD_ACC_NAME}/video/upload/v${file.version}/${file.public_id}.${file.format}`,
-                isCloudinary: true
+                isCloudinary: true,
+                isStamped: false
             };
 
-            // 3. Cache mein dalo (Search Tray ke liye)
             window.cloudMusicCache.push(cloudEntry);
 
-            // 4. THE MAGIC: Playlist mein Inject karo (Auto-Play ke liye)
-            // 'some' check karta hai ki gaana pehle se list mein toh nahi hai (Duplicate handle)
+            // Duplicate handle
             if (!playlist.some(p => p.url === cloudEntry.url)) {
                 playlist.push(cloudEntry);
             }
         }
 
-        console.log("✅ Cloud Sync Complete! All songs are now in your Playlist.");
-        
-        // 5. UI Refresh: Taaki "All Songs" list mein gaane turant dikh jayein
+        console.log("✅ Cloud Sync Done! Instant load, 0 iTunes hits.");
         renderPlaylist(); 
         if(typeof renderHomeScreen === "function") renderHomeScreen();
 
@@ -254,8 +251,6 @@ async function startCloudSync() {
         console.error("❌ Cloud Injection Error:", e);
     }
 }
-
-
 
 
 async function handleHybridSearch() {
