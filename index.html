@@ -1,870 +1,368 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title> Studio Inspector & Device Simulator</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Font Awesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap');
-
-    :root {
-      --apple-red: #ff375f;
-      --apple-bg: #000000;
-      --apple-panel: #121214;
-      --apple-border: rgba(255, 255, 255, 0.1);
-    }
-
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: var(--apple-bg);
-      color: #f5f5f7;
-      overflow: hidden;
-      height: 100vh;
-      width: 100vw;
-    }
-
-    .code-font {
-      font-family: 'Fira Code', monospace;
-      tab-size: 2;
-    }
-
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
-    }
-    ::-webkit-scrollbar-track {
-      background: rgba(0, 0, 0, 0.3);
-    }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.18);
-      border-radius: 4px;
-    }
-
-    /* Hardware frame & Dynamic Island */
-    .iphone-frame {
-      box-shadow: 0 25px 65px -10px rgba(0, 0, 0, 0.95), 
-                  0 0 0 10px #242426, 
-                  0 0 0 12px #141416,
-                  0 0 0 13px rgba(255, 255, 255, 0.12);
-      transition: width 0.25s ease, height 0.25s ease, transform 0.2s ease;
-      background: #000;
-    }
-
-    .notch-island {
-      width: 112px;
-      height: 28px;
-      background: #000000;
-      border-radius: 18px;
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 9999;
-      pointer-events: none;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      padding-right: 10px;
-    }
-
-    .notch-camera-dot {
-      width: 10px;
-      height: 10px;
-      background: #0a0b12;
-      border-radius: 50%;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-    }
-
-    /* Mobile Screen Toggle Classes */
-    @media (max-width: 768px) {
-      body.mobile-view-editor #editor-pane {
-        display: flex !important;
-        width: 100% !important;
-        height: 100% !important;
-      }
-      body.mobile-view-editor #preview-pane {
-        display: none !important;
-      }
-      body.mobile-view-preview #editor-pane {
-        display: none !important;
-      }
-      body.mobile-view-preview #preview-pane {
-        display: flex !important;
-        width: 100% !important;
-        height: 100% !important;
-      }
-    }
-  </style>
-
-  <!-- CRITICAL: DEFINE ALL GLOBAL HANDLERS EARLY TO PREVENT REFERENCE ERRORS -->
-  <script>
-    window.mobileScreenMode = 'editor';
-    window.currentTab = 'html';
-    window.currentDevice = 'iphone13';
-    window.isLandscape = false;
-    window.islandVisible = true;
-    window.boundsInspectActive = false;
-    window.debounceTimer = null;
-    window._currentBlobUrl = null;
-    window.logCount = 0;
-
-    window.setMobileScreenMode = function(mode) {
-      window.mobileScreenMode = mode;
-      document.body.classList.remove('mobile-view-editor', 'mobile-view-preview');
-      document.body.classList.add('mobile-view-' + mode);
-
-      var btnEd = document.getElementById('mobile-toggle-editor');
-      var btnPv = document.getElementById('mobile-toggle-preview');
-
-      if (btnEd && btnPv) {
-        if (mode === 'editor') {
-          btnEd.className = 'px-3 py-1 text-xs font-bold rounded-lg bg-rose-600 text-white transition flex items-center gap-1';
-          btnPv.className = 'px-3 py-1 text-xs font-bold rounded-lg text-neutral-400 hover:text-white transition flex items-center gap-1';
-        } else {
-          btnPv.className = 'px-3 py-1 text-xs font-bold rounded-lg bg-rose-600 text-white transition flex items-center gap-1';
-          btnEd.className = 'px-3 py-1 text-xs font-bold rounded-lg text-neutral-400 hover:text-white transition flex items-center gap-1';
-          setTimeout(function() {
-            if (typeof window.updateCanvasScale === 'function') window.updateCanvasScale();
-          }, 60);
-        }
-      }
-    };
-  </script>
-</head>
-<body class="flex flex-col h-screen select-none mobile-view-editor">
-
-  <!-- Top Global Header -->
-  <header class="h-14 border-b border-neutral-800 bg-[#121214]/90 backdrop-blur-md px-3 flex items-center justify-between z-30 flex-shrink-0">
-    <div class="flex items-center gap-2">
-      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-rose-600 to-pink-500 flex items-center justify-center shadow-lg shadow-rose-900/30 flex-shrink-0">
-        <i class="fab fa-apple text-white text-base"></i>
-      </div>
-      <div>
-        <h1 class="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
-          Studio <span class="text-[9px] uppercase font-bold tracking-wider bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded-full border border-rose-500/30">1:1 Simulator</span>
-        </h1>
-      </div>
-    </div>
-
-    <!-- Mobile Switcher [Code | Preview] -->
-    <div class="flex md:hidden items-center bg-neutral-900 p-0.5 rounded-xl border border-neutral-800 shadow-inner">
-      <button id="mobile-toggle-editor" onclick="window.setMobileScreenMode('editor')" class="px-3 py-1 text-xs font-bold rounded-lg bg-rose-600 text-white transition flex items-center gap-1">
-        <i class="fas fa-code text-[11px]"></i> Code
-      </button>
-      <button id="mobile-toggle-preview" onclick="window.setMobileScreenMode('preview')" class="px-3 py-1 text-xs font-bold rounded-lg text-neutral-400 hover:text-white transition flex items-center gap-1">
-        <i class="fas fa-mobile-screen text-[11px]"></i> Preview
-      </button>
-    </div>
-
-    <!-- Action Buttons -->
-    <div class="flex items-center gap-1.5">
-      <label class="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-neutral-800/80 border border-neutral-700/60 cursor-pointer text-xs font-medium">
-        <input type="checkbox" id="auto-run-toggle" checked class="accent-rose-500 w-3.5 h-3.5 rounded cursor-pointer">
-        <span class="text-neutral-300">Live Sync</span>
-      </label>
-
-      <button onclick="window.updatePreview(true)" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs active:scale-95 transition shadow-md shadow-rose-900/30">
-        <i class="fas fa-play text-[10px]"></i>
-        <span>Execute</span>
-      </button>
-
-      <button onclick="window.resetToSampleCode()" title="Reset to Music Player Template" class="p-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700/80 transition">
-        <i class="fas fa-rotate-left text-xs"></i>
-      </button>
-    </div>
-  </header>
-
-  <!-- Main Body Area -->
-  <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-
-    <!-- LEFT PANE: CODE EDITORS -->
-    <section id="editor-pane" class="w-full md:w-1/2 h-full flex flex-col border-b md:border-b-0 md:border-r border-neutral-800 bg-[#0c0c0e] flex-shrink-0">
-      
-      <!-- Tab Bar -->
-      <div class="h-10 bg-[#161619] border-b border-neutral-800/90 flex items-center justify-between px-2 flex-shrink-0">
-        <div class="flex items-center gap-1">
-          <button onclick="window.switchTab('html')" id="tab-html" class="px-3 py-1.5 text-xs font-semibold rounded-t-lg bg-[#0c0c0e] text-white border-t-2 border-rose-500 flex items-center gap-1.5">
-            <i class="fab fa-html5 text-orange-500"></i> HTML
-          </button>
-          <button onclick="window.switchTab('css')" id="tab-css" class="px-3 py-1.5 text-xs font-semibold rounded-t-lg text-neutral-400 hover:text-white flex items-center gap-1.5">
-            <i class="fab fa-css3-alt text-sky-400"></i> CSS
-          </button>
-          <button onclick="window.switchTab('js')" id="tab-js" class="px-3 py-1.5 text-xs font-semibold rounded-t-lg text-neutral-400 hover:text-white flex items-center gap-1.5">
-            <i class="fab fa-js text-yellow-400"></i> JS
-          </button>
-        </div>
-
-        <div class="flex items-center gap-1 text-neutral-400">
-          <button onclick="window.copyCurrentCode()" title="Copy active code" class="p-1.5 hover:text-white text-xs">
-            <i class="far fa-copy"></i>
-          </button>
-          <button onclick="window.clearCurrentCode()" title="Clear editor" class="p-1.5 hover:text-white text-xs">
-            <i class="far fa-trash-can"></i>
-          </button>
-        </div>
-      </div>
-
-      <!-- Editor Textareas -->
-      <div class="flex-1 relative overflow-hidden bg-[#0c0c0e]">
-        <div id="editor-container-html" class="w-full h-full flex">
-          <textarea id="editor-html" spellcheck="false" class="w-full h-full p-3.5 bg-transparent text-[#e6edf3] code-font text-xs sm:text-[13px] leading-relaxed resize-none outline-none overflow-y-auto" placeholder="<!-- Paste your HTML here -->"></textarea>
-        </div>
-        <div id="editor-container-css" class="w-full h-full hidden">
-          <textarea id="editor-css" spellcheck="false" class="w-full h-full p-3.5 bg-transparent text-[#e6edf3] code-font text-xs sm:text-[13px] leading-relaxed resize-none outline-none overflow-y-auto" placeholder="/* Paste your CSS here */"></textarea>
-        </div>
-        <div id="editor-container-js" class="w-full h-full hidden">
-          <textarea id="editor-js" spellcheck="false" class="w-full h-full p-3.5 bg-transparent text-[#e6edf3] code-font text-xs sm:text-[13px] leading-relaxed resize-none outline-none overflow-y-auto" placeholder="// Paste your JavaScript here"></textarea>
-        </div>
-      </div>
-
-      <!-- Status Footer Bar -->
-      <div class="border-t border-neutral-800 bg-[#141416] px-3 py-1 flex items-center justify-between text-xs text-neutral-400 flex-shrink-0">
-        <div class="flex items-center gap-2">
-          <span id="status-dot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
-          <span id="status-text" class="text-[11px] text-neutral-300">Ready</span>
-          <button onclick="window.toggleConsoleDrawer()" class="ml-2 hover:text-white text-[11px] px-2 py-0.5 rounded bg-neutral-800 border border-neutral-700/60">
-            <i class="fas fa-terminal text-[9px]"></i> Logs (<span id="console-count">0</span>)
-          </button>
-        </div>
-        <span class="text-[11px] font-mono text-neutral-500">UTF-8</span>
-      </div>
-
-      <!-- Console Logs Drawer -->
-      <div id="console-drawer" class="hidden h-32 bg-[#09090b] border-t border-neutral-800 flex flex-col flex-shrink-0">
-        <div class="px-3 py-1 bg-neutral-900 border-b border-neutral-800 flex justify-between items-center text-[11px]">
-          <span class="font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1.5">
-            <i class="fas fa-bug text-rose-500"></i> Sandbox Logs
-          </span>
-          <button onclick="window.clearConsoleLogs()" class="text-neutral-400 hover:text-white text-[10px]">Clear</button>
-        </div>
-        <div id="console-logs-list" class="flex-1 p-2 overflow-y-auto code-font text-[11px] space-y-1">
-          <div class="text-neutral-500 italic">No errors logged.</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- RIGHT PANE: DEVICE SIMULATOR -->
-    <section id="preview-pane" class="w-full md:w-1/2 h-full flex flex-col bg-[#050507] relative overflow-hidden">
-      
-      <!-- Toolbar: Device Presets & Diagnostics -->
-      <div class="p-2 border-b border-neutral-800 bg-[#121215] flex flex-wrap items-center justify-between gap-1.5 z-20 flex-shrink-0">
-        <!-- Resolution Preset Buttons -->
-        <div class="flex items-center gap-1 bg-neutral-900 p-1 rounded-xl border border-neutral-800">
-          <button onclick="window.setDevicePreset('iphone13')" id="btn-device-iphone13" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-rose-600 text-white transition flex items-center gap-1">
-            <i class="fas fa-mobile-screen-button text-[11px]"></i> iPhone 13/16
-          </button>
-          <button onclick="window.setDevicePreset('fluid')" id="btn-device-fluid" class="px-2.5 py-1 text-xs font-semibold rounded-lg text-neutral-400 hover:text-white transition flex items-center gap-1">
-            <i class="fas fa-expand text-[11px]"></i> Fluid
-          </button>
-        </div>
-
-        <!-- Diagnostic Tools -->
-        <div class="flex items-center gap-1 flex-wrap">
-          <button onclick="window.toggleDynamicIsland()" id="toggle-island-btn" class="px-2 py-1 text-xs rounded-lg bg-neutral-800 text-neutral-300 border border-neutral-700 transition">
-            Notch
-          </button>
-          <button onclick="window.toggleBoundingBoxInspector()" id="toggle-bounds-btn" class="px-2 py-1 text-xs rounded-lg bg-neutral-800 text-neutral-300 border border-neutral-700 transition">
-            <i class="fas fa-border-all text-[11px]"></i> Bounds
-          </button>
-          <button onclick="window.toggleOrientation()" class="p-1.5 rounded-lg bg-neutral-800 text-neutral-300 border border-neutral-700 transition">
-            <i class="fas fa-rotate text-xs"></i>
-          </button>
-        </div>
-      </div>
-
-      <!-- Quick Lyric Diagnostic Action Bar -->
-      <div class="px-3 py-1.5 bg-[#09090b] border-b border-neutral-800 flex items-center gap-1.5 overflow-x-auto text-xs z-10 flex-shrink-0">
-        <span class="text-[10px] uppercase font-bold text-neutral-500 whitespace-nowrap">Tests:</span>
-        <button onclick="window.injectLyricTest('single')" class="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 whitespace-nowrap text-[11px]">
-          1-Line
-        </button>
-        <button onclick="window.injectLyricTest('double_hindi')" class="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-amber-300 border border-amber-500/40 whitespace-nowrap text-[11px]" title="Tests intact Hindi compound words">
-          2-Line Hindi (Uncut)
-        </button>
-        <button onclick="window.injectLyricTest('triple_overflow')" class="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700 whitespace-nowrap text-[11px]">
-          3-Line Wrap
-        </button>
-        <button onclick="window.injectCoverGapTest()" class="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-rose-300 border border-rose-500/40 whitespace-nowrap text-[11px]">
-          Top Gap Check
-        </button>
-      </div>
-
-      <!-- Simulator Viewport Canvas -->
-      <div id="viewport-canvas" class="flex-1 overflow-auto flex items-center justify-center p-2 sm:p-4 relative bg-[radial-gradient(#1f1f26_1px,transparent_1px)] [background-size:16px_16px]">
-        
-        <!-- iPhone Frame Container -->
-        <div id="device-wrapper" class="iphone-frame relative rounded-[46px] overflow-hidden flex flex-col" style="width: 390px; height: 844px;">
-          
-          <!-- Dynamic Island Notch -->
-          <div id="dynamic-island-notch" class="notch-island">
-            <div class="notch-camera-dot"></div>
-          </div>
-
-          <!-- iOS Bottom Home Indicator Bar -->
-          <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-36 h-1 bg-white/30 rounded-full z-[9999] pointer-events-none"></div>
-
-          <!-- Live Sandbox Iframe -->
-          <iframe id="preview-frame" sandbox="allow-scripts allow-modals allow-same-origin allow-popups" class="w-full h-full border-0 bg-black flex-1"></iframe>
-        </div>
-
-      </div>
-
-      <!-- Footer Resolution Info -->
-      <div class="h-6 bg-[#0a0a0c] border-t border-neutral-800 px-3 flex items-center justify-between text-[11px] text-neutral-500 font-mono flex-shrink-0">
-        <span id="canvas-resolution-label">390 x 844 px (iPhone 13/16)</span>
-        <span id="scale-indicator">Scale: 100%</span>
-      </div>
-
-    </section>
-  </main>
-
-  <!-- DEFAULT MUSIC APP CODE TEMPLATES FOR LIVE TESTING -->
-  <script>
-    window.DEFAULT_HTML = `<!--  APPLE MUSIC STYLE PLAYER SCREEN -->
-<div id="player-screen">
-  
-  <!-- Header Bar -->
-  <div class="player-header">
-    <i class="fas fa-chevron-down" style="font-size: 18px; color: white; cursor: pointer;"></i>
-    <div style="width: 36px; height: 4px; background: rgba(255,255,255,0.3); border-radius: 10px;"></div>
-    <i class="fas fa-ellipsis" style="font-size: 18px; color: white; cursor: pointer;"></i>
-  </div>
-
-  <!-- Album Cover Image -->
-  <div class="song-image-container">
-    <img id="song-image" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=600" alt="Album Cover">
-  </div>
-
-  <!-- Synced Lyrics View (Bottom Anchored) -->
-  <div id="synced-lyrics-view">
-    <p id="demo-lyric-line" class="lyric-line active">तुझसे मन नहीं है भरता...</p>
-  </div>
-
-  <!-- Song Metadata & Add Action -->
-  <div class="meta-row">
-    <div>
-      <h2 id="player-title">Buzz (feat. Badshah)</h2>
-      <p id="player-artist">Aastha Gill</p>
-    </div>
-    <div class="add-circle-btn">
-      <i class="fas fa-plus"></i>
-    </div>
-  </div>
-
-  <!-- Seek Timeline Bar -->
-  <div class="seek-container">
-    <div class="seek-bar-track">
-      <div class="seek-bar-progress"></div>
-      <div class="seek-bar-knob"></div>
-    </div>
-    <div class="time-row">
-      <span>0:27</span>
-      <span>3:13</span>
-    </div>
-  </div>
-
-  <!-- Media Controls -->
-  <div class="controls-row">
-    <i class="fas fa-shuffle secondary-btn"></i>
-    <i class="fas fa-backward-step primary-nav"></i>
-    <div class="play-pill">
-      <i class="fas fa-play" style="font-size: 20px; color: black; margin-left: 3px;"></i>
-    </div>
-    <i class="fas fa-forward-step primary-nav"></i>
-    <i class="fas fa-repeat secondary-btn"></i>
-  </div>
-
-</div>`;
-
-    window.DEFAULT_CSS = `/* RESET & MOBILE VIEWPORT LOCK */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  -webkit-tap-highlight-color: transparent;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
-  background-color: #121212;
-  color: #ffffff;
-  overflow: hidden;
-  height: 100vh;
-  width: 100vw;
-}
-
-/* 1. PLAYER SCREEN CONTAINER */
-#player-screen {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start; /* Space-between causes unwanted top banner gaps */
-  padding: 50px 24px 34px 24px;
-  background: linear-gradient(180deg, #6e3219 0%, #20110b 60%, #0d0604 100%);
-  position: relative;
-}
-
-/* 2. TOP HEADER (Icons) */
-.player-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  margin-bottom: 12px;
-  background: transparent;
-}
-
-/* 3. COVER IMAGE WRAPPER (No black gaps) */
-.song-image-container {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  margin-top: 4px;
-}
-
-#song-image {
-  width: 100%;
-  max-width: 335px;
-  aspect-ratio: 1 / 1;
-  border-radius: 12px;
-  object-fit: cover;
-  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.65);
-}
-
-/* 4. BOTTOM-ANCHORED LYRICS VIEW */
-#synced-lyrics-view {
-  min-height: 70px;
-  width: 100%;
-  position: relative;
-  overflow: hidden;
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end; /* Always anchor to bottom */
-}
-
-.lyric-line {
-  font-size: 18px;
-  font-weight: 800;
-  color: #ffffff;
-  line-height: 1.35;
-  text-align: left;
-  max-width: 95%;
-  margin-bottom: 6px;
-  
-  /* CRITICAL: Word break and anti-hyphen properties */
-  word-break: keep-all !important;
-  overflow-wrap: break-word !important;
-  hyphens: none !important;
-  -webkit-hyphens: none !important;
-
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.lyric-line.active {
-  opacity: 1;
-  transform: translate3d(0, 0, 0);
-}
-
-/* 5. METADATA ROW */
-.meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 8px;
-}
-
-#player-title {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.4px;
-}
-
-#player-artist {
-  font-size: 15px;
-  color: rgba(255, 255, 255, 0.55);
-  margin-top: 2px;
-}
-
-.add-circle-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-/* 6. TIMELINE BAR */
-.seek-container {
-  margin-top: 22px;
-  width: 100%;
-}
-
-.seek-bar-track {
-  width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 4px;
-  position: relative;
-}
-
-.seek-bar-progress {
-  width: 25%;
-  height: 100%;
-  background: #ffffff;
-  border-radius: 4px;
-}
-
-.seek-bar-knob {
-  width: 14px;
-  height: 14px;
-  background: #ffffff;
-  border-radius: 50%;
-  position: absolute;
-  top: 50%;
-  left: 25%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-}
-
-.time-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-  margin-top: 6px;
-  font-family: -apple-system-subheadline, monospace;
-}
-
-/* 7. PLAYBACK CONTROLS */
-.controls-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 22px;
-  padding: 0 8px;
-}
-
-.primary-nav {
-  font-size: 26px;
-  color: #ffffff;
-  cursor: pointer;
-}
-
-.secondary-btn {
-  font-size: 18px;
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-}
-
-.play-pill {
-  width: 62px;
-  height: 62px;
-  border-radius: 50%;
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-}`;
-
-    window.DEFAULT_JS = `// Test Click Handlers
-console.log(" Player Interface Ready.");
-
-document.querySelector('.play-pill').addEventListener('click', function() {
-  const icon = this.querySelector('i');
-  if (icon.classList.contains('fa-play')) {
-    icon.classList.remove('fa-play');
-    icon.classList.add('fa-pause');
-    console.log("Status: Playing");
-  } else {
-    icon.classList.remove('fa-pause');
-    icon.classList.add('fa-play');
-    console.log("Status: Paused");
-  }
-});`;
-  </script>
-
-  <!-- MASTER STUDIO EXECUTION SCRIPT -->
-  <script>
-    // Tab Switcher
-    window.switchTab = function(tab) {
-      window.currentTab = tab;
-      ['html', 'css', 'js'].forEach(t => {
-        const btn = document.getElementById('tab-' + t);
-        const container = document.getElementById('editor-container-' + t);
-        if (t === tab) {
-          btn.className = 'px-3 py-1.5 text-xs font-semibold rounded-t-lg bg-[#0c0c0e] text-white border-t-2 border-rose-500 flex items-center gap-1.5';
-          container.classList.remove('hidden');
-          container.classList.add('flex');
-        } else {
-          btn.className = 'px-3 py-1.5 text-xs font-semibold rounded-t-lg text-neutral-400 hover:text-white flex items-center gap-1.5';
-          container.classList.remove('flex');
-          container.classList.add('hidden');
-        }
-      });
-    };
-
-    // Live Compile & Sandbox Injection
-    window.updatePreview = function(force) {
-      const autoRun = document.getElementById('auto-run-toggle').checked;
-      if (!autoRun && !force) return;
-
-      const rawHtml = document.getElementById('editor-html').value;
-      const rawCss = document.getElementById('editor-css').value;
-      const rawJs = document.getElementById('editor-js').value;
-
-      // Clean HTML wrapper if full boilerplate was pasted
-      let bodyContent = rawHtml;
-      const bodyMatch = rawHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-      if (bodyMatch) bodyContent = bodyMatch[1];
-
-      // Bounding box overlay styles
-      const boundsCss = window.boundsInspectActive ? `
-        #song-image { outline: 2.5px dashed #ff3b30 !important; }
-        #synced-lyrics-view { outline: 2px dashed #30d158 !important; }
-        .player-header { outline: 2px dashed #0a84ff !important; }
-      ` : '';
-
-      const finalHtmlDoc = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    ${rawCss}
-    ${boundsCss}
-  </style>
+ <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+    <title>Apple Music</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1DB954">
+    <meta name="mobile-web-app-capable" content="yes">
+     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
 </head>
 <body>
-  ${bodyContent}
-  
-  <script>
-    // Intercept errors and forward to studio console
-    window.onerror = function(msg, url, line) {
-      window.parent.postMessage({ type: 'ERROR', data: msg + ' (Line: ' + line + ')' }, '*');
-      return false;
-    };
+<div id="download-progress-container">
+    <div id="download-progress-bar"></div>
+</div>
+
+<div id="intro-screen" style="position: fixed; inset: 0; background: #000; display: flex; justify-content: center; align-items: center; z-index: 999999; transition: opacity 0.8s ease;">
+    <div style="display: flex; align-items: center;">
+        <svg class="apple-logo-svg" viewBox="0 0 384 512" style="width: 60px; height: 60px; fill: white; opacity: 0; transform: scale(0.5); animation: appleAppear 0.8s ease forwards, appleMoveLeft 0.6s cubic-bezier(0.25, 1, 0.5, 1) 1.5s forwards;">
+            <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
+        </svg>
+        <div class="music-text" style="font-size: 50px; font-weight: 700; color: white; letter-spacing: -1.5px; width: 0; opacity: 0; overflow: hidden; white-space: nowrap; animation: musicReveal 0.6s cubic-bezier(0.25, 1, 0.5, 1) 1.5s forwards; font-family: -apple-system, sans-serif;">Music</div>
+    </div>
+</div>
+
+<div id="main-app">
+    <div id="home-screen" class="tab-content" style="display:none;">
+        <div class="playlist-header">
+            <h2>Home</h2>
+        </div>
+        <div id="recent-played-container"></div>
+    </div>
+
+    <div id="library-screen" class="tab-content" style="display:none;">
+        <div class="playlist-header">
+            <h2>Library</h2>
+        </div>
+        <div class="library-sub-nav">
+            <button class="sub-nav-btn active" onclick="switchLibraryView('down')">DOWNLOADED</button>
+            <button class="sub-nav-btn" onclick="switchLibraryView('playlists')">PLAYLIST</button>
+            <button class="sub-nav-btn" onclick="switchLibraryView('fav')">FAVORITE</button>
+            <button class="sub-nav-btn" onclick="switchLibraryView('all')">ALBUM</button>
+        </div>
+        <div id="library-content-area">
+            <div id="downloaded-list-container"></div>
+        </div>
+    </div>
+
+   <div id="playlist-screen" class="tab-content">
+    <div class="playlist-header">
+        <h2>Your Library</h2>
+        <div class="header-icons">
+            <i class="fas fa-cog" onclick="openSettings()" style="cursor: pointer; font-size: 20px; margin-right: 15px; color: #8e8e93;"></i>
+            <i class="fas fa-plus" onclick="showImportMenu()" style="cursor: pointer; font-size: 22px;"></i>
+        </div> </div> <div id="song-list-container"></div>
+</div> <div id="player-screen">
+    <div class="drag-handle" id="drag-area">
+        <div class="handle-bar"></div>
+    </div>
+
+        
+        <div class="top-bar">
+            <i class="fas fa-chevron-down" onclick="minimizePlayer()"></i>
+            <span id="nav-playlist-name"></span>
+            <i class="fas fa-ellipsis-h" onclick="toggleMenu()"></i>
+            
+            <div id="side-menu" class="hidden-menu">
+                <label for="cover-upload" style="cursor:pointer; display:block; padding: 5px 0;">
+                    <i class="fas fa-image"></i> Change Album
+                </label>
+                <input type="file" id="cover-upload" accept="image/*" style="display:none">
+                <hr style="border:0.1px solid #555; margin:5px 0;">
+                <div onclick="openForm()" style="cursor:pointer; padding: 5px 0;">
+                    <i class="fas fa-link"></i> Add Song Link
+                </div>
+            </div>
+        </div>
+
+     <div class="player-content">
+    <div class="banner-container">
+        <img src="" id="song-image" crossorigin="anonymous">
+    </div>
+
+    <div id="synced-lyrics-view" class="lyrics-view-container">
+        <div id="lyrics-scroller" class="lyrics-wrapper">
+            <p class="lyric-placeholder"> Music Sync</p>
+        </div>
+    </div>
+
+    <div class="song-info-area">
+        <div class="meta">
+            <h2 id="player-title"> Music</h2>
+            <p id="player-artist">Ready to play</p>
+        </div>
+            
+    <div class="plus-action-wrapper" style="position: relative; z-index: 10000;">
+        <i class="fas fa-plus-circle plus-btn" 
+           id="like-btn" 
+           style="cursor: pointer; font-size: 28px;" 
+           onclick="document.getElementById('direct-local-import').click()">
+        </i>
+        
+        <input type="file" id="direct-local-import" 
+       accept=".mp3,audio/mpeg,audio/mp3,audio/wav,audio/x-m4a,audio/*,.m4a,.wav" 
+       style="display:none" 
+       onchange="importLocalSong(this)">
+
+    </div>
+</div>
+
+            <div class="controls-wrapper">
+                <input type="range" id="seek-bar" value="0" step="0.1" oninput="seekSong()">
+                <div class="time-stamps">
+                    <span id="current">0:00</span>
+                    <span id="duration">0:00</span>
+                </div>
+                <div class="main-controls">
+                    <i class="fas fa-random"></i>
+                    <i class="fas fa-step-backward" onclick="prevSong()"></i>
+                    <div class="play-trigger" onclick="togglePlay()">
+                        <i class="fas fa-play" id="play-btn"></i>
+                    </div>
+                    <i class="fas fa-step-forward" onclick="nextSong()"></i>
+                    <i class="fas fa-redo-alt"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mini-player" onclick="maximizePlayer()">
+        <div class="mini-left">
+            <img src="" id="mini-img">
+            <div class="mini-meta">
+                <h4 id="mini-title">Title</h4>
+                <p id="mini-artist">Artist</p>
+            </div>
+        </div>
+        <div class="mini-right">
+            <i class="fas fa-play" id="mini-play-btn" onclick="event.stopPropagation(); togglePlay();"></i>
+        </div>
+    </div>
+
+    <div id="bottom-navigation-container">
+        <div id="tab-stack" class="nav-stack">
+            <div class="nav-item active" id="tab-home" onclick="switchTab('home')">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </div>
+            <div class="nav-item" id="tab-browse" onclick="switchTab('all-songs')">
+                <i class="fas fa-th-large"></i>
+                <span>Browse</span>
+            </div>
+            <div class="nav-item" id="tab-library" onclick="switchTab('library')">
+                <i class="fas fa-play-circle"></i>
+                <span>Library</span>
+            </div>
+            <div class="nav-item" onclick="openSearchStack(); document.getElementById('app-search-input').focus();">
+    <i class="fas fa-search"></i>
+    <span>Search</span>
+</div>
+        </div>
+
+      <div id="search-stack" class="nav-stack" style="display: none; position: relative;">
+        <div class="search-active-tab" id="current-active-indicator">
+            <i class="fas fa-home"></i>
+        </div>
+        <div class="search-input-wrapper" style="position: relative;">
+            <i class="fas fa-search search-inside-icon"></i>
+            <input type="text" 
+                   id="app-search-input" 
+                   placeholder="Search Songs in Drive..." 
+                   oninput="handleHybridSearch()" 
+                   autocomplete="off">
+        </div>
+    </div>
+        
+    <div id="global-search-results" style="display: none; position: fixed; bottom: 85px; left: 12px; right: 12px; background: rgba(28, 28, 30, 0.95); backdrop-filter: blur(20px); z-index: 999999; max-height: 60vh; overflow-y: auto; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 -15px 35px rgba(0,0,0,0.8);"></div>
+
+    <div id="search-backdrop" onclick="closeSearchStack()"></div> </div>
+
+
+    <audio id="main-audio" preload="metadata"></audio>
+</div>
+
+<div id="action-modal" class="overlay" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-song-name">Song Name</h3>
+            <p id="modal-song-artist">Artist Name</p>
+        </div>
+        <div class="modal-options-list">
+            <div class="modal-option" onclick="toggleTick('library')">
+                <i class="fas fa-plus-square"></i>
+                <span>Add to Library</span>
+                <i class="fas fa-check-circle tick-icon" id="tick-library"></i>
+            </div>
+            <div class="modal-option" onclick="toggleTick('favourite')">
+                <i class="fas fa-heart"></i>
+                <span>Add to Favourite</span>
+                <i class="fas fa-check-circle tick-icon" id="tick-favourite"></i>
+            </div>
+            <hr class="modal-divider">
+            <div id="modal-playlists-list"></div>
+            <div class="modal-option create-new" onclick="showNewPlaylistPrompt()">
+                <i class="fas fa-plus-circle"></i>
+                <span>New Playlist...</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-done" onclick="saveAndCloseModal()">DONE</button>
+        </div>
+    </div>
+</div>
+
+<div id="playlist-name-modal" class="overlay" style="display:none; z-index: 20005;">
+    <div class="modal-content small">
+        <h3>New Playlist</h3>
+        <input type="text" id="new-playlist-input" placeholder="Playlist Name...">
+        <div class="modal-footer">
+            <button class="btn-outline" onclick="closePlaylistPrompt()">Cancel</button>
+            <button class="btn-green" onclick="confirmCreatePlaylist()">DONE</button>
+        </div>
+    </div>
+</div>
+
+<div id="song-options-menu" class="song-context-menu">
+    <div class="menu-item" onclick="openPlaylistSheet()">
+        <i class="fas fa-plus"></i> Add to Playlist
+    </div>
     
-    // Intercept console.log
-    const _origLog = console.log;
-    console.log = function() {
-      const args = Array.from(arguments).map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
-      window.parent.postMessage({ type: 'LOG', data: args }, '*');
-      _origLog.apply(console, arguments);
-    };
+    <div id="download-toggle-btn" class="menu-item" onclick="handleDownload()">
+        <i class="fas fa-arrow-down"></i> Download
+    </div>
+    
+    <div class="menu-item" onclick="handleMenuChangeCover()">
+        <i class="fas fa-image"></i> Change Cover
+    </div>
+    
+    <div class="menu-item" onclick="handleDeleteSong()" style="color: #ff3b30; border-top: 1px solid rgba(255,255,255,0.1);">
+        <i class="fas fa-trash-alt"></i> Delete from Library
+    </div>
+</div>
 
-    try {
-      ${rawJs}
-    } catch(err) {
-      window.parent.postMessage({ type: 'ERROR', data: err.message }, '*');
-    }
-  <\/script>
-</body>
-</html>`;
+<div id="playlist-sheet" class="playlist-selection-sheet"></div>
 
-      const frame = document.getElementById('preview-frame');
-      if (!frame) return;
 
-      try {
-        if (window._currentBlobUrl) {
-          URL.revokeObjectURL(window._currentBlobUrl);
-        }
-        const blob = new Blob([finalHtmlDoc], { type: 'text/html;charset=UTF-8' });
-        window._currentBlobUrl = URL.createObjectURL(blob);
-        frame.src = window._currentBlobUrl;
+
+<div id="import-menu-overlay" class="import-overlay" onclick="hideImportMenu()">
+    <div class="apple-action-sheet" onclick="event.stopPropagation()">
         
-        window.setAppStatus('Live & Synced', 'bg-emerald-500');
-      } catch (e) {
-        frame.srcdoc = finalHtmlDoc;
-        window.setAppStatus('Live (Fallback)', 'bg-emerald-500');
-      }
-    };
+           <div class="action-group">
+            <div class="action-item" onclick="document.getElementById('direct-local-import').click(); hideImportMenu();">
+                <i class="fas fa-file-audio"></i> <span>Choose Files</span>
+            </div>
+            
+            <div class="action-item" onclick="handleAuthClick(); hideImportMenu();" style="color: #4285F4;">
+                <i class="fab fa-google-drive"></i> <span>Drive Songs</span>
+            </div>
 
-    // Device Preset Selection
-    window.setDevicePreset = function(preset) {
-      window.currentDevice = preset;
-      const wrapper = document.getElementById('device-wrapper');
-      const notch = document.getElementById('dynamic-island-notch');
+            <div class="action-item" onclick="createPicker('folder'); hideImportMenu();" style="color: #4285F4; border-top: 1px solid #333;">
+                <i class="fas fa-folder-plus"></i> <span>Drive Folder</span>
+            </div>
+            
+                      <div class="action-item" onclick="openCloudPanel(); hideImportMenu();" style="border-top: 1px solid #333;">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="#3448C5" style="margin-right: 12px; vertical-align: middle; display: inline-block;">
+                    <path d="M17.5,19c-3.037,0-5.5-2.463-5.5-5.5c0-0.07,0.003-0.14,0.007-0.209C10.662,12.781,9.088,12,7.312,12 C4.378,12,2,14.378,2,17.312C2,20.247,4.378,22,7.312,22h10.188C19.986,22,22,19.986,22,17.5S19.986,13,17.5,13 c-0.174,0-0.344,0.011-0.51,0.032C16.48,10.62,14.453,9,12,9c-2.31,0-4.24,1.436-5.013,3.465C7.113,12.488,7.212,12.5,7.312,12.5 c2.115,0,3.957,1.192,4.896,2.949C12.338,15.346,12.417,15.253,12.5,15.166C13.438,14.131,14.881,13.5,16.5,13.5 c2.485,0,4.5,2.015,4.5,4.5S18.985,22.5,16.5,22.5H16.5z"/>
+                </svg>
+                <span>Cloudinary Library</span>
+            </div>
+        </div>
+    </div>
+</div>
 
-      const btnPhone = document.getElementById('btn-device-iphone13');
-      const btnFluid = document.getElementById('btn-device-fluid');
-
-      if (preset === 'iphone13') {
-        btnPhone.className = 'px-2.5 py-1 text-xs font-semibold rounded-lg bg-rose-600 text-white transition flex items-center gap-1';
-        btnFluid.className = 'px-2.5 py-1 text-xs font-semibold rounded-lg text-neutral-400 hover:text-white transition flex items-center gap-1';
+<div id="settings-modal" class="overlay" style="display:none; z-index: 50000 !important;">
+    <div class="modal-content" style="background: rgba(28, 28, 30, 0.95); backdrop-filter: blur(25px); border: 0.5px solid rgba(255,255,255,0.1); border-radius: 25px;">
+        <div class="modal-header" style="text-align: center;">
+            <i class="fas fa-tools" style="font-size: 30px; color: #ff3b30; margin-bottom: 15px;"></i>
+            <h3>Developer Settings</h3>
+            <p style="font-size: 13px; color: #8e8e93;">Google Cloud Credentials yahan set karein.</p>
+        </div>
         
-        wrapper.className = 'iphone-frame relative rounded-[46px] overflow-hidden flex flex-col';
-        wrapper.style.width = window.isLandscape ? '844px' : '390px';
-        wrapper.style.height = window.isLandscape ? '390px' : '844px';
-        notch.style.display = window.islandVisible ? 'flex' : 'none';
-        document.getElementById('canvas-resolution-label').innerText = (window.isLandscape ? '844 x 390' : '390 x 844') + ' px (iPhone 13/16)';
-      } else {
-        btnFluid.className = 'px-2.5 py-1 text-xs font-semibold rounded-lg bg-rose-600 text-white transition flex items-center gap-1';
-        btnPhone.className = 'px-2.5 py-1 text-xs font-semibold rounded-lg text-neutral-400 hover:text-white transition flex items-center gap-1';
-        
-        wrapper.className = 'relative w-full h-full rounded-none overflow-hidden flex flex-col border border-neutral-800';
-        wrapper.style.width = '100%';
-        wrapper.style.height = '100%';
-        wrapper.style.transform = 'none';
-        notch.style.display = 'none';
-        document.getElementById('canvas-resolution-label').innerText = '100% Fluid Viewport';
-      }
+        <div class="modal-body" style="margin-top: 20px;">
+            <div style="margin-bottom: 15px;">
+                <label style="font-size: 11px; color: #ff3b30; font-weight: bold; margin-left: 5px;">GOOGLE API KEY</label>
+                <input type="password" id="user-api-key" placeholder="AIzaSy..." style="width: 100%; padding: 14px; background: #1c1c1e; border: 1px solid #333; color: #fff; border-radius: 12px; margin-top: 5px; box-sizing: border-box;">
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <label style="font-size: 11px; color: #ff3b30; font-weight: bold; margin-left: 5px;">OAUTH CLIENT ID</label>
+                <input type="text" id="user-client-id" placeholder="Client ID yahan paste karein..." style="width: 100%; padding: 14px; background: #1c1c1e; border: 1px solid #333; color: #fff; border-radius: 12px; margin-top: 5px; box-sizing: border-box;">
+            </div>
+        </div>
 
-      window.updateCanvasScale();
-    };
+              <div class="modal-footer" style="display: flex; gap: 12px; margin-top: 25px;">
+            <button class="btn-outline" onclick="closeSettings()" style="flex: 1; border-radius: 15px; border: 1px solid #444; padding: 12px;">Cancel</button>
+            <button class="btn-green" onclick="saveSettings()" style="flex: 1; background: #ff3b30; border-radius: 15px; border: none; padding: 12px; font-weight: bold;">Save & Sync</button>
+        </div>
+    </div>
+</div>
 
-    // Auto-scale device canvas to fit any screen
-    window.updateCanvasScale = function() {
-      const canvas = document.getElementById('viewport-canvas');
-      const wrapper = document.getElementById('device-wrapper');
-      if (!canvas || !wrapper || window.currentDevice === 'fluid') {
-        if (wrapper && window.currentDevice === 'fluid') wrapper.style.transform = 'none';
-        return;
-      }
+<div id="cloud-panel" style="position: fixed; bottom: -100%; left: 0; width: 100%; height: 75vh; background: rgba(28, 28, 30, 0.98); backdrop-filter: blur(25px); border-radius: 30px 30px 0 0; z-index: 99999; transition: bottom 0.5s cubic-bezier(0.25, 1, 0.5, 1); padding: 25px; color: white; box-shadow: 0 -10px 40px rgba(0,0,0,0.8); box-sizing: border-box;">
+    
+    <div onclick="closeCloudPanel()" style="width: 40px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: 0 auto 25px; cursor: pointer;"></div>
+    
+    <div style="text-align: left; margin-bottom: 25px;">
+        <h2 style="margin: 0; font-size: 24px; font-family: -apple-system, sans-serif;"> Cloud Music</h2>
+        <p style="margin: 5px 0 0; color: #8e8e93; font-size: 14px;">Connected: <span style="color:#3448C5; font-weight: bold;">dh7lsxevl</span></p>
+    </div>
 
-      const frameWidth = parseInt(wrapper.style.width) || 390;
-      const frameHeight = parseInt(wrapper.style.height) || 844;
+    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 20px; margin-bottom: 25px; text-align: center;">
+        <p id="sync-msg" style="margin-bottom: 15px; font-size: 13px; color: #ccc;">Scan your Cloudinary folder to update library.</p>
+        <button onclick="startCloudSync()" style="width: 100%; padding: 15px; background: #3448C5; color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer;">
+            Sync Folder ⚡️
+        </button>
+    </div>
 
-      const availWidth = canvas.clientWidth - 16;
-      const availHeight = canvas.clientHeight - 20;
+    <div style="overflow-y: auto; height: calc(100% - 220px);">
+        <ul id="cloud-songs-list" style="list-style: none; padding: 0; margin: 0;">
+            <div style="text-align: center; color: #555; margin-top: 40px;">
+                <i class="fas fa-cloud" style="font-size: 40px; opacity: 0.3; margin-bottom: 10px;"></i>
+                <p>No songs synced yet</p>
+            </div>
+        </ul>
+    </div>
+</div>
 
-      const scale = Math.min(availWidth / frameWidth, availHeight / frameHeight, 1);
-      const safeScale = Math.max(scale, 0.72); // Keep legible on mobile
+<div id="panel-overlay" onclick="closeCloudPanel()" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 99998; backdrop-filter: blur(4px);"></div>
+<script src="script.js"></script>
+    <script>
+        // 1. SMART INTRO CONTROL
+        window.addEventListener('load', () => {
+            const intro = document.getElementById('intro-screen');
+            const mainApp = document.getElementById('main-app');
 
-      wrapper.style.transform = 'scale(' + safeScale.toFixed(2) + ')';
-      document.getElementById('scale-indicator').innerText = 'Scale: ' + Math.round(safeScale * 100) + '%';
-    };
+            // Kam se kam 3 second ka wait ( Music animation poora hone ke liye)
+            setTimeout(() => {
+                if(intro) {
+                    intro.style.opacity = '0'; // Parda fade hoga
+                    
+                    setTimeout(() => {
+                        intro.style.display = 'none'; // Intro ko hatao
+                        if(mainApp) {
+                            mainApp.style.opacity = '1';  // Player reveal
+                            mainApp.style.pointerEvents = 'auto'; // Touch enable
+                        }
+                    }, 800); // 0.8s transition time
+                }
+            }, 3000); 
 
-    // Diagnostic Helpers
-    window.injectLyricTest = function(type) {
-      let text = "तुझसे मन नहीं है भरता...";
-      if (type === 'double_hindi') {
-        text = "तुझसे मन नहीं है भरता, अब तू ही है कर्ता-धर्ता";
-      } else if (type === 'triple_overflow') {
-        text = "बैठा रोज गिणूँ तारे अर सोऊँ रात नै वारी मैं, घणी दूर है तेरे घर ते मेरी गली...";
-      }
-
-      const frame = document.getElementById('preview-frame');
-      if (frame && frame.contentDocument) {
-        const el = frame.contentDocument.getElementById('demo-lyric-line');
-        if (el) {
-          el.innerText = text;
-          window.setAppStatus('Lyric Test Applied', 'bg-purple-500');
-        }
-      }
-    };
-
-    window.toggleBoundingBoxInspector = function() {
-      window.boundsInspectActive = !window.boundsInspectActive;
-      const btn = document.getElementById('toggle-bounds-btn');
-      btn.className = window.boundsInspectActive 
-        ? 'px-2 py-1 text-xs rounded-lg bg-emerald-600 text-white border border-emerald-500 transition'
-        : 'px-2 py-1 text-xs rounded-lg bg-neutral-800 text-neutral-300 border border-neutral-700 transition';
-      window.updatePreview(true);
-    };
-
-    window.injectCoverGapTest = function() {
-      window.toggleBoundingBoxInspector();
-    };
-
-    window.toggleDynamicIsland = function() {
-      window.islandVisible = !window.islandVisible;
-      document.getElementById('dynamic-island-notch').style.display = window.islandVisible ? 'flex' : 'none';
-    };
-
-    window.toggleOrientation = function() {
-      if (window.currentDevice === 'fluid') return;
-      window.isLandscape = !window.isLandscape;
-      window.setDevicePreset('iphone13');
-    };
-
-    // Console drawer handlers
-    window.toggleConsoleDrawer = function() {
-      document.getElementById('console-drawer').classList.toggle('hidden');
-    };
-
-    window.clearConsoleLogs = function() {
-      window.logCount = 0;
-      document.getElementById('console-count').innerText = '0';
-      document.getElementById('console-logs-list').innerHTML = '<div class="text-neutral-500 italic">Logs cleared.</div>';
-    };
-
-    window.setAppStatus = function(text, colorClass) {
-      document.getElementById('status-text').innerText = text;
-      document.getElementById('status-dot').className = 'w-2 h-2 rounded-full ' + colorClass;
-    };
-
-    window.copyCurrentCode = function() {
-      const el = document.getElementById('editor-' + window.currentTab);
-      if (!el) return;
-      el.select();
-      document.execCommand('copy');
-      window.setAppStatus('Copied to Clipboard!', 'bg-emerald-500');
-      setTimeout(() => window.setAppStatus('Live & Synced', 'bg-emerald-500'), 1500);
-    };
-
-    window.clearCurrentCode = function() {
-      const el = document.getElementById('editor-' + window.currentTab);
-      if (el) {
-        el.value = '';
-        window.updatePreview(true);
-      }
-    };
-
-    window.resetToSampleCode = function() {
-      document.getElementById('editor-html').value = window.DEFAULT_HTML;
-      document.getElementById('editor-css').value = window.DEFAULT_CSS;
-      document.getElementById('editor-js').value = window.DEFAULT_JS;
-      window.updatePreview(true);
-    };
-
-    // Event Listeners for logs and input debounce
-    window.addEventListener('message', function(e) {
-      if (e.data && e.data.type) {
-        window.logCount++;
-        document.getElementById('console-count').innerText = window.logCount;
-        const list = document.getElementById('console-logs-list');
-        if (window.logCount === 1) list.innerHTML = '';
-        
-        const item = document.createElement('div');
-        item.className = 'py-0.5 border-b border-neutral-900 break-all';
-        item.innerHTML = (e.data.type === 'ERROR' ? '<span class="text-rose-400 font-bold">[ERR]</span> ' : '<span class="text-neutral-400">[LOG]</span> ') + e.data.data;
-        list.appendChild(item);
-      }
-    });
-
-    ['html', 'css', 'js'].forEach(tab => {
-      document.getElementById('editor-' + tab).addEventListener('input', function() {
-        clearTimeout(window.debounceTimer);
-        window.debounceTimer = setTimeout(function() {
-          window.updatePreview(false);
-        }, 300);
-      });
-    });
-
-    window.addEventListener('resize', function() {
-      window.updateCanvasScale();
-    });
-
-    // Initial Load
-    window.addEventListener('DOMContentLoaded', function() {
-      window.resetToSampleCode();
-      window.updateCanvasScale();
-    });
-  </script>
+            // 2. SERVICE WORKER REGISTRATION
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js')
+                .then(() => console.log(" Service Worker Registered"))
+                .catch(err => console.log("SW Error:", err));
+            }
+        });
+    </script>
 </body>
 </html>
+
