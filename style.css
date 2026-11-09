@@ -1469,7 +1469,7 @@ body,
   will-change: transform; 
 }
 
-/* 2. Lyric Line - The High-Refresh Setup */
+/* 2. Lyric Line - The High-Refresh Setup (With Word-Break Fix) */
 .lyric-line {
   /* Using opacity + visibility prevents the "Layout Shift" stutter */
   opacity: 0;
@@ -1479,11 +1479,17 @@ body,
   text-align: left;
   color: #ffffff;
   max-width: 90%;
-  line-height: 1.2;
+  line-height: 1.35;
   position: absolute;
   top: 50%;
   left: 5px;
   
+  /* 🟢 ANTI-HYPHEN & WHOLE-WORD WRAPPING FIX */
+  word-break: keep-all !important;      /* Word ko beech se tootne nahi dega */
+  overflow-wrap: break-word !important; /* Space na hone par poora word next line le jayega */
+  hyphens: none !important;             /* Hyphen (-) bilkul generate nahi hone dega */
+  -webkit-hyphens: none !important;     /* iOS Safari protection */
+
   /* Force GPU Layer */
   transform: translate3d(0, 40px, 0); 
   will-change: transform, opacity;
@@ -1529,6 +1535,7 @@ body,
     transform: translate3d(0, -120%, 0); 
   }
 }
+
 
 
 
