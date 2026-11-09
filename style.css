@@ -1648,4 +1648,38 @@ body.search-active #global-search-results {
     z-index: 10 !important;
 }
 
+/* 1. Player Screen ko seamless top-to-bottom layout do */
+#player-screen {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important; /* space-between ki jagah flex-start taaki extra gap na bane */
+    padding-top: env(safe-area-inset-top, 20px) !important; /* iPhone notch safety */
+    background-size: cover !important;
+}
+
+/* 2. Top Header (Arrow & 3-dots) ka background transparent karo aur margin khatam karo */
+.player-header, 
+#player-header {
+    background: transparent !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 5px !important;
+    width: 100% !important;
+}
+
+/* 3. Cover Image Wrapper ko upar chipkao */
+.song-image-container,
+#song-image-wrapper {
+    margin-top: 5px !important; /* Header ke theek neeche bina kisi black space ke */
+    background: transparent !important;
+}
+
+/* 4. Actual Cover Image */
+#song-image {
+    display: block !important;
+    margin: 0 auto !important;
+    background: transparent !important;
+}
+
+
+
 
